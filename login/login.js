@@ -25,13 +25,13 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         try {
-            // Example POST request to backend API
             const response = await fetch("http://localhost:5000/api/user/login", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify(loginData)
+                credentials: "include", // <-- important for cookies/session
+                body: JSON.stringify({ email, password })
             });
 
             const result = await response.json();

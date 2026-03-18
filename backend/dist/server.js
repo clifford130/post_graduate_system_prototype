@@ -19,7 +19,7 @@ app.use((req, res) => {
 ConnectToDataBase();
 let port = process.env.LOCALPORT || process.env.PORT;
 app.use(cors({
-    origin: "http://localhost:5000",
+    origin: "http://localhost:5500",
     credentials: true,
 }));
 app.listen(port, () => {

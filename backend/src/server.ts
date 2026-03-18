@@ -7,25 +7,31 @@ import { UserLoginRouter } from "./auth/login.js";
 import { UserSignUpRouter } from "./auth/admin_signUp_User.js";
 dotenv.config();
 let app = express();
+// Enable CORS before defining routes so preflight and responses include headers
+app.use(
+  cors({
+    origin: "http://localhost:5500",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  }),
+);
+// Note: explicit `app.options("*", ...)` can cause path parsing errors with this
+// router/path-to-regexp version, so rely on the global `cors` middleware above.
+
 app.use(express.json());
 // login route
 app.use("/api/user/login", UserLoginRouter);
 // signup route
 app.use("/api/user/signUp", UserSignUpRouter);
-// handling uknown route
-app.use((req: Request, res: Response):void => {
+// handling unknown route
+app.use((req: Request, res: Response): void => {
   res.status(500).json({ message: "No route found" });
 });
 // connecting to database
 ConnectToDataBase();
 
-let port = process.env.LOCALPORT || process.env.PORT;
-app.use(
-  cors({
-    origin: "http://localhost:5000",
-    credentials: true,
-  }),
-);
+let port = process.env.LOCALPORT || process.env.PORT || 5000;
 app.listen(port, () => {
   console.log(`Server started at port ${port}`);
 });
