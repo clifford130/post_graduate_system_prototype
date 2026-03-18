@@ -9,6 +9,7 @@ export interface IUser {
   isVerified: boolean;
   programme: string;
   department: string;
+  status: string;
 }
 
 //  Schema
@@ -51,6 +52,10 @@ const UserSchema = new Schema<IUser>({
     type: String,
     required: true,
     lowercase: true,
+  },
+  status: {
+    type: String,
+    default: "Active",
   },
 });
 
