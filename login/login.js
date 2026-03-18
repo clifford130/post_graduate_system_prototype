@@ -1,16 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = document.querySelector(".login-form");
-    let submitBtn = document.querySelector(".login-btn")
-    const emailInput = document.getElementById("email");
+    const submitBtn = document.querySelector(".login-btn");
+    const userNumberInput = document.getElementById("userNumber");
     const passwordInput = document.getElementById("password");
     const messageBox = document.getElementById("messageBox");
-    // Function to show messages
+
     function showMessage(message, type) {
         messageBox.textContent = message;
         messageBox.className = `message-box ${type}`;
         messageBox.style.display = "block";
 
-        // Auto-hide after 4 seconds
         setTimeout(() => {
             messageBox.style.display = "none";
         }, 4000);
@@ -19,18 +18,15 @@ document.addEventListener("DOMContentLoaded", () => {
     loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        // Disable button immediately
         submitBtn.disabled = true;
         submitBtn.innerHTML = "Signing in...";
 
-        const email = emailInput.value.trim();
+        const userNumber = userNumberInput.value.trim();
         const password = passwordInput.value;
 
-        // Validation
-        if (!email || !password) {
-            showMessage("Please enter both email and password.", "error");
+        if (!userNumber || !password) {
+            showMessage("Please enter credentials and password.", "error");
 
-            // Re-enable button if validation fails
             submitBtn.disabled = false;
             submitBtn.innerHTML = "Sign In";
             return;
@@ -43,16 +39,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     "Content-Type": "application/json"
                 },
                 credentials: "include",
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ userNumber, password }) // ✅ changed
             });
 
             const result = await response.json();
-            console.log(result);
 
             if (response.ok) {
                 showMessage("Login successful! Redirecting...", "success");
 
-                // Optional redirect delay
                 // setTimeout(() => {
                 //     window.location.href = "/dashboard.html";
                 // }, 1500);
@@ -63,7 +57,6 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error("Error logging in:", error);
             showMessage("Server error. Try again later.", "error");
         } finally {
-            // ALWAYS re-enable button (success or error)
             submitBtn.disabled = false;
             submitBtn.innerHTML = "Sign In";
         }

@@ -8,17 +8,23 @@
   </head>
   <body>
     <div class="login-container">
-        <div class="login-header">
-            <div class="logo-placeholder">🎓</div>
-            <h2>Welcome</h2>
-            <p>Postgraduate Assessment & Progress Management System</p>
+      <div class="login-header">
+        <div class="logo-placeholder">🎓</div>
+        <h2>Welcome</h2>
+        <p>Postgraduate Assessment & Progress Management System</p>
+      </div>
+      <div id="messageBox" class="message-box"></div>
+      <form class="login-form" action="#" method="POST">
+        <div class="form-group">
+          <label for="logincredential">Admission No./Staff No.</label>
+          <input
+            type="text"
+            id="userNumber"
+            name="userNumber"
+            placeholder="Enter Admission No. or Staff No."
+            required
+          />
         </div>
-
-        <form class="login-form" action="#" method="POST">
-            <div class="form-group">
-                <label for="logincredential">Admission No./Staff No.</label>
-                <input type="email" id="email" name="email" placeholder="Enter your credentials" required>
-            </div>
 
         <div class="form-group">
           <label for="password">Password</label>
