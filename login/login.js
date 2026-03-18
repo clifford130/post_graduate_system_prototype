@@ -1,28 +1,31 @@
-// login.js
-
-// Wait until DOM is fully loaded
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = document.querySelector(".login-form");
     const emailInput = document.getElementById("email");
     const passwordInput = document.getElementById("password");
+    const messageBox = document.getElementById("messageBox");
+
+    // Function to show messages
+    function showMessage(message, type) {
+        messageBox.textContent = message;
+        messageBox.className = `message-box ${type}`;
+        messageBox.style.display = "block";
+
+        // Auto-hide after 4 seconds
+        setTimeout(() => {
+            messageBox.style.display = "none";
+        }, 4000);
+    }
 
     loginForm.addEventListener("submit", async (e) => {
-        e.preventDefault(); // prevent default form submission
+        e.preventDefault();
 
         const email = emailInput.value.trim();
         const password = passwordInput.value;
 
-        // Basic validation
         if (!email || !password) {
-            alert("Please enter both email and password.");
+            showMessage("Please enter both email and password.", "error");
             return;
         }
-
-        // Prepare data to send
-        const loginData = {
-            email,
-            password
-        };
 
         try {
             const response = await fetch("http://localhost:5000/api/user/login", {
@@ -30,22 +33,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: {
                     "Content-Type": "application/json"
                 },
-                credentials: "include", // <-- important for cookies/session
+                credentials: "include",
                 body: JSON.stringify({ email, password })
             });
 
             const result = await response.json();
 
             if (response.ok) {
-                alert("Login successful! Welcome " + result.user.fullName);
-                // redirect to dashboard or another page
-                window.location.href = "/dashboard.html";
+                showMessage(
+                    "Login successful! Redirecting...",
+                    "success"
+                );
+
+                setTimeout(() => {
+                    window.location.href = "/dashboard.html";
+                }, 1500);
             } else {
-                alert("Login failed: " + result.message);
+                showMessage(result.message || "Login failed", "error");
             }
         } catch (error) {
             console.error("Error logging in:", error);
-            alert("Something went wrong. Please try again later.");
+            showMessage("Server error. Try again later.", "error");
         }
     });
 });
