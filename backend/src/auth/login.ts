@@ -13,16 +13,16 @@ UserLoginRouter.post(
         res.status(400).json({ message: "Body is empty" });
         return;
       }
-      const { email, password } = req.body;
+      const { userNumber, password } = req.body;
 
       // 1. Validate input
-      if (!email || !password) {
+      if (!userNumber || !password) {
         res.status(400).json({
-          message: "Email and password are required",
+          message: "userNumber and password are required",
         });
         return;
       }
-      let User = await UserModel.findOne({ email: email });
+      let User = await UserModel.findOne({ userNumber: userNumber });
       if (!User) {
         res.status(400).json({ message: "Invalid credentials" });
         return;
@@ -45,7 +45,7 @@ UserLoginRouter.post(
       const token = jwt.sign(
         {
           id: User.id,
-          email: User.email,
+          userNumber: User.userNumber,
           role: User.role,
         },
         RawJwtSecret as string,
@@ -58,7 +58,7 @@ UserLoginRouter.post(
         token,
         user: {
           id: User.id,
-          email: User.email,
+          userNumber: User.userNumber,
           role: User.role,
         },
       });
