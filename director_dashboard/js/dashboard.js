@@ -1,0 +1,339 @@
+import { api } from "./api.js";
+import {
+  badge,
+  chartBars,
+  escapeHtml,
+  mountEmptyState,
+  openModal,
+  setPageContent,
+  setPageMeta,
+  toast,
+} from "./main.js";
+
+function statCard({ label, value, hint, tone = "slate" }) {
+  const tones = {
+    slate: "border-slate-200",
+    blue: "border-blue-200",
+    green: "border-emerald-200",
+    yellow: "border-amber-200",
+    red: "border-rose-200",
+    purple: "border-violet-200",
+  };
+  return `
+    <div class="rounded-2xl border ${tones[tone] || tones.slate} bg-white p-5 shadow-soft">
+      <div class="text-xs font-semibold text-slate-500">${escapeHtml(label)}</div>
+      <div class="mt-2 flex items-end justify-between gap-3">
+        <div class="text-2xl font-semibold tracking-tight">${escapeHtml(value ?? "—")}</div>
+        ${hint ? `<div class="text-xs text-slate-500">${escapeHtml(hint)}</div>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function drillLink({ q, stage, department, status } = {}) {
+  const url = new URL("./students.html", window.location.href);
+  if (q) url.searchParams.set("q", q);
+  if (stage) url.searchParams.set("stage", stage);
+  if (department) url.searchParams.set("department", department);
+  if (status) url.searchParams.set("status", status);
+  return url.pathname + url.search;
+}
+
+function broadcastModal({ suggestedMessage } = {}) {
+  const modal = openModal({
+    title: "Broadcast notifications (Director)",
+    size: "md",
+    bodyHtml: `
+      <div class="space-y-4">
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div class="text-sm font-semibold">Send alerts / reminders</div>
+          <div class="mt-1 text-xs text-slate-600">Audience targets: students, supervisors, departments, finance, external examiners.</div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600">Audience</label>
+            <select id="aud" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-400">
+              <option value="all">All</option>
+              <option value="students">Students</option>
+              <option value="supervisors">Supervisors</option>
+              <option value="departments">Departments</option>
+              <option value="finance">Finance</option>
+              <option value="examiners">External examiners</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600">Type</label>
+            <select id="type" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-400">
+              <option value="notice">Notice</option>
+              <option value="reminder">Reminder</option>
+              <option value="alert">Alert</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600">Message</label>
+          <textarea id="msg" rows="4" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-400" placeholder="Write message…">${escapeHtml(
+            suggestedMessage || ""
+          )}</textarea>
+          <div class="mt-1 text-xs text-slate-500">Endpoint: <span class="font-mono">POST /api/notifications/send</span></div>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button data-send="1" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Send</button>
+          <button data-prefill="missingReports" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">Prefill: missing reports</button>
+          <button data-prefill="upcomingDefense" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">Prefill: defense prep</button>
+        </div>
+      </div>
+    `,
+    footerHtml: `<div class="text-xs text-slate-500">Broadcasts are Director-only and should be audited.</div>`,
+  });
+
+  modal.host.addEventListener("click", async (e) => {
+    const send = e.target?.closest?.("button[data-send='1']");
+    if (send) {
+      try {
+        const audience = modal.qs("#aud")?.value;
+        const type = modal.qs("#type")?.value;
+        const message = modal.qs("#msg")?.value?.trim() || "";
+        if (!message) return toast("Write a message first", { tone: "yellow" });
+        await api.sendNotification({ audience, type, message });
+        toast("Broadcast sent", { tone: "green" });
+        modal.close();
+      } catch (err) {
+        console.error(err);
+        toast(err?.message || "Broadcast failed (API not ready)", { tone: "red" });
+      }
+      return;
+    }
+    const pf = e.target?.closest?.("button[data-prefill]");
+    if (!pf) return;
+    const key = pf.dataset.prefill;
+    const msg = modal.qs("#msg");
+    if (!msg) return;
+    if (key === "missingReports") msg.value = "Reminder: Students with missing quarterly reports must submit immediately to avoid stage delays.";
+    if (key === "upcomingDefense") msg.value = "Reminder: Confirm defense preparation, documents, and scheduling timelines.";
+  });
+}
+
+function alertRow(a) {
+  const tone = (a && (a.severity || a.tone)) || "slate";
+  return `
+    <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          ${badge({ label: a?.severity || "Alert", tone: tone === "critical" ? "red" : tone === "warning" ? "yellow" : "slate" })}
+          <div class="text-sm font-semibold truncate">${escapeHtml(a?.title || "Issue")}</div>
+        </div>
+        <div class="mt-1 text-xs text-slate-600">${escapeHtml(a?.message || "Details pending from API.")}</div>
+      </div>
+      ${a?.href ? `<a href="${a.href}" class="text-sm font-semibold text-blue-700 hover:underline">Open</a>` : ""}
+    </div>
+  `;
+}
+
+function normalizeStats(raw) {
+  // Accept multiple possible backend shapes; keep frontend stable.
+  const s = raw?.data || raw?.stats || raw || {};
+  const totals = s.totals || s.overview || s;
+  const counts = {
+    totalStudents: totals.totalStudents ?? totals.total ?? totals.studentsTotal,
+    active: totals.active ?? totals.activeStudents,
+    deferred: totals.deferred ?? totals.deferredStudents,
+    graduated: totals.graduated ?? totals.graduatedStudents,
+    researchPhase: totals.researchPhase ?? totals.studentsInResearchPhase,
+    pendingQuarterlyReports: totals.pendingQuarterlyReports ?? totals.pendingReports,
+    readyForDefense: totals.readyForDefense ?? totals.studentsReadyForDefense,
+  };
+
+  const charts = s.charts || {};
+  const perStage = charts.studentsPerStage || s.studentsPerStage || [];
+  const deptCompare = charts.departmentComparison || s.departmentComparison || [];
+
+  const alerts = s.alerts || s.criticalAlerts || [];
+
+  return { counts, perStage, deptCompare, alerts };
+}
+
+function buildDashboardSkeleton() {
+  setPageMeta({
+    title: "Director Dashboard",
+    subtitle: "Full visibility • approvals • compliance • intervention",
+  });
+
+  setPageContent(`
+    <div class="space-y-6">
+      <section>
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <div class="text-lg font-semibold tracking-tight">Overview</div>
+            <div class="mt-1 text-sm text-slate-600">Real-time snapshot of postgraduate lifecycle across INFOCOMS.</div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button id="broadcastBtn" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">Broadcast</button>
+            <a href="./students.html" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">View students</a>
+            <a href="./pipeline.html" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Open pipeline</a>
+          </div>
+        </div>
+
+        <div id="statsGrid" class="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          ${Array.from({ length: 6 })
+            .map(
+              () => `
+              <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
+                <div class="h-3 w-28 rounded skeleton"></div>
+                <div class="mt-3 h-7 w-20 rounded skeleton"></div>
+              </div>
+            `
+            )
+            .join("")}
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 xl:grid-cols-5 gap-4">
+        <div class="xl:col-span-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="text-sm font-semibold">Students per stage</div>
+              <div class="mt-1 text-xs text-slate-500">Pipeline distribution across the lifecycle</div>
+            </div>
+            <a href="./pipeline.html" class="text-sm font-semibold text-blue-700 hover:underline">Open Kanban</a>
+          </div>
+          <div class="mt-4">
+            <canvas id="chartStage" class="w-full h-64"></canvas>
+          </div>
+        </div>
+
+        <div class="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
+          <div class="text-sm font-semibold">Department comparison</div>
+          <div class="mt-1 text-xs text-slate-500">CJM vs IHRS workload and progress</div>
+          <div class="mt-4">
+            <canvas id="chartDept" class="w-full h-64"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="flex items-end justify-between gap-3">
+          <div>
+            <div class="text-lg font-semibold tracking-tight">Critical alerts</div>
+            <div class="mt-1 text-sm text-slate-600">Missing reports, NACOSTI status, fees clearance, and blockers.</div>
+          </div>
+          <a href="./reports.html" class="text-sm font-semibold text-blue-700 hover:underline">Go to reports</a>
+        </div>
+        <div id="alertsList" class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+          ${Array.from({ length: 4 })
+            .map(
+              () => `
+              <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <div class="h-4 w-24 rounded skeleton"></div>
+                <div class="mt-2 h-3 w-64 max-w-full rounded skeleton"></div>
+              </div>
+            `
+            )
+            .join("")}
+        </div>
+      </section>
+    </div>
+  `);
+}
+
+function safeArray(v) {
+  return Array.isArray(v) ? v : [];
+}
+
+async function load() {
+  buildDashboardSkeleton();
+
+  try {
+    const raw = await api.getDashboardStats();
+    const { counts, perStage, deptCompare, alerts } = normalizeStats(raw);
+
+    const statsGrid = document.getElementById("statsGrid");
+    if (statsGrid) {
+      statsGrid.innerHTML = [
+        `<a href="./students.html" class="block">${statCard({ label: "Total Students (MSc + PhD)", value: counts.totalStudents, tone: "blue", hint: "Drill down" })}</a>`,
+        `<a href="${drillLink({ status: "Active" })}" class="block">${statCard({
+          label: "Active / Deferred / Graduated",
+          value: `${counts.active ?? "—"} / ${counts.deferred ?? "—"} / ${counts.graduated ?? "—"}`,
+          hint: "Click to filter",
+        })}</a>`,
+        `<a href="${drillLink({ stage: "Thesis Development" })}" class="block">${statCard({
+          label: "Students in Research Phase",
+          value: counts.researchPhase,
+          tone: "green",
+          hint: "Open students",
+        })}</a>`,
+        `<a href="./reports.html" class="block">${statCard({
+          label: "Pending Quarterly Reports",
+          value: counts.pendingQuarterlyReports,
+          tone: "yellow",
+          hint: "Open reports",
+        })}</a>`,
+        `<a href="${drillLink({ stage: "Defense" })}" class="block">${statCard({
+          label: "Ready for Defense",
+          value: counts.readyForDefense,
+          tone: "purple",
+          hint: "Open students",
+        })}</a>`,
+        statCard({
+          label: "Critical Alerts",
+          value: safeArray(alerts).length,
+          hint: safeArray(alerts).length ? "Review now" : "All clear",
+          tone: safeArray(alerts).length ? "red" : "green",
+        }),
+      ].join("");
+    }
+
+    const stageLabels = safeArray(perStage).map((x) => x.stage ?? x.name ?? "Stage");
+    const stageValues = safeArray(perStage).map((x) => x.count ?? x.value ?? 0);
+    chartBars(document.getElementById("chartStage"), { labels: stageLabels, values: stageValues, color: "#2563eb" });
+
+    const deptLabels = safeArray(deptCompare).map((x) => x.department ?? x.name ?? "Dept");
+    const deptValues = safeArray(deptCompare).map((x) => x.count ?? x.value ?? 0);
+    chartBars(document.getElementById("chartDept"), { labels: deptLabels, values: deptValues, color: "#7c3aed" });
+
+    const alertsList = document.getElementById("alertsList");
+    if (alertsList) {
+      const arr = safeArray(alerts);
+      alertsList.innerHTML = arr.length
+        ? arr
+            .map((a) =>
+              alertRow({
+                ...a,
+                href:
+                  a?.href ||
+                  (String(a?.title || "").toLowerCase().includes("report") ? "./reports.html" : "./pipeline.html"),
+              })
+            )
+            .join("")
+        : mountEmptyState({
+            title: "No critical alerts",
+            message: "No missing reports, NACOSTI, or fees issues were returned by the API.",
+            actionsHtml: `<a href="./pipeline.html" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Review pipeline</a>`,
+          });
+    }
+
+    document.getElementById("broadcastBtn")?.addEventListener("click", () =>
+      broadcastModal({ suggestedMessage: "Reminder: outstanding approvals and compliance items must be addressed this week." })
+    );
+  } catch (e) {
+    console.error(e);
+    toast(e?.message || "Failed to load dashboard stats", { tone: "red" });
+    setPageContent(
+      mountEmptyState({
+        title: "Dashboard data unavailable",
+        message:
+          "The dashboard is wired to the API but the backend response was not available. Start the backend at http://localhost:5000 and ensure /api/dashboard/stats is implemented.",
+        actionsHtml: `
+          <a href="./pipeline.html" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Open pipeline</a>
+          <a href="./students.html" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">Open students</a>
+        `,
+      })
+    );
+  }
+}
+
+load();
+
