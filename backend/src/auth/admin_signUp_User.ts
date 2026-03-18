@@ -12,18 +12,18 @@ UserSignUpRouter.post(
         res.status(400).json({ message: "body is empty" });
         return;
       }
-      const { fullName, email, password, programme, role } = req.body;
+      const { fullName, userNumber, password, programme, role } = req.body;
 
       // 1. Validate required fields
-      if (!fullName || !email || !password || !programme) {
+      if (!fullName || !userNumber || !password || !programme) {
         res.status(400).json({ message: "All fields are required" });
         return;
       }
 
       // 2. Check if user already exists
-      const existingUser = await UserModel.findOne({ email: email });
+      const existingUser = await UserModel.findOne({ userNumber: userNumber });
       if (existingUser) {
-        res.status(409).json({ message: "Email already registered" });
+        res.status(409).json({ message: "userNumber already registered" });
         return;
       }
 
@@ -34,7 +34,7 @@ UserSignUpRouter.post(
       // 4. Create user
       const newUser = await UserModel.create({
         fullName,
-        email,
+        userNumber,
         password: hashedPassword,
         programme,
         role: role || "student",
@@ -47,7 +47,7 @@ UserSignUpRouter.post(
         user: {
           id: newUser._id,
           fullName: newUser.fullName,
-          email: newUser.email,
+          userNumber: newUser.userNumber,
           role: newUser.role,
           programme: newUser.programme,
           isVerified: newUser.isVerified,

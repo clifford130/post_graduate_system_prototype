@@ -3,7 +3,7 @@ import mongoose, { Schema, Model } from "mongoose";
 // TypeScript Interface
 export interface IUser {
   fullName: string;
-  email: string;
+  userNumber: string;
   password: string;
   role: string;
   isVerified: boolean;
@@ -19,7 +19,7 @@ const UserSchema = new Schema<IUser>({
     trim: true,
   },
 
-  email: {
+  userNumber: {
     type: String,
     required: true,
     unique: true,
