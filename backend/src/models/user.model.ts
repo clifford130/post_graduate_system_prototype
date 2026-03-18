@@ -8,6 +8,7 @@ export interface IUser {
   role: string;
   isVerified: boolean;
   programme: string;
+  department: string;
 }
 
 //  Schema
@@ -27,8 +28,8 @@ const UserSchema = new Schema<IUser>({
   },
 
   password: {
+    default: "student",
     type: String,
-    required: true,
     minlength: 6,
   },
 
@@ -42,6 +43,11 @@ const UserSchema = new Schema<IUser>({
     default: false,
   },
   programme: {
+    type: String,
+    required: true,
+    lowercase: true,
+  },
+  department: {
     type: String,
     required: true,
     lowercase: true,
