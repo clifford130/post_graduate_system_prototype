@@ -43,7 +43,7 @@ const UserSchema = new Schema<IUser>({
   },
 
   password: {
-    default: "student",
+    default: "student123",
     type: String,
     minlength: 6,
   },
