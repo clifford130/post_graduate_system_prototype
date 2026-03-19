@@ -63,6 +63,24 @@ export const api = {
     return request(`/students/${encodeURIComponent(studentId)}/qreports`);
   },
 
+  // Analytics & Automation
+  async getAnalytics(supervisorId) {
+    return request(`/supervisor/${encodeURIComponent(supervisorId)}/analytics`);
+  },
+
+  async approveQReport(studentId, reportId, { supervisorId, role, action, comment } = {}) {
+    return request(`/students/${encodeURIComponent(studentId)}/qreports/${encodeURIComponent(reportId)}/approve`, {
+      method: "POST",
+      body: { supervisorId, role, action, comment }
+    });
+  },
+
+  async triggerAutoCheck(studentId) {
+    return request(`/students/${encodeURIComponent(studentId)}/automation/suggest`, {
+      method: "POST"
+    });
+  },
+
   // Dashboard Summary (Computed from fetched students)
   async getDashboardSummary(supervisorId) {
     const students = await this.getAssignedStudents(supervisorId);

@@ -34,7 +34,21 @@ export interface IUser {
     status: string; // "pending", "approved", "returned"
     comment?: string;
     submittedAt?: Date;
+    approvals: {
+      sup1: string;
+      sup2: string;
+      sup3: string;
+      dean: string;
+      finance: string;
+    };
+    deadline?: Date;
   }>;
+  automation?: {
+    suggestedStage?: string;
+    aiFlags?: string[];
+    lastAutoCheck?: Date;
+    atRiskScore?: number; // 0-100
+  };
   corrections?: Array<{
     id: string;
     text: string;
@@ -131,7 +145,21 @@ const UserSchema = new Schema<IUser>({
     status: { type: String, default: "pending" },
     comment: String,
     submittedAt: { type: Date, default: Date.now },
+    approvals: {
+      sup1: { type: String, default: "pending" },
+      sup2: { type: String, default: "pending" },
+      sup3: { type: String, default: "pending" },
+      dean: { type: String, default: "pending" },
+      finance: { type: String, default: "pending" },
+    },
+    deadline: Date,
   }],
+  automation: {
+    suggestedStage: { type: String, default: "" },
+    aiFlags: { type: [String], default: [] },
+    lastAutoCheck: { type: Date, default: Date.now },
+    atRiskScore: { type: Number, default: 0 },
+  },
   corrections: [{
     id: String,
     text: String,

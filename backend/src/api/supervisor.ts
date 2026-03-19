@@ -148,3 +148,106 @@ SupervisorRouter.get("/students/:id/qreports", async (req: Request, res: Respons
     res.status(500).json({ message: "Error fetching quarterly reports", error });
   }
 });
+
+// 6. Analytics: Workload & Bottlenecks
+SupervisorRouter.get("/supervisor/:id/analytics", async (req: Request, res: Response) => {
+  try {
+    const supervisorId = req.params.id;
+    const students = await UserModel.find({
+      $or: [
+        { "supervisors.sup1": supervisorId },
+        { "supervisors.sup2": supervisorId },
+        { "supervisors.sup3": supervisorId }
+      ],
+      role: "student"
+    } as any);
+
+    const analytics = {
+      totalManaged: students.length,
+      stageDistribution: students.reduce((acc: any, s) => {
+        acc[s.stage || "Coursework"] = (acc[s.stage || "Coursework"] || 0) + 1;
+        return acc;
+      }, {}),
+      bottlenecks: students.filter(s => s.atRisk).length,
+      pendingAssignments: students.filter(s => {
+        const slot = s.supervisors?.sup1 === supervisorId ? "sup1" : (s.supervisors?.sup2 === supervisorId ? "sup2" : "sup3");
+        return s.assignmentStatus?.[slot as keyof typeof s.assignmentStatus] === "pending";
+      }).length,
+      pendingQReports: students.filter(s => s.quarterlyReports?.some(r => r.status === "pending")).length
+    };
+    res.json(analytics);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching analytics", error });
+  }
+});
+
+// 7. Role-based Q-Report Approval
+SupervisorRouter.post("/students/:id/qreports/:reportId/approve", async (req: Request, res: Response) => {
+  try {
+    const { id, reportId } = req.params;
+    const { supervisorId, role, action, comment } = req.body; // role: sup1, sup2, sup3, dean, finance
+
+    const student = await UserModel.findById(id);
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const reportIndex = student.quarterlyReports?.findIndex(r => r.id === reportId);
+    if (reportIndex === undefined || reportIndex === -1) return res.status(404).json({ message: "Report not found" });
+
+    const update: any = {};
+    update[`quarterlyReports.${reportIndex}.approvals.${role}`] = action === "approved" ? "approved" : "returned";
+    if (comment) update[`quarterlyReports.${reportIndex}.comment`] = comment;
+
+    // Check if all supervisors approved to mark report as overall "approved"
+    // Simplified: if this role is sup1 and action is approved
+    if (role === "sup1" && action === "approved") {
+      update[`quarterlyReports.${reportIndex}.status`] = "approved";
+    }
+
+    const updatedStudent = await UserModel.findByIdAndUpdate(id, { $set: update }, { new: true });
+    res.json({ message: `Report ${action} by ${role}`, student: updatedStudent });
+  } catch (error) {
+    res.status(500).json({ message: "Error approving quarterly report", error });
+  }
+});
+
+// 8. Smart Stage Suggestion
+SupervisorRouter.post("/students/:id/automation/suggest", async (req: Request, res: Response) => {
+  try {
+    const student = await UserModel.findById(req.params.id);
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const STAGES = [
+      "Coursework", "Concept Note (Department)", "Concept Note (School)", 
+      "Proposal (Department)", "Proposal (School)", "PG Approval", 
+      "Fieldwork", "Thesis Development", "External Examination", "Defense", "Graduation"
+    ];
+
+    const currentStageIdx = STAGES.indexOf(student.stage || "Coursework");
+    let suggestedStage = student.stage;
+    let aiFlags = [];
+
+    // Logic: if Concept Note is approved, suggest School Concept
+    if (student.stage === "Concept Note (Department)" && student.documents?.conceptNote === "approved") {
+      suggestedStage = "Concept Note (School)";
+    } else if (student.stage === "Proposal (Department)" && student.documents?.proposal === "approved") {
+      suggestedStage = "Proposal (School)";
+    }
+
+    // Check for bottlenecks
+    if (student.status === "Active" && student.atRisk) {
+       aiFlags.push("High risk of delay - bottleneck detected");
+    }
+
+    const updatedStudent = await UserModel.findByIdAndUpdate(req.params.id, {
+      $set: {
+        "automation.suggestedStage": suggestedStage,
+        "automation.aiFlags": aiFlags,
+        "automation.lastAutoCheck": new Date()
+      }
+    }, { new: true });
+
+    res.json({ message: "Auto-check complete", student: updatedStudent });
+  } catch (error) {
+    res.status(500).json({ message: "Error running automation check", error });
+  }
+});

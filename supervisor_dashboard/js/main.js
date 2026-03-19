@@ -119,29 +119,32 @@ export function initShell() {
   const nav = [
     { key: "dashboard", label: "Overview", icon: "📊", href: "./index.html" },
     { key: "students", label: "My Students", icon: "👩‍🎓", href: "./pipeline.html" },
-    { key: "notifications", label: "Notifications", icon: "🔔", href: "./notifications.html" },
+    { key: "notifications", label: "Notifications", icon: "🔔", href: "./notifications.html", badge: 3 },
     { key: "settings", label: "Profile Settings", icon: "⚙️", href: "./settings.html" },
   ];
 
   app.innerHTML = `
     <div class="min-h-screen flex flex-col md:flex-row bg-[#f2f2f2]">
       <!-- Sidebar -->
-      <aside class="hidden md:flex flex-col w-72 bg-[#194973] shrink-0">
+      <aside class="hidden md:flex flex-col w-72 bg-[#194973] shrink-0 border-r border-white/5">
         <div class="p-8 border-b border-white/10 flex items-center gap-4">
-          <div class="h-12 w-12 rounded-2xl bg-[#14b5d9] grid place-items-center text-white font-bold text-2xl">🎓</div>
+          <div class="h-12 w-12 rounded-2xl bg-[#14b5d9] grid place-items-center text-white font-bold text-2xl shadow-lg shadow-black/20">🎓</div>
           <div>
-            <div class="text-sm font-bold text-white tracking-widest uppercase">RU System</div>
-            <div class="text-[10px] text-white/50 font-bold uppercase tracking-widest">Supervisor Portal</div>
+            <div class="text-xs font-black text-white tracking-widest uppercase mb-0.5">RU PGOS</div>
+            <div class="text-[8px] text-white/40 font-black uppercase tracking-widest">Supervisor Integrated</div>
           </div>
         </div>
         
-        <nav class="flex-1 px-4 py-8 space-y-1">
+        <nav class="flex-1 px-4 py-8 space-y-2">
           ${nav.map(n => {
             const active = n.key === navKey;
             return `
-              <a href="${n.href}" class="${active ? 'bg-[#14b5d9] border-[#f2c335]' : 'text-white/70 hover:bg-white/5 border-transparent'} group flex items-center gap-4 px-6 py-4 rounded-2xl transition-all border-l-4">
-                <span class="text-xl">${n.icon}</span>
-                <span class="font-bold tracking-wide">${n.label}</span>
+              <a href="${n.href}" class="${active ? 'bg-[#14b5d9] border-[#f2c335]' : 'text-white/70 hover:bg-white/5 border-transparent'} group flex items-center justify-between gap-4 px-6 py-4 rounded-2xl transition-all border-l-4">
+                <div class="flex items-center gap-4">
+                   <span class="text-xl group-hover:scale-110 transition shrink-0">${n.icon}</span>
+                   <span class="font-bold tracking-wide">${n.label}</span>
+                </div>
+                ${n.badge ? `<span class="bg-[#bf8c2c] text-[#194973] text-[9px] font-black px-2 py-0.5 rounded-full pulse-ai">${n.badge}</span>` : ''}
               </a>
             `;
           }).join('')}
