@@ -1,197 +1,141 @@
+// Updated main.js for Supervisor SPA Design Sync
+export const qs = (s) => document.querySelector(s);
+export const qsa = (s) => document.querySelectorAll(s);
+
+// Global State
 export const STAGES = [
-  "Coursework",
-  "Concept Note (Department)",
-  "Concept Note (School)",
-  "Proposal (Department)",
-  "Proposal (School)",
-  "PG Approval",
-  "Fieldwork",
-  "Thesis Development",
-  "External Examination",
-  "Defense",
-  "Graduation",
+  "Coursework", "Concept Note (Department)", "Concept Note (School)", 
+  "Proposal (Department)", "Proposal (School)", "PG Approval", 
+  "Fieldwork", "Thesis Development", "External Examination", "Defense", "Graduation"
 ];
 
-export const DEPARTMENTS = ["CJM", "IHRS", "SST"];
-export const PROGRAMMES = ["MSc", "PhD"];
-export const STATUSES = ["Active", "Deferred", "Resumed", "Graduated"];
+// ---------------------------------------------------------
+// Navigation & Shell Logic
+// ---------------------------------------------------------
+export function initShell() {
+    const session = getSupervisorSession();
+    qs("#sup-name").textContent = session.name;
+    qs("#sup-avatar").textContent = session.name.substring(0, 1);
+    qs("#top-date").textContent = "📅 " + new Date().toLocaleDateString('en-GB');
 
-export const COLORS = {
-  primary: "#194973",
-  secondary: "#14b5d9",
-  yellow: "#f2c335",
-  brown: "#bf8c2c",
-  bg: "#f2f2f2"
+    // Initial section logic
+    const params = new URLSearchParams(window.location.search);
+    const initial = params.get('section') || 'dashboard';
+    const studentId = params.get('studentId');
+    
+    // Auto-refresh badges
+    updateSidebarBadges(session.id);
+
+    if (studentId) {
+        navigateTo('student-detail', null, studentId);
+    } else {
+        navigateTo(initial);
+    }
+}
+
+// Global toggle for mobile nav
+window.toggleMobileNav = () => {
+    qs(".sidebar").classList.toggle('mobile-active');
 };
 
-export function qs(sel, root = document) { return root.querySelector(sel); }
-export function qsa(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
-
-export function escapeHtml(str) {
-  return String(str ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+async function updateSidebarBadges(supervisorId) {
+    try {
+        const stats = await api.getAnalytics(supervisorId);
+        const alerts = stats.pendingAssignments + stats.pendingQReports;
+        if (alerts > 0) {
+           const btn = [...qsa(".nav-item")].find(i => i.innerText.includes("Alerts"));
+           if (btn) btn.innerHTML = `<span class="nav-icon">🔔</span> Alerts Center <span class="nav-badge warn">${alerts}</span>`;
+        }
+    } catch(e) {}
 }
 
-/* Utilities */
-export function toast(message, { tone = "blue", timeoutMs = 3000 } = {}) {
-  const hostId = "toast-host";
-  let host = document.getElementById(hostId);
-  if (!host) {
-    host = document.createElement("div");
-    host.id = hostId;
-    host.className = "fixed top-4 right-4 z-[200] space-y-2 pointer-events-none";
-    document.body.appendChild(host);
-  }
-  const tones = {
-    blue: "bg-[#14b5d9] text-white",
-    green: "bg-emerald-500 text-white",
-    red: "bg-[#bf8c2c] text-white",
-    dark: "bg-[#194973] text-white"
-  };
-  const el = document.createElement("div");
-  el.className = `px-6 py-4 rounded-2xl shadow-2xl transition transform translate-x-12 opacity-0 pointer-events-auto font-bold border-b-4 border-black/10 ${tones[tone] || tones.blue}`;
-  el.innerHTML = escapeHtml(message);
-  host.appendChild(el);
-  
-  window.requestAnimationFrame(() => {
-    el.classList.remove("translate-x-12", "opacity-0");
-  });
-
-  setTimeout(() => {
-    el.classList.add("translate-x-12", "opacity-0");
-    setTimeout(() => el.remove(), 400);
-  }, timeoutMs);
-}
-
-export function openModal({ title, bodyHtml, footerHtml, size = "md" } = {}) {
-  const sizes = { sm: "max-w-md", md: "max-w-2xl", lg: "max-w-5xl" };
-  const host = qs("#modal-container");
-  if (!host) {
-    const fresh = document.createElement("div");
-    fresh.id = "modal-container";
-    document.body.appendChild(fresh);
-  }
-
-  const container = qs("#modal-container");
-  container.innerHTML = `
-    <div class="fixed inset-0 z-[150] flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-[#194973]/40 backdrop-blur-sm" data-modal-close="1"></div>
-      <div class="w-full ${sizes[size] || sizes.md} bg-white rounded-3xl shadow-2xl overflow-hidden glass z-10 animate-in">
-        <div class="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white/50">
-          <div class="text-xl font-bold text-rongo-dark">${escapeHtml(title || "Supervisor Action")}</div>
-          <button class="bg-[#f2f2f2] px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-200 transition" data-modal-close="1">Close</button>
-        </div>
-        <div class="p-8 max-h-[75vh] overflow-auto app-scroll scroll-smooth">
-          ${bodyHtml || ""}
-        </div>
-        ${footerHtml ? `<div class="px-8 py-6 bg-[#f2f2f2]/50 border-t border-slate-100">${footerHtml}</div>` : ""}
-      </div>
-    </div>
-  `;
-
-  const close = () => { container.innerHTML = ""; };
-  container.querySelectorAll("[data-modal-close='1']").forEach(el => el.addEventListener("click", close));
-  return { host: container, close, qs: (sel) => container.querySelector(sel) };
-}
-
-/* Hardcoded Supervisor Session Info (Mocking Auth) */
 export function getSupervisorSession() {
-  return {
-    id: "S001",
-    name: "Dr. Omondi Richards",
-    role: "Supervisor",
-    department: "CJM",
-    assignedCount: 5
-  };
+  const session = localStorage.getItem("supervisor_session");
+  // Simulated session for hackathon demo
+  if (!session) {
+    const mock = { id: "mock_sup_123", name: "Dr. Supervisor" };
+    localStorage.setItem("supervisor_session", JSON.stringify(mock));
+    return mock;
+  }
+  return JSON.parse(session);
 }
 
-export function initShell() {
-  const navKey = document.body.dataset.nav;
-  const app = qs("#app");
-  if (!app) return;
+import { initDashboard } from './dashboard.js';
+import { initStudentDetails } from './student-details.js';
+import { initNotifications } from './notifications.js';
+// SPA Switcher
+export function navigateTo(target, btn = null, extraId = null) {
+    // Close mobile nav on switch
+    qs(".sidebar").classList.remove('mobile-active');
 
-  const session = getSupervisorSession();
+    if (btn) {
+       qsa(".nav-item").forEach(b => b.classList.remove('active'));
+       btn.classList.add('active');
+    }
 
-  const nav = [
-    { key: "dashboard", label: "Overview", icon: "📊", href: "./index.html" },
-    { key: "students", label: "My Students", icon: "👩‍🎓", href: "./pipeline.html" },
-    { key: "notifications", label: "Notifications", icon: "🔔", href: "./notifications.html", badge: 3 },
-    { key: "settings", label: "Profile Settings", icon: "⚙️", href: "./settings.html" },
-  ];
+    qsa("section").forEach(s => s.classList.remove('active'));
 
-  app.innerHTML = `
-    <div class="min-h-screen flex flex-col md:flex-row bg-[#f2f2f2]">
-      <!-- Sidebar -->
-      <aside class="hidden md:flex flex-col w-72 bg-[#194973] shrink-0 border-r border-white/5">
-        <div class="p-8 border-b border-white/10 flex items-center gap-4">
-          <div class="h-12 w-12 rounded-2xl bg-[#14b5d9] grid place-items-center text-white font-bold text-2xl shadow-lg shadow-black/20">🎓</div>
-          <div>
-            <div class="text-xs font-black text-white tracking-widest uppercase mb-0.5">RU PGOS</div>
-            <div class="text-[8px] text-white/40 font-black uppercase tracking-widest">Supervisor Integrated</div>
-          </div>
-        </div>
-        
-        <nav class="flex-1 px-4 py-8 space-y-2">
-          ${nav.map(n => {
-            const active = n.key === navKey;
-            return `
-              <a href="${n.href}" class="${active ? 'bg-[#14b5d9] border-[#f2c335]' : 'text-white/70 hover:bg-white/5 border-transparent'} group flex items-center justify-between gap-4 px-6 py-4 rounded-2xl transition-all border-l-4">
-                <div class="flex items-center gap-4">
-                   <span class="text-xl group-hover:scale-110 transition shrink-0">${n.icon}</span>
-                   <span class="font-bold tracking-wide">${n.label}</span>
-                </div>
-                ${n.badge ? `<span class="bg-[#bf8c2c] text-[#194973] text-[9px] font-black px-2 py-0.5 rounded-full pulse-ai">${n.badge}</span>` : ''}
-              </a>
-            `;
-          }).join('')}
-        </nav>
+    const titles = {
+        dashboard: { title: "Oversight Panel", sub: "Academic Year 2025/2026 — R.U PGOS Hub" },
+        'student-detail': { title: "Student Detail View", sub: "Deep Oversight & Sign-Off Hub" },
+        notifications: { title: "Alerts Center", sub: "Smart alerts from RU PG State Machine" },
+        presentations: { title: "Presentations Dashboard", sub: "Upcoming calendar and participation logic" },
+        approvals: { title: "Progress Approvals", sub: "Institutional gatekeeper oversight hub" },
+        settings: { title: "Profile Management", sub: "Supervisor security and personal records" }
+    };
 
-        <div class="p-4">
-          <div class="bg-black/20 rounded-3xl p-6 border border-white/5">
-            <div class="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-4">Support Contact</div>
-            <div class="text-xs font-bold text-white mb-1">PG Office</div>
-            <div class="text-xs text-white/70">pg-office@rongo.ac.ke</div>
-          </div>
-        </div>
-      </aside>
+    const targetSectionId = `section-${target}`;
+    const targetSection = qs(`#${targetSectionId}`) || qs("#section-generic");
+    targetSection.classList.add('active');
 
-      <!-- Main Section -->
-      <main class="flex-1 flex flex-col min-w-0">
-        <!-- Header -->
-        <header class="h-20 bg-white border-b border-slate-200 px-6 sm:px-12 flex items-center justify-between sticky top-0 z-40">
-           <div class="flex items-center gap-4 md:hidden">
-              <div class="h-10 w-10 rounded-xl bg-rongo-dark grid place-items-center text-white text-xl">🎓</div>
-              <div class="text-sm font-black text-rongo-dark">RU Supervisor</div>
-           </div>
+    const config = titles[target] || { title: target.toUpperCase(), sub: titles.dashboard.sub };
+    qs("#page-title").textContent = config.title;
+    qs("#page-sub").textContent = config.sub;
 
-           <div class="hidden sm:block">
-              <div id="page-title" class="text-lg font-black text-rongo-dark uppercase tracking-wide">Rongo University Postgraduate Portal</div>
-           </div>
+    if (target === "dashboard") initDashboard();
+    else if (target === "student-detail") initStudentDetails(extraId);
+    else if (target === "notifications") initNotifications();
+    else {
+        qs("#generic-title").textContent = config.title;
+        qs("#generic-icon").textContent = target === "settings" ? "⚙️" : (target === "presentations" ? "📅" : "🛡️");
+    }
+}
 
-           <div class="flex items-center gap-4">
-              <div class="text-right hidden sm:block">
-                 <div class="text-sm font-bold text-rongo-dark">${session.name}</div>
-                 <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${session.department} • Supervisor</div>
-              </div>
-              <div class="h-12 w-12 rounded-2xl bg-[#f2f2f2] border border-slate-200 grid place-items-center cursor-pointer hover:bg-slate-100 transition shadow-sm overflow-hidden">
-                 <div class="text-xl font-bold text-[#14b5d9]">⚡</div>
-              </div>
-           </div>
-        </header>
-
-        <!-- Content Area -->
-        <div id="page-content" class="p-6 sm:p-12 overflow-auto app-scroll scroll-smooth">
-           <!-- Dynamically Loaded -->
-           <div class="animate-in text-center py-20">
-              <div class="text-3xl font-black text-rongo-dark mb-2">Connecting to Knowledge...</div>
-              <div class="text-slate-400 font-bold uppercase tracking-widest text-sm">Synchronizing with RU Database</div>
-           </div>
-        </div>
-      </main>
-    </div>
+// ---------------------------------------------------------
+// UI Shared Utilities
+// ---------------------------------------------------------
+export function toast(msg, { tone = "blue" } = {}) {
+  const container = qs("#toast-container");
+  const el = document.createElement("div");
+  el.className = `alert alert-${tone === 'green' ? 'success' : (tone === 'red' ? 'error' : 'info')} animate-in shadow-lg`;
+  el.style.width = "320px";
+  el.innerHTML = `
+    <span class="alert-icon">${tone === 'green' ? '✅' : (tone === 'red' ? '⚠️' : 'ℹ️')}</span>
+    <div>${msg}</div>
   `;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
 }
+
+export function openModal({ title, bodyHtml, footerHtml }) {
+    const modal = qs("#modal-container");
+    const content = qs("#modal-content");
+    modal.style.display = "flex";
+    content.innerHTML = `
+       <div class="p-8 border-b border-grey-100 flex-between">
+          <h2 class="card-title text-xl">${title}</h2>
+          <button class="btn btn-ghost btn-sm" onclick="this.closest('.modal-overlay').style.display='none'">✕</button>
+       </div>
+       <div class="p-8 max-h-[70vh] overflow-y-auto">${bodyHtml}</div>
+       <div class="p-8 flex justify-end gap-3">${footerHtml || `
+          <button class="btn btn-outline" onclick="this.closest('.modal-overlay').style.display='none'">Dismiss</button>
+       `}</div>
+    `;
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+}
+
+export const escapeHtml = (str) => {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+};
