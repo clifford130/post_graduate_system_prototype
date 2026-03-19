@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../models/user.model.js";
+import { SupervisorAssignmentModel } from "../models/supervisor-action.model.js";
 
 export const UserLoginRouter = Router();
 
@@ -37,6 +38,10 @@ UserLoginRouter.post(
         });
         return;
       }
+      let supervisor = await SupervisorAssignmentModel.findOne({
+        studentRegNo: userNumber,
+      });
+
       const RawJwtSecret = process.env.JWT_SECRET;
       //   if (!RawJwtSecret) {
       //     throw Error("RawJWTSEcret not found");
@@ -58,9 +63,12 @@ UserLoginRouter.post(
         token,
         user: {
           id: User.id,
+          supervisor: supervisor?.supervisorName,
           userNumber: User.userNumber,
           role: User.role,
           fullName: User.fullName,
+          programme: User.programme,
+          department: User.department,
         },
       });
     } catch (error) {

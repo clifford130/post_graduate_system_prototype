@@ -48,10 +48,10 @@
 
   <div class="sidebar-footer">
     <div class="sidebar-user">
-      <div class="user-avatar">EM</div>
+      <div class="user-avatar" id="sidebarAvatar">EM</div>
       <div class="user-info">
-        <div class="user-name">Enos Mulongo</div>
-        <div class="user-role">MSc Candidate</div>
+        <div class="user-name" id="sidebarUserName">Enos Mulongo</div>
+        <div class="user-role" id="sidebarUserRole">MSc Candidate</div>
       </div>
     </div>
   </div>
@@ -76,11 +76,11 @@
       <div class="profile-hero">
         <div class="profile-avatar-lg">E</div>
         <div class="profile-info">
-          <div class="profile-name"></div>
+          <div class="profile-name" id="profileName"></div>
           <div class="profile-meta">
-            <span>📌 Reg: GCA/012/2023</span>
-            <span>🏛️ School of Information, Communication and Media Studies</span>
-            <span>📚 Master of Science in Graphics Communication and Advertising</span>
+            <span>📌 Reg: <span id="profileRegNo">—</span></span>
+            <span>🏛️ <span id="profileDepartment" style="display:inline">Loading...</span></span>
+            <span>📚 <span id="profileProgramme" style="display:inline">Loading...</span></span>
           </div>
         </div>
         <div class="profile-status-area">
@@ -108,17 +108,17 @@
           <button class="btn btn-ghost btn-sm">✏️ Edit</button>
         </div>
         <div class="detail-grid">
-          <div class="detail-item"><div class="detail-label">Full Name</div><div class="detail-value">Enos Mulongo</div></div>
-          <div class="detail-item"><div class="detail-label">Registration No.</div><div class="detail-value">GCA/012/2023</div></div>
-          <div class="detail-item"><div class="detail-label">Programme</div><div class="detail-value">Master of Science</div></div>
-          <div class="detail-item"><div class="detail-label">Specialisation</div><div class="detail-value">Graphics Comm. & Advertising</div></div>
-          <div class="detail-item"><div class="detail-label">School</div><div class="detail-value">Info, Comm & Media Studies</div></div>
-          <div class="detail-item"><div class="detail-label">Year of Study</div><div class="detail-value">Year 3, Semester II</div></div>
-          <div class="detail-item"><div class="detail-label">Supervisor</div><div class="detail-value">Assigned Supervisor</div></div>
-          <div class="detail-item"><div class="detail-label">Co-Supervisor</div><div class="detail-value">Pending Allocation</div></div>
-          <div class="detail-item"><div class="detail-label">Admission Date</div><div class="detail-value">September 2023</div></div>
-          <div class="detail-item"><div class="detail-label">Expected Completion</div><div class="detail-value">December 2027</div></div>
-          <div class="detail-item"><div class="detail-label">Mode of Study</div><div class="detail-value">Full-time, On-Campus</div></div>
+          <div class="detail-item"><div class="detail-label">Full Name</div><div class="detail-value" id="detailFullName">Enos Mulongo</div></div>
+          <div class="detail-item"><div class="detail-label">Registration No.</div><div class="detail-value" id="detailRegNo">GCA/012/2023</div></div>
+          <div class="detail-item"><div class="detail-label">Programme</div><div class="detail-value" id="detailProgramme">Master of Science</div></div>
+          <div class="detail-item"><div class="detail-label">Specialisation</div><div class="detail-value" id="detailSpecialisation">Graphics Comm. & Advertising</div></div>
+          <div class="detail-item"><div class="detail-label">School</div><div class="detail-value" id="detailSchool">Info, Comm & Media Studies</div></div>
+          <div class="detail-item"><div class="detail-label">Year of Study</div><div class="detail-value" id="detailYear">Year 3, Semester II</div></div>
+          <div class="detail-item"><div class="detail-label">Supervisor</div><div class="detail-value" id="detailSupervisor">Assigned Supervisor</div></div>
+          <div class="detail-item"><div class="detail-label">Co-Supervisor</div><div class="detail-value" id="detailCoSupervisor">Pending Allocation</div></div>
+          <div class="detail-item"><div class="detail-label">Admission Date</div><div class="detail-value" id="detailAdmission">September 2023</div></div>
+          <div class="detail-item"><div class="detail-label">Expected Completion</div><div class="detail-value" id="detailExpected">December 2027</div></div>
+          <div class="detail-item"><div class="detail-label">Mode of Study</div><div class="detail-value" id="detailMode">Full-time, On-Campus</div></div>
           <div class="detail-item">
             <div class="detail-label">Status</div>
             <div class="detail-value"><span class="badge badge-active" id="status-badge-2">ACTIVE</span></div>
@@ -531,6 +531,109 @@
 
   </div>
 </main>
+
+</script>
+
+<!-- Populate student page from localStorage.postgraduate_user (if present) -->
+<script>
+  (function () {
+    try {
+      const raw = localStorage.getItem('postgraduate_user');
+      if (!raw) return;
+      const u = JSON.parse(raw || '{}');
+      const name = u.fullName || u.userNumber || 'Student';
+      const role = u.role || '';
+
+      const setText = (id, v) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = v ?? '';
+      };
+
+      // Sidebar
+      setText('sidebarUserName', name);
+      setText('sidebarUserRole', role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Candidate');
+      const sAvatar = document.getElementById('sidebarAvatar');
+      if (sAvatar) sAvatar.textContent = (name.split(' ').map(s => s[0]).slice(0,2).join('') || 'ST').toUpperCase();
+
+      // Profile hero
+      setText('profileName', name);
+      setText('profileRegNo', u.userNumber || '—');
+      setText('profileDepartment', u.department || 'Department');
+      setText('profileProgramme', u.programme || 'Programme');
+      const avatar = document.querySelector('.profile-avatar-lg');
+      if (avatar) avatar.textContent = (name[0] || 'S').toUpperCase();
+
+      // Details
+      setText('detailFullName', name);
+      setText('detailRegNo', u.userNumber || '');
+      setText('detailProgramme', u.programme || u.program || '');
+      setText('detailSpecialisation', u.specialisation || '');
+      setText('detailSchool', u.school || u.department || '');
+      setText('detailYear', u.year || u.yearOfStudy || '');
+      setText('detailSupervisor', (u.supervisor && u.supervisor.name) || u.supervisor || 'Assigned Supervisor');
+      setText('detailCoSupervisor', (u.coSupervisor && u.coSupervisor.name) || u.coSupervisor || 'Pending Allocation');
+      setText('detailAdmission', u.admissionDate || '');
+      setText('detailExpected', u.expectedCompletion || '');
+      setText('detailMode', u.mode || '');
+
+      const status = (u.status || 'Active').toString();
+      const sb1 = document.getElementById('status-badge');
+      const sb2 = document.getElementById('status-badge-2');
+      if (sb1) sb1.textContent = '● ' + status.toUpperCase();
+      if (sb2) sb2.textContent = status.toUpperCase();
+      if (status.toLowerCase() !== 'active') {
+        const def = document.getElementById('deferral-alert');
+        if (def) def.style.display = 'block';
+        const pmsg = document.getElementById('pipeline-locked-msg');
+        if (pmsg) pmsg.style.display = 'block';
+      }
+
+      // Pipeline progress
+      const stage = Number(u.stage || u.currentStage || 3) || 3;
+      const totalStages = 10;
+      const fill = document.getElementById('pipeline-progress-fill');
+      const text = document.getElementById('pipeline-progress-text');
+      const bossStageNum = document.getElementById('boss-stage-num');
+      const pipelineBadge = document.getElementById('pipeline-current-badge');
+      if (fill) fill.style.width = Math.min(100, Math.round((stage / totalStages) * 100)) + '%';
+      if (text) text.innerHTML = '<strong>Stage ' + stage + ' of ' + totalStages + '</strong> — ' + (u.stageName || 'Data Collection & Fieldwork');
+      if (bossStageNum) bossStageNum.textContent = stage;
+      if (pipelineBadge) pipelineBadge.textContent = 'Stage ' + stage + ' — ' + (u.stageName || 'Active');
+
+      // Unlock boss area if stage >= 8
+      if (stage >= 8) {
+        const bossUnlocked = document.getElementById('boss-unlocked');
+        const bossOverlay = document.getElementById('boss-locked-overlay');
+        const bossLock = document.getElementById('boss-lock-icon');
+        if (bossUnlocked) bossUnlocked.style.display = 'block';
+        if (bossOverlay) bossOverlay.style.display = 'none';
+        if (bossLock) bossLock.textContent = '🔓';
+      }
+
+      // If we have an id+token try to fetch richer student profile and update
+      if (u.id && u.token) {
+        fetch('http://localhost:5000/api/students/' + encodeURIComponent(u.id), {
+          headers: { Authorization: 'Bearer ' + u.token }
+        })
+          .then(r => (r.ok ? r.json() : null))
+          .then(student => {
+            if (!student) return;
+            if (student.fullName) setText('detailFullName', student.fullName);
+            if (student.userNumber) setText('detailRegNo', student.userNumber);
+            if (student.programme) setText('detailProgramme', student.programme);
+            if (student.department) setText('detailSchool', student.department);
+            if (student.stage) {
+              const stg = typeof student.stage === 'string' ? student.stage : String(student.stage);
+              if (pipelineBadge) pipelineBadge.textContent = stg;
+            }
+          })
+          .catch(() => {});
+      }
+    } catch (e) {
+      /* ignore errors */
+    }
+  })();
+</script>
 
 <script src="script.js"></script>
 </body>

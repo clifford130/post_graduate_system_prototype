@@ -51,9 +51,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Store user data in localStorage
                 localStorage.setItem("postgraduate_user", JSON.stringify({
                     id: result.user.id,
-                    fullName: result.fullName || "User",
+                    fullName: result.user.fullName || "User",
+                    programme: result.user.programme,
+                    department: result.user.department,
                     userNumber: result.user.userNumber,
                     role: result.user.role,
+                    supervisor:result.user.supervisor,
                     token: result.token
                 }));
 
