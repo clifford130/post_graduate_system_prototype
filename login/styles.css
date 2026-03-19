@@ -56,6 +56,12 @@ body {
   color: #6b7280;
   line-height: 1.4;
 }
+.logo-img{
+  align-items: center;
+  height: 50px;
+  margin-left: 90px;
+}
+
 
 /* Form Elements */
 .form-group {
