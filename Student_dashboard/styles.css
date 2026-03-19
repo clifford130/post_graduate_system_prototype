@@ -199,7 +199,7 @@
     font-size: 1.6rem;
     color: var(--white);
     line-height: 1.2;
-    margin: 17px;
+    margin-bottom: 37px;
   }
   .topbar-left p { color: rgba(255,255,255,0.85); font-size: 0.82rem; margin-top: 4px; }
   .topbar-right {
