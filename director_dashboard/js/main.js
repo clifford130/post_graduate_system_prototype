@@ -207,7 +207,7 @@ export function initShell() {
 
   const nav = [
     { key: "dashboard", label: "Dashboard", href: "./dashboard.html" },
-    { key: "pipeline", label: "Pipeline", href: "./pipeline.html" },
+    // { key: "pipeline", label: "Pipeline", href: "./pipeline.html" },
     { key: "students", label: "Students", href: "./students.html" },
     { key: "supervisors", label: "Supervisors", href: "./supervisors.html" },
     { key: "departments", label: "Departments", href: "./departments.html" },
