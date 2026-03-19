@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { UserModel } from "../models/user.model.js";
+import { SupervisorAssignmentModel } from "../models/supervisor-action.model.js";
 
 export const DirectorRouter = Router();
 
@@ -150,6 +151,373 @@ DirectorRouter.get("/supervisors", async (req: Request, res: Response) => {
 
     const supervisors = await UserModel.find(filter);
     res.json(supervisors);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching supervisors", error });
+  }
+});
+// 9. POST /supervisors/:id/assign - FIXED to handle registration number
+DirectorRouter.post(
+  "/supervisors/:id/assign",
+  async (req: Request, res: Response) => {
+    try {
+      const { studentId } = req.body;
+      const supervisorId = req.params.id;
+
+      if (!studentId) {
+        return res.status(400).json({ message: "Student ID is required" });
+      }
+
+      // Get supervisor details
+      const supervisor = await UserModel.findOne({
+        _id: supervisorId,
+        role: "supervisor",
+      });
+
+      if (!supervisor) {
+        return res.status(404).json({ message: "Supervisor not found" });
+      }
+
+      // Get student details - try by _id first, then by userNumber
+      let student;
+
+      // Check if the input is a valid MongoDB ObjectId (24 character hex string)
+      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(studentId);
+
+      if (isValidObjectId) {
+        // Try to find by _id
+        student = await UserModel.findOne({
+          _id: studentId,
+          role: "student",
+        });
+      }
+
+      // If not found by _id or invalid ObjectId, try by userNumber
+      if (!student) {
+        student = await UserModel.findOne({
+          userNumber: studentId,
+          role: "student",
+        });
+      }
+
+      if (!student) {
+        return res.status(404).json({
+          message:
+            "Student not found. Please check the student ID or registration number.",
+        });
+      }
+
+      // Check if student already has an active supervisor
+      const existingAssignment = await SupervisorAssignmentModel.findOne({
+        studentId: student._id.toString(),
+        status: "active" as const,
+      });
+
+      if (existingAssignment) {
+        return res.status(400).json({
+          message: "Student already has an active supervisor assignment",
+        });
+      }
+      const existsInactiveStudent = await SupervisorAssignmentModel.findOne({
+        studentId: student._id.toString(),
+        status: { $ne: "active" },
+      });
+      if (existsInactiveStudent) {
+        await SupervisorAssignmentModel.findOneAndUpdate(
+          {
+            studentId: student._id.toString(),
+          },
+
+          {
+            $set: {
+              status: "active",
+              supervisorName: supervisor.fullName,
+              supervisorId: supervisor._id,
+            },
+          },
+        );
+      }
+      // Check supervisor workload (max 8 students)
+      const activeAssignments = await SupervisorAssignmentModel.countDocuments({
+        supervisorId: supervisor._id.toString() as string,
+        status: "active" as const,
+      });
+
+      if (activeAssignments >= 8) {
+        return res.status(400).json({
+          message: "Supervisor has reached maximum workload (8 students)",
+        });
+      }
+      let assignment;
+      // Create the assignment
+      if (!existsInactiveStudent) {
+        assignment = await SupervisorAssignmentModel.create({
+          supervisorId: supervisor._id.toString(),
+          supervisorName: supervisor.fullName,
+          studentId: student._id.toString(),
+          studentName: student.fullName,
+          studentRegNo: student.userNumber,
+          assignedBy: "director",
+          status: "active" as const,
+          notes: [`Assigned on ${new Date().toLocaleDateString()}`],
+        });
+      }
+
+      // Also update the student's supervisors field
+      await UserModel.findByIdAndUpdate(student._id, {
+        $set: {
+          "supervisors.sup1": supervisor.fullName,
+        },
+      });
+
+      res.json({
+        message: "Student assigned successfully",
+        assignment,
+        workload: activeAssignments + 1,
+        student: {
+          id: student._id,
+          name: student.fullName,
+          regNo: student.userNumber,
+        },
+      });
+    } catch (error) {
+      console.error("Error assigning student:", error);
+      res
+        .status(500)
+        .json({ message: "Error assigning student to supervisor", error });
+    }
+  },
+);
+
+// 10. POST /supervisors/:id/remove - FIXED
+// 10. POST /supervisors/:id/remove - FIXED to handle registration number
+DirectorRouter.post(
+  "/supervisors/:id/remove",
+  async (req: Request, res: Response) => {
+    try {
+      const { studentId } = req.body;
+      const supervisorId = req.params.id;
+
+      if (!studentId) {
+        return res.status(400).json({ message: "Student ID is required" });
+      }
+
+      // First find the student (by _id or userNumber)
+      let student;
+      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(studentId);
+
+      if (isValidObjectId) {
+        student = await UserModel.findOne({
+          _id: studentId,
+          role: "student",
+        });
+      }
+
+      if (!student) {
+        student = await UserModel.findOne({
+          userNumber: studentId,
+          role: "student",
+        });
+      }
+
+      if (!student) {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      // Find and update the active assignment
+      const assignment = await SupervisorAssignmentModel.findOneAndUpdate(
+        {
+          supervisorId: supervisorId as string,
+          studentId: student._id.toString(),
+          status: "active" as const,
+        },
+        {
+          status: "transferred" as const,
+          $push: { notes: `Removed on ${new Date().toLocaleDateString()}` },
+        },
+        { new: true },
+      );
+
+      if (!assignment) {
+        return res.status(404).json({ message: "Active assignment not found" });
+      }
+
+      // Remove supervisor from student's record
+      await UserModel.findByIdAndUpdate(student._id, {
+        $set: {
+          "supervisors.sup1": "",
+        },
+      });
+
+      res.json({
+        message: "Student removed successfully",
+        assignment,
+      });
+    } catch (error) {
+      console.error("Error removing student:", error);
+      res
+        .status(500)
+        .json({ message: "Error removing student from supervisor", error });
+    }
+  },
+);
+
+// 11. POST /supervisors/:id/balance - FIXED
+DirectorRouter.post(
+  "/supervisors/:id/balance",
+  async (req: Request, res: Response) => {
+    try {
+      const supervisorId = req.params.id;
+
+      // Get all supervisors with their workloads
+      const supervisors = await UserModel.find({
+        role: "supervisor",
+        status: "Active",
+      });
+
+      // Get workload counts for all supervisors - FIXED
+      const workloads = await Promise.all(
+        supervisors.map(async (sup) => {
+          const count = await SupervisorAssignmentModel.countDocuments({
+            supervisorId: sup._id.toString() as string,
+            status: "active" as const,
+          });
+          return {
+            supervisorId: sup._id.toString(),
+            supervisorName: sup.fullName,
+            workload: count,
+          };
+        }),
+      );
+
+      // Find the target supervisor's workload
+      const targetSupervisor = workloads.find(
+        (w) => w.supervisorId === supervisorId,
+      );
+
+      if (!targetSupervisor) {
+        return res.status(404).json({ message: "Supervisor not found" });
+      }
+
+      // Calculate average workload
+      const totalWorkload = workloads.reduce((sum, w) => sum + w.workload, 0);
+      const averageWorkload = totalWorkload / workloads.length;
+
+      // Get assignments for this supervisor - FIXED
+      const assignments = await SupervisorAssignmentModel.find({
+        supervisorId: supervisorId as string,
+        status: "active" as const,
+      });
+
+      res.json({
+        message: "Workload balance information",
+        supervisor: {
+          id: supervisorId,
+          name: targetSupervisor.supervisorName,
+          currentWorkload: targetSupervisor.workload,
+          averageWorkload: Math.round(averageWorkload * 10) / 10,
+          totalSupervisors: workloads.length,
+          totalStudents: totalWorkload,
+          assignments: assignments.map((a) => ({
+            studentId: a.studentId,
+            studentName: a.studentName,
+            studentRegNo: a.studentRegNo,
+            assignedAt: a.assignedAt,
+          })),
+        },
+        recommendation:
+          targetSupervisor.workload > averageWorkload + 2
+            ? "Consider redistributing some students"
+            : "Workload is balanced",
+      });
+    } catch (error) {
+      console.error("Error getting balance info:", error);
+      res
+        .status(500)
+        .json({ message: "Error getting workload balance", error });
+    }
+  },
+);
+
+// 12. GET /supervisors/:id/workload - FIXED
+DirectorRouter.get(
+  "/supervisors/:id/workload",
+  async (req: Request, res: Response) => {
+    try {
+      const supervisorId = req.params.id;
+
+      // FIXED: Add type assertions
+      const assignments = await SupervisorAssignmentModel.find({
+        supervisorId: supervisorId as string,
+        status: "active" as const,
+      });
+
+      const completed = await SupervisorAssignmentModel.countDocuments({
+        supervisorId: supervisorId as string,
+        status: "completed" as const,
+      });
+
+      const transferred = await SupervisorAssignmentModel.countDocuments({
+        supervisorId: supervisorId as string,
+        status: "transferred" as const,
+      });
+
+      res.json({
+        supervisorId,
+        current: assignments.length,
+        completed,
+        transferred,
+        total: assignments.length + completed + transferred,
+        students: assignments.map((a) => ({
+          id: a.studentId,
+          name: a.studentName,
+          regNo: a.studentRegNo,
+          assignedAt: a.assignedAt,
+        })),
+      });
+    } catch (error) {
+      console.error("Error getting workload:", error);
+      res
+        .status(500)
+        .json({ message: "Error fetching supervisor workload", error });
+    }
+  },
+);
+
+// Also update the GET /supervisors route to include workload data
+DirectorRouter.get("/supervisors", async (req: Request, res: Response) => {
+  try {
+    const { q, department, status } = req.query;
+    const filter: any = { role: "supervisor" };
+
+    if (q) filter.fullName = { $regex: q, $options: "i" };
+    if (department) filter.department = department.toString().toLowerCase();
+    if (status) filter.status = status;
+
+    const supervisors = await UserModel.find(filter);
+
+    // Enhance supervisor data with workload information
+    const enhancedSupervisors = await Promise.all(
+      supervisors.map(async (sup) => {
+        const studentCount = await SupervisorAssignmentModel.countDocuments({
+          supervisorId: sup._id.toString() as string,
+          status: "active" as const,
+        });
+
+        return {
+          id: sup._id,
+          _id: sup._id,
+          fullName: sup.fullName,
+          userNumber: sup.userNumber,
+          department: sup.department,
+          status: sup.status,
+          isVerified: sup.isVerified,
+          studentCount,
+          pendingApprovals: 0, // You can implement this logic separately
+        };
+      }),
+    );
+
+    res.json(enhancedSupervisors);
   } catch (error) {
     res.status(500).json({ message: "Error fetching supervisors", error });
   }
