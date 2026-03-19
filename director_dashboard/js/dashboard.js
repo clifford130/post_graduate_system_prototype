@@ -20,11 +20,20 @@ function statCard({ label, value, hint, tone = "slate" }) {
     purple: "border-violet-200",
   };
   return `
-    <div class="rounded-2xl border ${tones[tone] || tones.slate} bg-white p-5 shadow-soft">
-      <div class="text-xs font-semibold text-slate-500">${escapeHtml(label)}</div>
-      <div class="mt-2 flex items-end justify-between gap-3">
-        <div class="text-2xl font-semibold tracking-tight">${escapeHtml(value ?? "—")}</div>
-        ${hint ? `<div class="text-xs text-slate-500">${escapeHtml(hint)}</div>` : ""}
+    <div class="rounded-2xl border ${tones[tone] || tones.slate} bg-white p-5 shadow-soft hover:shadow-lg transition-all animate-in" style="animation-delay: ${Math.random() * 0.2}s">
+      <div class="flex items-center justify-between gap-2">
+        <div class="text-xs font-bold uppercase tracking-wider text-slate-500">${escapeHtml(label)}</div>
+        <div class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+      </div>
+      <div class="mt-3 flex items-end justify-between gap-3">
+        <div class="text-3xl font-bold tracking-tight text-slate-900">${escapeHtml(value ?? "—")}</div>
+        <div class="flex flex-col items-end">
+          <div class="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 10l7-7 7 7M5 14l7 7 7-7"/></svg>
+            12%
+          </div>
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">${escapeHtml(hint || "Stable")}</div>
+        </div>
       </div>
     </div>
   `;
@@ -215,12 +224,60 @@ function buildDashboardSkeleton() {
       </section>
 
       <section>
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="text-xl font-bold tracking-tight text-slate-900">System Bottleneck Detector</div>
+            <div class="mt-1 text-sm text-slate-500 font-medium">Real-time identification of process delays and compliance gaps.</div>
+          </div>
+          <button class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100 transition uppercase tracking-wider shadow-sm">Trigger intervention</button>
+        </div>
+        <div class="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="rounded-2xl border border-rose-200 bg-white p-5 shadow-soft risk-glow">
+            <div class="flex items-center gap-2 text-rose-600">
+              <span class="h-2 w-2 rounded-full bg-rose-600 pulse-red"></span>
+              <span class="text-xs font-bold uppercase tracking-wider">High Risk Delay</span>
+            </div>
+            <div class="mt-3 text-sm font-bold text-slate-900 truncate">IHRS Proposal Stage Stagnation</div>
+            <div class="mt-1 text-xs text-slate-500">14 students have been in this stage for over 21 days with no status updates.</div>
+            <div class="mt-4 flex items-center justify-between">
+              <div class="text-[10px] font-bold text-slate-400">IMPACT: HIGH</div>
+              <button class="text-xs font-bold text-slate-900 hover:underline">Fix now →</button>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-amber-200 bg-white p-5 shadow-soft">
+            <div class="flex items-center gap-2 text-amber-600">
+              <span class="h-2 w-2 rounded-full bg-amber-600"></span>
+              <span class="text-xs font-bold uppercase tracking-wider">Supervisor Overload</span>
+            </div>
+            <div class="mt-3 text-sm font-bold text-slate-900 truncate">Workload Imbalance: CJM</div>
+            <div class="mt-1 text-xs text-slate-500">3 supervisors have exceeded the 8-student cap. Approvals are slowing down.</div>
+            <div class="mt-4 flex items-center justify-between">
+              <div class="text-[10px] font-bold text-slate-400">IMPACT: MEDIUM</div>
+              <button class="text-xs font-bold text-slate-900 hover:underline">Rebalance →</button>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
+            <div class="flex items-center gap-2 text-slate-600">
+              <span class="h-2 w-2 rounded-full bg-slate-600"></span>
+              <span class="text-xs font-bold uppercase tracking-wider">Document Gap</span>
+            </div>
+            <div class="mt-3 text-sm font-bold text-slate-900 truncate">Missing NACOSTI Permits</div>
+            <div class="mt-1 text-xs text-slate-500">8 students in Fieldwork phase have not uploaded their NACOSTI clearance.</div>
+            <div class="mt-4 flex items-center justify-between">
+              <div class="text-[10px] font-bold text-slate-400">IMPACT: LEGAL</div>
+              <button class="text-xs font-bold text-slate-900 hover:underline">Notify All →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
         <div class="flex items-end justify-between gap-3">
           <div>
-            <div class="text-lg font-semibold tracking-tight">Critical alerts</div>
-            <div class="mt-1 text-sm text-slate-600">Missing reports, NACOSTI status, fees clearance, and blockers.</div>
+            <div class="text-xl font-bold tracking-tight text-slate-900">Critical Alerts & Intelligence</div>
+            <div class="mt-1 text-sm text-slate-500 font-medium font-medium">Missing reports, fees clearance, and automated compliance status.</div>
           </div>
-          <a href="./reports.html" class="text-sm font-semibold text-blue-700 hover:underline">Go to reports</a>
+          <a href="./reports.html" class="text-xs font-bold text-blue-700 hover:underline uppercase tracking-wider">Access full audit log</a>
         </div>
         <div id="alertsList" class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
           ${Array.from({ length: 4 })

@@ -10,6 +10,20 @@ export interface IUser {
   programme: string;
   department: string;
   status: string;
+  stage?: string;
+  atRisk?: boolean;
+  notes?: string[];
+  financialClearance?: boolean;
+  supervisors?: {
+    sup1?: string;
+    sup2?: string;
+    sup3?: string;
+  };
+  documents?: {
+    conceptNote?: string; // status: "pending", "approved", "rejected"
+    proposal?: string;
+    thesis?: string;
+  };
 }
 
 //  Schema
@@ -56,6 +70,32 @@ const UserSchema = new Schema<IUser>({
   status: {
     type: String,
     default: "Active",
+  },
+  stage: {
+    type: String,
+    default: "Coursework",
+  },
+  atRisk: {
+    type: Boolean,
+    default: false,
+  },
+  notes: {
+    type: [String],
+    default: [],
+  },
+  financialClearance: {
+    type: Boolean,
+    default: false,
+  },
+  supervisors: {
+    sup1: { type: String, default: "" },
+    sup2: { type: String, default: "" },
+    sup3: { type: String, default: "" },
+  },
+  documents: {
+    conceptNote: { type: String, default: "pending" },
+    proposal: { type: String, default: "pending" },
+    thesis: { type: String, default: "pending" },
   },
 });
 

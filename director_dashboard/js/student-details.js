@@ -317,19 +317,26 @@ function directorActionsModal({ studentId, studentName, currentStage }) {
       `<option value="${escapeHtml(s)}" ${s === currentStage ? "selected" : ""}>${escapeHtml(s)}</option>`
   ).join("");
 
-  const modal = openModal({
-    title: `Director Action Center — ${studentName}`,
+    const modal = openModal({
+    title: `Director Command Center — ${studentName}`,
     size: "lg",
     bodyHtml: `
-      <div class="space-y-4">
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div class="text-xs font-semibold text-slate-600">Core powers</div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <button data-act="notify" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">Send notification</button>
-            <button data-act="flagRisk" class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100 transition">Mark at risk</button>
-            <button data-act="overrideSkip" class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 transition">Skip requirements</button>
-            <button data-act="forceChain" class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 transition">Force approval chain</button>
-            <button data-act="bypassMissingReport" class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100 transition">Bypass missing report</button>
+      <div class="space-y-4 animate-in">
+        <div class="rounded-2xl dark-glass p-6 power-glow">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-widest text-blue-400">Governance & Override</div>
+              <div class="mt-1 text-lg font-bold">Executive Authority System</div>
+              <div class="mt-1 text-sm text-slate-300">Granting administrative bypass for compliance items. Audit trail active.</div>
+            </div>
+            <div class="h-12 w-12 rounded-2xl bg-white/10 grid place-items-center text-2xl">📋</div>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button data-act="notify" class="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 transition uppercase tracking-wider">Target Notice</button>
+            <button data-act="flagRisk" class="rounded-xl border border-rose-500/30 bg-rose-500/20 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/30 transition uppercase tracking-wider">Mark High Risk</button>
+            <button data-act="overrideSkip" class="rounded-xl border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-xs font-bold text-amber-400 hover:bg-amber-500/30 transition uppercase tracking-wider">Skip Rule</button>
+            <button data-act="forceChain" class="rounded-xl border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-xs font-bold text-amber-400 hover:bg-amber-500/30 transition uppercase tracking-wider">Force Chain</button>
+            <button data-act="bypassMissingReport" class="rounded-xl border border-rose-500/30 bg-rose-500/20 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/30 transition uppercase tracking-wider">Bypass Report</button>
           </div>
         </div>
 

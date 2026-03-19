@@ -111,18 +111,20 @@ function render({ columns, totals }) {
   setPageContent(`
     <div class="space-y-4">
       <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <div class="text-sm font-semibold">Full lifecycle pipeline</div>
-            <div class="mt-1 text-xs text-slate-600">
-              Stages: Coursework → Concept Note → Proposal → PG Approval → Fieldwork → Thesis → External Exam → Defense → Graduation
+            <div class="text-xl font-bold tracking-tight text-slate-900">Global Pipeline Command</div>
+            <div class="mt-1 text-xs text-slate-500 font-medium tracking-wide uppercase">
+              Coursework → Concept Note → Proposal → PG Approval → Fieldwork → Thesis → Defense → Graduation
             </div>
           </div>
-          <div class="flex flex-wrap gap-2 text-xs">
-            ${badge({ label: `Total: ${totals.total}`, tone: "blue" })}
-            ${badge({ label: `Active: ${totals.active}`, tone: "green" })}
-            ${badge({ label: `Deferred: ${totals.deferred}`, tone: "yellow" })}
-            ${badge({ label: `Graduated: ${totals.graduated}`, tone: "purple" })}
+          <div class="flex flex-wrap gap-2">
+            <div class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+              <span class="text-xs font-bold text-slate-700">${totals.active} Active</span>
+            </div>
+            <button id="bulkApprove" class="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition uppercase tracking-wider">Bulk approve stages</button>
+            <button id="exportPipeline" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition uppercase tracking-wider">Export Analytics</button>
           </div>
         </div>
       </div>
@@ -232,16 +234,22 @@ function wireDirectorActions() {
     const stageOptions = STAGES.map((s) => `<option value="${escapeHtml(s)}" ${s === currentStage ? "selected" : ""}>${escapeHtml(s)}</option>`).join("");
 
     const modal = openModal({
-      title: `Director controls — ${studentName}`,
+      title: `Executive Command — ${studentName}`,
       size: "lg",
       bodyHtml: `
-        <div class="space-y-4">
-          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <div class="text-xs font-semibold text-slate-600">Quick actions</div>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <a href="./student-details.html?id=${encodeURIComponent(studentId)}" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Open full profile</a>
-              <button data-act="remindReports" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">Send report reminder</button>
-              <button data-act="flagRisk" class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100 transition">Mark at risk</button>
+        <div class="space-y-4 animate-in">
+          <div class="rounded-2xl dark-glass p-5 power-glow">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xs font-bold uppercase tracking-widest text-blue-400">Director Authority</div>
+                <div class="mt-1 text-sm font-medium text-white">Bypass system restrictions and force lifecycle events.</div>
+              </div>
+              <div class="h-10 w-10 rounded-full bg-white/10 grid place-items-center text-xl">🛡️</div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <a href="./student-details.html?id=${encodeURIComponent(studentId)}" class="rounded-xl bg-white text-slate-900 px-4 py-2 text-xs font-bold hover:bg-slate-100 transition uppercase">Full Profile</a>
+              <button data-act="remindReports" class="rounded-xl bg-white/10 text-white px-4 py-2 text-xs font-bold hover:bg-white/20 transition uppercase border border-white/10">Remind Reports</button>
+              <button data-act="flagRisk" class="rounded-xl bg-rose-500/20 text-rose-400 px-4 py-2 text-xs font-bold hover:bg-rose-500/30 transition uppercase border border-rose-500/30">Flag High Risk</button>
             </div>
           </div>
 
