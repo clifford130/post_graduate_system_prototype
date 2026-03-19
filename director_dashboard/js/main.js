@@ -200,7 +200,7 @@ export function getActiveNavKey() {
   return document.body.dataset.nav || "";
 }
 
-export function initShell() {
+export async function initShell() {
   const navKey = getActiveNavKey();
   const app = qs("#app");
   if (!app) return;
@@ -278,8 +278,8 @@ export function initShell() {
             </div>
             <div class="hidden sm:flex items-center gap-4">
               <div class="text-right mr-4 border-r border-slate-200 pr-4">
-                <div class="text-sm font-bold text-slate-900">Dr. Sarah Kariuki</div>
-                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">PG Dean / Director</div>
+                  <div id="hdrUserName" class="text-sm font-bold text-slate-900">Guest User</div>
+                  <div id="hdrUserRole" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Visitor</div>
               </div>
               <button id="sysControlBtn" class="h-10 w-10 rounded-xl bg-slate-900 grid place-items-center text-white hover:bg-slate-800 transition shadow-lg shadow-black/10" title="System Control Center">
                 <span class="h-2 w-2 rounded-full bg-blue-400"></span>
@@ -344,6 +344,41 @@ export function initShell() {
   });
 
   qs("#sysControlBtn")?.addEventListener("click", openSystemControlCenter);
+
+  // Populate header user info from localStorage if available
+  try {
+    const raw = localStorage.getItem("postgraduate_user");
+    const u = raw ? JSON.parse(raw) : null;
+    const nameEl = qs("#hdrUserName");
+    const roleEl = qs("#hdrUserRole");
+    if (u && nameEl && roleEl) {
+      nameEl.textContent = u.fullName || u.userNumber || "User";
+      const roleLabel = (u.role || "").toString();
+      roleEl.textContent = roleLabel.toLowerCase() === "director" || roleLabel.toLowerCase() === "admin" ? "PG Dean / Director" : roleLabel ? roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1) : "Visitor";
+    }
+  } catch (e) {
+    // ignore parsing errors
+  }
+
+  // If we have a user id but not a fullName, fetch details to improve the header display
+  try {
+    const raw = localStorage.getItem("postgraduate_user");
+    const u = raw ? JSON.parse(raw) : null;
+    if (u && u.id && !u.fullName) {
+      const res = await fetch(`http://localhost:5000/api/students/${encodeURIComponent(u.id)}`);
+      if (res.ok) {
+        const student = await res.json();
+        if (student && (student.fullName || student.userNumber)) {
+          const updated = Object.assign({}, u, { fullName: student.fullName || u.userNumber });
+          localStorage.setItem("postgraduate_user", JSON.stringify(updated));
+          const nameEl2 = qs("#hdrUserName");
+          if (nameEl2) nameEl2.textContent = updated.fullName;
+        }
+      }
+    }
+  } catch (err) {
+    // silent
+  }
 }
 
 export function openSystemControlCenter() {

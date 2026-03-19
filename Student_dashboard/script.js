@@ -1,21 +1,22 @@
+let userName = document.querySelector(".profile-name").innerHTML = JSON.parse(localStorage.getItem("postgraduate_user")).fullName || "Student"
 // ===== STATE =====
 let currentStatus = 'ACTIVE';
-const statuses = ['ACTIVE','DEFERRED','RESUMED','GRADUATED'];
+const statuses = ['ACTIVE', 'DEFERRED', 'RESUMED', 'GRADUATED'];
 let currentStage = 3; // 1-indexed, active stage
 let clearanceGranted = false;
 let reportSubmitted = false;
 
 const stageData = [
-  { label: 'Admission &\nEnrolment',       phase: 1, approver: 'Registry', next: 'Complete orientation' },
-  { label: 'Concept Paper\nApproval',      phase: 1, approver: 'Supervisor + School Board', next: 'Submit proposal draft' },
+  { label: 'Admission &\nEnrolment', phase: 1, approver: 'Registry', next: 'Complete orientation' },
+  { label: 'Concept Paper\nApproval', phase: 1, approver: 'Supervisor + School Board', next: 'Submit proposal draft' },
   { label: 'Data Collection\n& Fieldwork', phase: 1, approver: 'Supervisor + Dean', next: 'Submit Progress Report Q3' },
-  { label: 'Proposal\nDefence',            phase: 1, approver: 'Proposal Panel', next: 'Prepare defence presentation' },
-  { label: 'Research\nPermit (NACOSTI)',   phase: 1, approver: 'NACOSTI Board', next: 'Upload NACOSTI docs' },
-  { label: 'Data Analysis\n& Write-up',   phase: 2, approver: 'Supervisor', next: 'Submit draft thesis chapters' },
-  { label: 'Internal\nSeminar',           phase: 2, approver: 'School Seminar Panel', next: 'Register for seminar' },
-  { label: 'Thesis\nSubmission',          phase: 2, approver: 'SGS Dean + Finance', next: 'Upload thesis documents' },
-  { label: 'Oral Examination\n(Viva)',    phase: 2, approver: 'External Examiners', next: 'Book viva date' },
-  { label: 'Graduation\n& Conferment',   phase: 2, approver: 'Senate', next: 'Apply for graduation' },
+  { label: 'Proposal\nDefence', phase: 1, approver: 'Proposal Panel', next: 'Prepare defence presentation' },
+  { label: 'Research\nPermit (NACOSTI)', phase: 1, approver: 'NACOSTI Board', next: 'Upload NACOSTI docs' },
+  { label: 'Data Analysis\n& Write-up', phase: 2, approver: 'Supervisor', next: 'Submit draft thesis chapters' },
+  { label: 'Internal\nSeminar', phase: 2, approver: 'School Seminar Panel', next: 'Register for seminar' },
+  { label: 'Thesis\nSubmission', phase: 2, approver: 'SGS Dean + Finance', next: 'Upload thesis documents' },
+  { label: 'Oral Examination\n(Viva)', phase: 2, approver: 'External Examiners', next: 'Book viva date' },
+  { label: 'Graduation\n& Conferment', phase: 2, approver: 'Senate', next: 'Apply for graduation' },
 ];
 
 // ===== NAVIGATION =====
@@ -26,28 +27,28 @@ function navigate(target, el) {
   el.classList.add('active');
 
   const titles = {
-    profile:    ['My Profile',          'Student academic particulars & status'],
-    pipeline:   ['Research Pipeline',   '10-Stage postgraduate research tracker'],
-    reports:    ['Quarterly Reports',   'Submit and track progress reports'],
-    compliance: ['Compliance Center',   'NACOSTI uploads & thesis submission portal'],
+    profile: ['My Profile', 'Student academic particulars & status'],
+    pipeline: ['Research Pipeline', '10-Stage postgraduate research tracker'],
+    reports: ['Quarterly Reports', 'Submit and track progress reports'],
+    compliance: ['Compliance Center', 'NACOSTI uploads & thesis submission portal'],
     scheduling: ['Scheduling & Corrections', 'Presentation booking & AI correction checklist'],
-    finance:    ['ERP Finance',         'Student finance clearance & account status'],
+    finance: ['ERP Finance', 'Student finance clearance & account status'],
   };
   document.getElementById('page-title').textContent = titles[target][0];
-  document.getElementById('page-sub').textContent   = titles[target][1];
+  document.getElementById('page-sub').textContent = titles[target][1];
 }
 
 // ===== MODULE 1: STATUS =====
 const statusConfig = {
-  ACTIVE:    { cls: 'badge-active',    label: '● ACTIVE',    btn: 'btn-danger',  btnText: 'Request Deferral', showAlert: false },
-  DEFERRED:  { cls: 'badge-deferred',  label: '⏸ DEFERRED',  btn: 'btn-outline', btnText: 'Request Reinstatement', showAlert: true },
-  RESUMED:   { cls: 'badge-resumed',   label: '▶ RESUMED',   btn: 'btn-danger',  btnText: 'Request Deferral', showAlert: false },
-  GRADUATED: { cls: 'badge-graduated', label: '🎓 GRADUATED', btn: 'btn-ghost',   btnText: 'View Certificate', showAlert: false },
+  ACTIVE: { cls: 'badge-active', label: '● ACTIVE', btn: 'btn-danger', btnText: 'Request Deferral', showAlert: false },
+  DEFERRED: { cls: 'badge-deferred', label: '⏸ DEFERRED', btn: 'btn-outline', btnText: 'Request Reinstatement', showAlert: true },
+  RESUMED: { cls: 'badge-resumed', label: '▶ RESUMED', btn: 'btn-danger', btnText: 'Request Deferral', showAlert: false },
+  GRADUATED: { cls: 'badge-graduated', label: '🎓 GRADUATED', btn: 'btn-ghost', btnText: 'View Certificate', showAlert: false },
 };
 
 function updateStatusUI() {
   const cfg = statusConfig[currentStatus];
-  ['status-badge','status-badge-2'].forEach(id => {
+  ['status-badge', 'status-badge-2'].forEach(id => {
     const el = document.getElementById(id);
     el.className = 'badge ' + cfg.cls;
     el.textContent = cfg.label;
@@ -59,7 +60,7 @@ function updateStatusUI() {
 
   // Lock pipeline if deferred
   const pipelineMsg = document.getElementById('pipeline-locked-msg');
-  const gateBtn     = document.getElementById('gate-btn');
+  const gateBtn = document.getElementById('gate-btn');
   if (currentStatus === 'DEFERRED') {
     pipelineMsg.style.display = 'flex';
     gateBtn.disabled = true;
@@ -87,7 +88,7 @@ function renderPipeline() {
   p1El.innerHTML = ''; p2El.innerHTML = '';
 
   for (let i = 1; i <= 10; i++) {
-    const s = stageData[i-1];
+    const s = stageData[i - 1];
     let state = i < currentStage ? 'completed' : i === currentStage ? 'active' : 'locked';
     const el = document.createElement('div');
     el.className = 'pipeline-step ' + state;
@@ -96,7 +97,7 @@ function renderPipeline() {
         ${state === 'completed' ? '✓' : i}
       </div>
       <div class="step-label ${state === 'active' ? 'active-label' : state === 'completed' ? 'completed-label' : ''}">
-        ${s.label.replace('\n','<br>')}
+        ${s.label.replace('\n', '<br>')}
       </div>`;
     if (s.phase === 1) p1El.appendChild(el);
     else p2El.appendChild(el);
@@ -106,16 +107,16 @@ function renderPipeline() {
   const pct = Math.round(((currentStage - 1) / 10) * 100);
   document.getElementById('pipeline-progress-fill').style.width = pct + '%';
   document.getElementById('pipeline-progress-text').innerHTML =
-    `<strong>Stage ${Math.min(currentStage,10)} of 10</strong> — ${stageData[Math.min(currentStage,10)-1].label.replace('\n',' ')}`;
+    `<strong>Stage ${Math.min(currentStage, 10)} of 10</strong> — ${stageData[Math.min(currentStage, 10) - 1].label.replace('\n', ' ')}`;
   document.getElementById('pipeline-current-badge').textContent =
     currentStage > 10 ? '🎓 Completed' : `Stage ${currentStage} — Active`;
   document.getElementById('pipeline-badge').textContent = currentStage > 10 ? '✓' : 'S' + currentStage;
 
-  const sd = stageData[Math.min(currentStage,10)-1];
-  document.getElementById('sd-current').textContent  = `Stage ${Math.min(currentStage,10)}: ${sd.label.replace('\n',' ')}`;
+  const sd = stageData[Math.min(currentStage, 10) - 1];
+  document.getElementById('sd-current').textContent = `Stage ${Math.min(currentStage, 10)}: ${sd.label.replace('\n', ' ')}`;
   document.getElementById('sd-approver').textContent = sd.approver;
-  document.getElementById('sd-phase').textContent    = sd.phase === 1 ? 'Phase 1 — Foundation' : 'Phase 2 — Research & Completion';
-  document.getElementById('sd-next').textContent     = sd.next;
+  document.getElementById('sd-phase').textContent = sd.phase === 1 ? 'Phase 1 — Foundation' : 'Phase 2 — Research & Completion';
+  document.getElementById('sd-next').textContent = sd.next;
 
   document.getElementById('boss-stage-num').textContent = currentStage;
   checkBossLevel();
@@ -132,24 +133,24 @@ function advancePipeline() {
 }
 
 function checkBossLevel() {
-  const locked   = document.getElementById('boss-locked-overlay');
+  const locked = document.getElementById('boss-locked-overlay');
   const unlocked = document.getElementById('boss-unlocked');
-  const icon     = document.getElementById('boss-lock-icon');
-  const sub      = document.getElementById('boss-sub');
+  const icon = document.getElementById('boss-lock-icon');
+  const sub = document.getElementById('boss-sub');
   if (currentStage >= 8) {
-    locked.style.display   = 'none';
+    locked.style.display = 'none';
     unlocked.style.display = 'block';
-    icon.textContent       = '🔓';
-    sub.textContent        = 'Stage 8 Unlocked — Upload all three required documents to proceed';
+    icon.textContent = '🔓';
+    sub.textContent = 'Stage 8 Unlocked — Upload all three required documents to proceed';
     document.getElementById('nacosti-badge').textContent = '✓';
-    document.getElementById('nacosti-badge').className   = 'nav-badge';
+    document.getElementById('nacosti-badge').className = 'nav-badge';
   } else {
-    locked.style.display   = 'block';
+    locked.style.display = 'block';
     unlocked.style.display = 'none';
-    icon.textContent       = '🔒';
-    sub.innerHTML          = `Unlocks at Pipeline Stage 8 — Currently at Stage <span id="boss-stage-num">${currentStage}</span>`;
+    icon.textContent = '🔒';
+    sub.innerHTML = `Unlocks at Pipeline Stage 8 — Currently at Stage <span id="boss-stage-num">${currentStage}</span>`;
     document.getElementById('nacosti-badge').textContent = 'S8';
-    document.getElementById('nacosti-badge').className   = 'nav-badge locked';
+    document.getElementById('nacosti-badge').className = 'nav-badge locked';
   }
 }
 
@@ -157,12 +158,12 @@ function checkBossLevel() {
 function submitReport() {
   reportSubmitted = true;
   const steps = [
-    { id: 'wf-1', s: 'wf-1-s', cls: 'wf-active',    status: 'Under Review',  delay: 0 },
-    { id: 'wf-1', s: 'wf-1-s', cls: 'wf-complete',  status: 'Approved ✓',    delay: 1200 },
-    { id: 'wf-2', s: 'wf-2-s', cls: 'wf-active',    status: 'Under Review',  delay: 1400 },
-    { id: 'wf-2', s: 'wf-2-s', cls: 'wf-complete',  status: 'Approved ✓',    delay: 2600 },
-    { id: 'wf-3', s: 'wf-3-s', cls: 'wf-active',    status: 'Processing…',   delay: 2800 },
-    { id: 'wf-3', s: 'wf-3-s', cls: 'wf-complete',  status: 'Archived ✓',    delay: 4000 },
+    { id: 'wf-1', s: 'wf-1-s', cls: 'wf-active', status: 'Under Review', delay: 0 },
+    { id: 'wf-1', s: 'wf-1-s', cls: 'wf-complete', status: 'Approved ✓', delay: 1200 },
+    { id: 'wf-2', s: 'wf-2-s', cls: 'wf-active', status: 'Under Review', delay: 1400 },
+    { id: 'wf-2', s: 'wf-2-s', cls: 'wf-complete', status: 'Approved ✓', delay: 2600 },
+    { id: 'wf-3', s: 'wf-3-s', cls: 'wf-active', status: 'Processing…', delay: 2800 },
+    { id: 'wf-3', s: 'wf-3-s', cls: 'wf-complete', status: 'Archived ✓', delay: 4000 },
   ];
   steps.forEach(step => {
     setTimeout(() => {
@@ -179,13 +180,13 @@ function toggleUpload(id) {
   if (!el) return;
   el.classList.toggle('uploaded');
   const statusEl = el.querySelector('.upload-status');
-  const iconEl   = el.querySelector('.upload-icon');
+  const iconEl = el.querySelector('.upload-icon');
   if (el.classList.contains('uploaded')) {
-    statusEl.textContent = 'Uploaded — ' + new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-    iconEl.textContent   = '✅';
+    statusEl.textContent = 'Uploaded — ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    iconEl.textContent = '✅';
   } else {
     statusEl.textContent = 'Click to upload';
-    iconEl.textContent   = el.id.includes('thesis') ? '📕' : el.id.includes('intent') ? '📝' : el.id.includes('mentor') ? '🤝' : '📄';
+    iconEl.textContent = el.id.includes('thesis') ? '📕' : el.id.includes('intent') ? '📝' : el.id.includes('mentor') ? '🤝' : '📄';
   }
 }
 
@@ -199,7 +200,7 @@ function toggleCheck(itemEl) {
 }
 
 function updateCheckCount() {
-  const total   = document.querySelectorAll('.check-item').length;
+  const total = document.querySelectorAll('.check-item').length;
   const checked = document.querySelectorAll('.check-item.checked').length;
   document.getElementById('check-count').textContent = checked;
   const btn = document.getElementById('signoff-btn');
@@ -215,16 +216,16 @@ function requestSignoff() {
 function bookPresentation() {
   const date = document.getElementById('pres-date').value;
   if (!date) { alert('Please select a preferred presentation date.'); return; }
-  alert('✅ Booking request submitted for ' + new Date(date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) + '. You will receive confirmation within 3 working days.');
+  alert('✅ Booking request submitted for ' + new Date(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + '. You will receive confirmation within 3 working days.');
 }
 
 // ===== MODULE 6: FINANCE =====
 function toggleClearance() {
   clearanceGranted = !clearanceGranted;
-  const display   = document.getElementById('clearance-display');
+  const display = document.getElementById('clearance-display');
   const statusVal = document.getElementById('erp-status-val');
-  const finRow    = document.getElementById('finance-row');
-  const finBadge  = document.getElementById('finance-row-badge');
+  const finRow = document.getElementById('finance-row');
+  const finBadge = document.getElementById('finance-row-badge');
   const finNavBadge = document.getElementById('finance-badge');
   if (clearanceGranted) {
     display.className = 'clearance-card clearance-granted';
@@ -240,7 +241,7 @@ function toggleClearance() {
       </div>`;
     statusVal.innerHTML = '✅ Granted';
     finRow.style.background = 'var(--green-light)';
-    finBadge.className   = 'badge badge-active';
+    finBadge.className = 'badge badge-active';
     finBadge.textContent = 'Cleared';
     finNavBadge.style.display = 'none';
   } else {
@@ -258,7 +259,7 @@ function toggleClearance() {
       </div>`;
     statusVal.innerHTML = '⏳ Pending';
     finRow.style.background = 'var(--red-light)';
-    finBadge.className   = 'badge badge-deferred';
+    finBadge.className = 'badge badge-deferred';
     finBadge.textContent = 'Pending';
     finNavBadge.style.display = 'inline-flex';
   }

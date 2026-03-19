@@ -60,6 +60,7 @@ UserLoginRouter.post(
           id: User.id,
           userNumber: User.userNumber,
           role: User.role,
+          fullName: User.fullName,
         },
       });
     } catch (error) {

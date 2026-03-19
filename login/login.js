@@ -26,7 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!userNumber || !password) {
             showMessage("Please enter credentials and password.", "error");
-
             submitBtn.disabled = false;
             submitBtn.innerHTML = "Sign In";
             return;
@@ -39,17 +38,49 @@ document.addEventListener("DOMContentLoaded", () => {
                     "Content-Type": "application/json"
                 },
                 credentials: "include",
-                body: JSON.stringify({ userNumber, password }) // ✅ changed
+                body: JSON.stringify({ userNumber, password })
             });
 
             const result = await response.json();
 
+            console.log("Login response:", result);
+
             if (response.ok) {
                 showMessage("Login successful! Redirecting...", "success");
 
-                // setTimeout(() => {
-                //     window.location.href = "/dashboard.html";
-                // }, 1500);
+                // Store user data in localStorage
+                localStorage.setItem("postgraduate_user", JSON.stringify({
+                    id: result.user.id,
+                    fullName: result.fullName || "User",
+                    userNumber: result.user.userNumber,
+                    role: result.user.role,
+                    token: result.token
+                }));
+
+                // Also store token separately for easy access
+                localStorage.setItem("auth_token", result.token);
+
+                // Redirect based on role
+                const role = result.user.role;
+
+                if (role === "student") {
+                    setTimeout(() => {
+                        window.location.href = "../Student_dashboard/index.html";
+                    }, 1500);
+                } else if (role === "supervisor") {
+                    setTimeout(() => {
+                        window.location.href = "../Supervisor_dashboard/index.html";
+                    }, 1500);
+                } else if (role === "director" || role === "admin") {
+                    setTimeout(() => {
+                        window.location.href = "../director_dashboard/index.html";
+                    }, 1500);
+                } else {
+                    // Default fallback
+                    setTimeout(() => {
+                        window.location.href = "../dashboard/index.html";
+                    }, 1500);
+                }
             } else {
                 showMessage(result.message || "Login failed", "error");
             }
