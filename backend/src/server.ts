@@ -6,6 +6,7 @@ import cors from "cors";
 import { UserLoginRouter } from "./auth/login.js";
 import { UserSignUpRouter } from "./auth/admin_signUp_User.js";
 import { DirectorRouter } from "./api/director.js";
+import { SupervisorRouter } from "./api/supervisor.js";
 dotenv.config();
 let app = express();
 // Enable CORS before defining routes so preflight and responses include headers
@@ -27,6 +28,8 @@ app.use("/api/user/login", UserLoginRouter);
 app.use("/api/user/signUp", UserSignUpRouter);
 // director routes
 app.use("/api", DirectorRouter);
+// supervisor routes
+app.use("/api", SupervisorRouter);
 // handling unknown route
 app.use((req: Request, res: Response): void => {
   res.status(500).json({ message: "No route found" });

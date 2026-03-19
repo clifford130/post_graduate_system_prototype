@@ -23,6 +23,30 @@ export interface IUser {
     conceptNote?: string; // status: "pending", "approved", "rejected"
     proposal?: string;
     thesis?: string;
+    nacosti?: string;
+    journalPaper?: string;
+    mentorship?: string;
+  };
+  quarterlyReports?: Array<{
+    id: string;
+    quarter: number;
+    year: number;
+    status: string; // "pending", "approved", "returned"
+    comment?: string;
+    submittedAt?: Date;
+  }>;
+  corrections?: Array<{
+    id: string;
+    text: string;
+    source: string; // "AI", "Presentation"
+    completed: boolean;
+    validation?: string;
+    updatedAt?: Date;
+  }>;
+  assignmentStatus?: {
+    sup1?: string; // "pending", "accepted", "rejected"
+    sup2?: string;
+    sup3?: string;
   };
 }
 
@@ -96,6 +120,30 @@ const UserSchema = new Schema<IUser>({
     conceptNote: { type: String, default: "pending" },
     proposal: { type: String, default: "pending" },
     thesis: { type: String, default: "pending" },
+    nacosti: { type: String, default: "pending" },
+    journalPaper: { type: String, default: "pending" },
+    mentorship: { type: String, default: "pending" },
+  },
+  quarterlyReports: [{
+    id: String,
+    quarter: Number,
+    year: Number,
+    status: { type: String, default: "pending" },
+    comment: String,
+    submittedAt: { type: Date, default: Date.now },
+  }],
+  corrections: [{
+    id: String,
+    text: String,
+    source: String,
+    completed: { type: Boolean, default: false },
+    validation: String,
+    updatedAt: { type: Date, default: Date.now },
+  }],
+  assignmentStatus: {
+    sup1: { type: String, default: "pending" },
+    sup2: { type: String, default: "pending" },
+    sup3: { type: String, default: "pending" },
   },
 });
 
