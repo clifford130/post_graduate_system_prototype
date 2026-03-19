@@ -16,7 +16,7 @@ SupervisorRouter.get("/supervisor/:id/students", async (req: Request, res: Respo
         { "supervisors.sup3": supervisorId }
       ],
       role: "student"
-    });
+    } as any);
     res.json(students);
   } catch (error) {
     res.status(500).json({ message: "Error fetching assigned students", error });
@@ -66,7 +66,7 @@ SupervisorRouter.post("/students/:id/stage/:stageName/approve", async (req: Requ
       "thesis": "documents.thesis"
     };
 
-    const targetField = fieldMapping[stageName];
+    const targetField = (fieldMapping as any)[stageName as string];
     const update: any = {};
     if (targetField) update[targetField] = action === "approved" ? "approved" : "rejected";
 
