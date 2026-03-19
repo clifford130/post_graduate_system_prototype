@@ -69,6 +69,9 @@ body {
     justify-content: space-between;
     align-items: center;
 }
+.nav-actions{
+    margin-left: 850px;
+}
 
 .logo {
     display: flex;
@@ -79,6 +82,14 @@ body {
     color: #111827;
 }
 
+.logo-container{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: 40px;
+  }
+  .logo-img{
+    height: 50px;}
 /* Hero Section */
 .hero {
     background-color: #ffffff;
