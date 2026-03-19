@@ -210,7 +210,7 @@ export function initShell() {
     // { key: "pipeline", label: "Pipeline", href: "./pipeline.html" },
     { key: "students", label: "Students", href: "./students.html" },
     { key: "supervisors", label: "Supervisors", href: "./supervisors.html" },
-    { key: "departments", label: "Departments", href: "./departments.html" },
+    // { key: "departments", label: "Departments", href: "./departments.html" },
     { key: "reports", label: "Quarterly Reports", href: "./reports.html" },
     { key: "thesis", label: "Thesis & Defense", href: "./thesis.html" },
     { key: "graduation", label: "Graduation", href: "./graduation.html" },
