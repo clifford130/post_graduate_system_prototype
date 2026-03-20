@@ -1,4 +1,5 @@
 import express from "express";
+import cookies from "cookie-parser";
 import type { Request, Response } from "express";
 import { ConnectToDataBase } from "./Database/databaseConnect.js";
 import dotenv from "dotenv";
@@ -7,8 +8,12 @@ import { UserLoginRouter } from "./auth/login.js";
 import { UserSignUpRouter } from "./auth/admin_signUp_User.js";
 import { DirectorRouter } from "./api/director.js";
 import { SupervisorRouter } from "./api/supervisor.js";
+import { isLoggedRouter } from "./auth/is_logged.js";
 dotenv.config();
 let app = express();
+
+// allowing cookies
+app.use(cookies());
 // Enable CORS before defining routes so preflight and responses include headers
 app.use(
   cors({
@@ -30,6 +35,8 @@ app.use("/api/user/signUp", UserSignUpRouter);
 app.use("/api", DirectorRouter);
 // supervisor routes
 app.use("/api", SupervisorRouter);
+// checking if user is logged
+app.use("/api", isLoggedRouter);
 // handling unknown route
 app.use((req: Request, res: Response): void => {
   res.status(500).json({ message: "No route found" });

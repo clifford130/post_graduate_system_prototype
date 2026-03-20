@@ -1,5 +1,13 @@
 document.addEventListener("DOMContentLoaded", () => {
-
+  (async () => {
+    let response = await fetch("http://localhost:5000/api/islogged", {
+      method: "POST",
+      credentials: "include"
+    })
+    if (response.status === 401) {
+      window.location.href = "../login/login.html"
+    }
+  })()
   let userName = document.querySelector(".profile-name").innerHTML = JSON.parse(localStorage.getItem("postgraduate_user")).fullName || "Student"
   // ===== STATE =====
   let currentStatus = 'ACTIVE';
@@ -22,11 +30,12 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
 
   // ===== NAVIGATION =====
-  function navigate(target, el) {
+  window.navigate = function(target, el) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById('section-' + target).classList.add('active');
-    el.classList.add('active');
+    const section = document.getElementById('section-' + target);
+    if (section) section.classList.add('active');
+    if (el) el.classList.add('active');
 
     const titles = {
       profile: ['My Profile', 'Student academic particulars & status'],
@@ -36,8 +45,10 @@ document.addEventListener("DOMContentLoaded", () => {
       scheduling: ['Scheduling & Corrections', 'Presentation booking & AI correction checklist'],
       finance: ['ERP Finance', 'Student finance clearance & account status'],
     };
-    document.getElementById('page-title').textContent = titles[target][0];
-    document.getElementById('page-sub').textContent = titles[target][1];
+    const pageTitle = document.getElementById('page-title');
+    const pageSub = document.getElementById('page-sub');
+    if (pageTitle) pageTitle.textContent = titles[target][0];
+    if (pageSub) pageSub.textContent = titles[target][1];
   }
 
   // ===== MODULE 1: STATUS =====
@@ -107,25 +118,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Update badges & meta
     const pct = Math.round(((currentStage - 1) / 10) * 100);
-    document.getElementById('pipeline-progress-fill').style.width = pct + '%';
-    document.getElementById('pipeline-progress-text').innerHTML =
+    const progressFill = document.getElementById('pipeline-progress-fill');
+    const progressText = document.getElementById('pipeline-progress-text');
+    const currentBadge = document.getElementById('pipeline-current-badge');
+    const bossStageNum = document.getElementById('boss-stage-num');
+    const gateBtn = document.getElementById('gate-btn');
+    
+    if (progressFill) progressFill.style.width = pct + '%';
+    if (progressText) progressText.innerHTML =
       `<strong>Stage ${Math.min(currentStage, 10)} of 10</strong> — ${stageData[Math.min(currentStage, 10) - 1].label.replace('\n', ' ')}`;
-    document.getElementById('pipeline-current-badge').textContent =
+    if (currentBadge) currentBadge.textContent =
       currentStage > 10 ? '🎓 Completed' : `Stage ${currentStage} — Active`;
-    document.getElementById('pipeline-badge').textContent = currentStage > 10 ? '✓' : 'S' + currentStage;
 
     const sd = stageData[Math.min(currentStage, 10) - 1];
-    document.getElementById('sd-current').textContent = `Stage ${Math.min(currentStage, 10)}: ${sd.label.replace('\n', ' ')}`;
-    document.getElementById('sd-approver').textContent = sd.approver;
-    document.getElementById('sd-phase').textContent = sd.phase === 1 ? 'Phase 1 — Foundation' : 'Phase 2 — Research & Completion';
-    document.getElementById('sd-next').textContent = sd.next;
+    const sdCurrent = document.getElementById('sd-current');
+    const sdApprover = document.getElementById('sd-approver');
+    const sdPhase = document.getElementById('sd-phase');
+    const sdNext = document.getElementById('sd-next');
+    
+    if (sdCurrent) sdCurrent.textContent = `Stage ${Math.min(currentStage, 10)}: ${sd.label.replace('\n', ' ')}`;
+    if (sdApprover) sdApprover.textContent = sd.approver;
+    if (sdPhase) sdPhase.textContent = sd.phase === 1 ? 'Phase 1 — Foundation' : 'Phase 2 — Research & Completion';
+    if (sdNext) sdNext.textContent = sd.next;
 
-    document.getElementById('boss-stage-num').textContent = currentStage;
+    if (bossStageNum) bossStageNum.textContent = currentStage;
     checkBossLevel();
 
-    const gateBtn = document.getElementById('gate-btn');
-    gateBtn.disabled = (currentStage > 10) || currentStatus === 'DEFERRED';
-    if (currentStage > 10) gateBtn.textContent = '🎓 All Stages Complete';
+    if (gateBtn) {
+      gateBtn.disabled = (currentStage > 10) || currentStatus === 'DEFERRED';
+      if (currentStage > 10) gateBtn.textContent = '🎓 All Stages Complete';
+    }
   }
 
   function advancePipeline() {
@@ -139,20 +161,26 @@ document.addEventListener("DOMContentLoaded", () => {
     const unlocked = document.getElementById('boss-unlocked');
     const icon = document.getElementById('boss-lock-icon');
     const sub = document.getElementById('boss-sub');
+    const nacostiBadge = document.getElementById('nacosti-badge');
+    
     if (currentStage >= 8) {
-      locked.style.display = 'none';
-      unlocked.style.display = 'block';
-      icon.textContent = '🔓';
-      sub.textContent = 'Stage 8 Unlocked — Upload all three required documents to proceed';
-      document.getElementById('nacosti-badge').textContent = '✓';
-      document.getElementById('nacosti-badge').className = 'nav-badge';
+      if (locked) locked.style.display = 'none';
+      if (unlocked) unlocked.style.display = 'block';
+      if (icon) icon.textContent = '🔓';
+      if (sub) sub.textContent = 'Stage 8 Unlocked — Upload all three required documents to proceed';
+      if (nacostiBadge) {
+        nacostiBadge.textContent = '✓';
+        nacostiBadge.className = 'nav-badge';
+      }
     } else {
-      locked.style.display = 'block';
-      unlocked.style.display = 'none';
-      icon.textContent = '🔒';
-      sub.innerHTML = `Unlocks at Pipeline Stage 8 — Currently at Stage <span id="boss-stage-num">${currentStage}</span>`;
-      document.getElementById('nacosti-badge').textContent = 'S8';
-      document.getElementById('nacosti-badge').className = 'nav-badge locked';
+      if (locked) locked.style.display = 'block';
+      if (unlocked) unlocked.style.display = 'none';
+      if (icon) icon.textContent = '🔒';
+      if (sub) sub.innerHTML = `Unlocks at Pipeline Stage 8 — Currently at Stage <span id="boss-stage-num">${currentStage}</span>`;
+      if (nacostiBadge) {
+        nacostiBadge.textContent = 'S8';
+        nacostiBadge.className = 'nav-badge locked';
+      }
     }
   }
 
