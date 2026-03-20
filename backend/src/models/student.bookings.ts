@@ -1,20 +1,20 @@
-
-
-additionalNotes
-: 
-""
-preferredDate
-: 
-"2026-04-02"
-preferredTime
-: 
-"09:00 AM"
-presentationType
-: 
-"Proposal Defence"
-timestamp
-: 
-"2026-03-20T22:31:26.884Z"
-venue
-: 
-"SGS Boardroom"
+import mongoose, { Model } from "mongoose";
+interface Bookings {
+  additionalNotes: string;
+  preferredDate: string;
+  preferredTime: string;
+  presentationType: string;
+  timestamp: Date;
+  venue: string;
+}
+let BookingSchema = new mongoose.Schema<Bookings>({
+  additionalNotes: String,
+  preferredDate: String,
+  preferredTime: String,
+  presentationType: String,
+  timestamp: Date,
+  venue: String,
+});
+export let bookingsModel =
+  (mongoose.models.bookings as Model<Bookings>) ||
+  mongoose.model<Bookings>("bookings", BookingSchema);
