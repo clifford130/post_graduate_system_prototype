@@ -9,17 +9,24 @@ import {
   setPageMeta,
   toast,
 } from "./main.js";
-
-function statCard({ label, value, hint, tone = "slate" }) {
-  const tones = {
-    slate: "border-slate-200",
-    blue: "border-blue-200",
-    green: "border-emerald-200",
-    yellow: "border-amber-200",
-    red: "border-rose-200",
-    purple: "border-violet-200",
-  };
-  return `
+document.addEventListener("DOMContentLoaded", async () => {
+  let response = await fetch("http://localhost:5000/api/islogged", {
+    method: "POST",
+    credentials: "include"
+  })
+  if (response.status === 401) {
+    window.location.href = "../../login/login.html"
+  }
+  function statCard({ label, value, hint, tone = "slate" }) {
+    const tones = {
+      slate: "border-slate-200",
+      blue: "border-blue-200",
+      green: "border-emerald-200",
+      yellow: "border-amber-200",
+      red: "border-rose-200",
+      purple: "border-violet-200",
+    };
+    return `
     <div class="rounded-2xl border ${tones[tone] || tones.slate} bg-white p-5 shadow-soft hover:shadow-lg transition-all animate-in" style="animation-delay: ${Math.random() * 0.2}s">
       <div class="flex items-center justify-between gap-2">
         <div class="text-xs font-bold uppercase tracking-wider text-slate-500">${escapeHtml(label)}</div>
@@ -37,22 +44,22 @@ function statCard({ label, value, hint, tone = "slate" }) {
       </div>
     </div>
   `;
-}
+  }
 
-function drillLink({ q, stage, department, status } = {}) {
-  const url = new URL("./students.html", window.location.href);
-  if (q) url.searchParams.set("q", q);
-  if (stage) url.searchParams.set("stage", stage);
-  if (department) url.searchParams.set("department", department);
-  if (status) url.searchParams.set("status", status);
-  return url.pathname + url.search;
-}
+  function drillLink({ q, stage, department, status } = {}) {
+    const url = new URL("./students.html", window.location.href);
+    if (q) url.searchParams.set("q", q);
+    if (stage) url.searchParams.set("stage", stage);
+    if (department) url.searchParams.set("department", department);
+    if (status) url.searchParams.set("status", status);
+    return url.pathname + url.search;
+  }
 
-function broadcastModal({ suggestedMessage } = {}) {
-  const modal = openModal({
-    title: "Broadcast notifications (Director)",
-    size: "md",
-    bodyHtml: `
+  function broadcastModal({ suggestedMessage } = {}) {
+    const modal = openModal({
+      title: "Broadcast notifications (Director)",
+      size: "md",
+      bodyHtml: `
       <div class="space-y-4">
         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div class="text-sm font-semibold">Send alerts / reminders</div>
@@ -84,8 +91,8 @@ function broadcastModal({ suggestedMessage } = {}) {
         <div>
           <label class="block text-xs font-semibold text-slate-600">Message</label>
           <textarea id="msg" rows="4" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-400" placeholder="Write message…">${escapeHtml(
-            suggestedMessage || ""
-          )}</textarea>
+        suggestedMessage || ""
+      )}</textarea>
           <div class="mt-1 text-xs text-slate-500">Endpoint: <span class="font-mono">POST /api/notifications/send</span></div>
         </div>
 
@@ -96,39 +103,39 @@ function broadcastModal({ suggestedMessage } = {}) {
         </div>
       </div>
     `,
-    footerHtml: `<div class="text-xs text-slate-500">Broadcasts are Director-only and should be audited.</div>`,
-  });
+      footerHtml: `<div class="text-xs text-slate-500">Broadcasts are Director-only and should be audited.</div>`,
+    });
 
-  modal.host.addEventListener("click", async (e) => {
-    const send = e.target?.closest?.("button[data-send='1']");
-    if (send) {
-      try {
-        const audience = modal.qs("#aud")?.value;
-        const type = modal.qs("#type")?.value;
-        const message = modal.qs("#msg")?.value?.trim() || "";
-        if (!message) return toast("Write a message first", { tone: "yellow" });
-        await api.sendNotification({ audience, type, message });
-        toast("Broadcast sent", { tone: "green" });
-        modal.close();
-      } catch (err) {
-        console.error(err);
-        toast(err?.message || "Broadcast failed (API not ready)", { tone: "red" });
+    modal.host.addEventListener("click", async (e) => {
+      const send = e.target?.closest?.("button[data-send='1']");
+      if (send) {
+        try {
+          const audience = modal.qs("#aud")?.value;
+          const type = modal.qs("#type")?.value;
+          const message = modal.qs("#msg")?.value?.trim() || "";
+          if (!message) return toast("Write a message first", { tone: "yellow" });
+          await api.sendNotification({ audience, type, message });
+          toast("Broadcast sent", { tone: "green" });
+          modal.close();
+        } catch (err) {
+          console.error(err);
+          toast(err?.message || "Broadcast failed (API not ready)", { tone: "red" });
+        }
+        return;
       }
-      return;
-    }
-    const pf = e.target?.closest?.("button[data-prefill]");
-    if (!pf) return;
-    const key = pf.dataset.prefill;
-    const msg = modal.qs("#msg");
-    if (!msg) return;
-    if (key === "missingReports") msg.value = "Reminder: Students with missing quarterly reports must submit immediately to avoid stage delays.";
-    if (key === "upcomingDefense") msg.value = "Reminder: Confirm defense preparation, documents, and scheduling timelines.";
-  });
-}
+      const pf = e.target?.closest?.("button[data-prefill]");
+      if (!pf) return;
+      const key = pf.dataset.prefill;
+      const msg = modal.qs("#msg");
+      if (!msg) return;
+      if (key === "missingReports") msg.value = "Reminder: Students with missing quarterly reports must submit immediately to avoid stage delays.";
+      if (key === "upcomingDefense") msg.value = "Reminder: Confirm defense preparation, documents, and scheduling timelines.";
+    });
+  }
 
-function alertRow(a) {
-  const tone = (a && (a.severity || a.tone)) || "slate";
-  return `
+  function alertRow(a) {
+    const tone = (a && (a.severity || a.tone)) || "slate";
+    return `
     <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
       <div class="min-w-0">
         <div class="flex items-center gap-2">
@@ -140,38 +147,38 @@ function alertRow(a) {
       ${a?.href ? `<a href="${a.href}" class="text-sm font-semibold text-blue-700 hover:underline">Open</a>` : ""}
     </div>
   `;
-}
+  }
 
-function normalizeStats(raw) {
-  // Accept multiple possible backend shapes; keep frontend stable.
-  const s = raw?.data || raw?.stats || raw || {};
-  const totals = s.totals || s.overview || s;
-  const counts = {
-    totalStudents: totals.totalStudents ?? totals.total ?? totals.studentsTotal,
-    active: totals.active ?? totals.activeStudents,
-    deferred: totals.deferred ?? totals.deferredStudents,
-    graduated: totals.graduated ?? totals.graduatedStudents,
-    researchPhase: totals.researchPhase ?? totals.studentsInResearchPhase,
-    pendingQuarterlyReports: totals.pendingQuarterlyReports ?? totals.pendingReports,
-    readyForDefense: totals.readyForDefense ?? totals.studentsReadyForDefense,
-  };
+  function normalizeStats(raw) {
+    // Accept multiple possible backend shapes; keep frontend stable.
+    const s = raw?.data || raw?.stats || raw || {};
+    const totals = s.totals || s.overview || s;
+    const counts = {
+      totalStudents: totals.totalStudents ?? totals.total ?? totals.studentsTotal,
+      active: totals.active ?? totals.activeStudents,
+      deferred: totals.deferred ?? totals.deferredStudents,
+      graduated: totals.graduated ?? totals.graduatedStudents,
+      researchPhase: totals.researchPhase ?? totals.studentsInResearchPhase,
+      pendingQuarterlyReports: totals.pendingQuarterlyReports ?? totals.pendingReports,
+      readyForDefense: totals.readyForDefense ?? totals.studentsReadyForDefense,
+    };
 
-  const charts = s.charts || {};
-  const perStage = charts.studentsPerStage || s.studentsPerStage || [];
-  const deptCompare = charts.departmentComparison || s.departmentComparison || [];
+    const charts = s.charts || {};
+    const perStage = charts.studentsPerStage || s.studentsPerStage || [];
+    const deptCompare = charts.departmentComparison || s.departmentComparison || [];
 
-  const alerts = s.alerts || s.criticalAlerts || [];
+    const alerts = s.alerts || s.criticalAlerts || [];
 
-  return { counts, perStage, deptCompare, alerts };
-}
+    return { counts, perStage, deptCompare, alerts };
+  }
 
-function buildDashboardSkeleton() {
-  setPageMeta({
-    title: "Director Dashboard",
-    subtitle: "Full visibility • approvals • compliance • intervention",
-  });
+  function buildDashboardSkeleton() {
+    setPageMeta({
+      title: "Director Dashboard",
+      subtitle: "Full visibility • approvals • compliance • intervention",
+    });
 
-  setPageContent(`
+    setPageContent(`
     <div class="space-y-6">
       <section>
         <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
@@ -188,15 +195,15 @@ function buildDashboardSkeleton() {
 
         <div id="statsGrid" class="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           ${Array.from({ length: 6 })
-            .map(
-              () => `
+        .map(
+          () => `
               <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
                 <div class="h-3 w-28 rounded skeleton"></div>
                 <div class="mt-3 h-7 w-20 rounded skeleton"></div>
               </div>
             `
-            )
-            .join("")}
+        )
+        .join("")}
         </div>
       </section>
 
@@ -281,81 +288,81 @@ function buildDashboardSkeleton() {
         </div>
         <div id="alertsList" class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
           ${Array.from({ length: 4 })
-            .map(
-              () => `
+        .map(
+          () => `
               <div class="rounded-xl border border-slate-200 bg-white p-4">
                 <div class="h-4 w-24 rounded skeleton"></div>
                 <div class="mt-2 h-3 w-64 max-w-full rounded skeleton"></div>
               </div>
             `
-            )
-            .join("")}
+        )
+        .join("")}
         </div>
       </section>
     </div>
   `);
-}
+  }
 
-function safeArray(v) {
-  return Array.isArray(v) ? v : [];
-}
+  function safeArray(v) {
+    return Array.isArray(v) ? v : [];
+  }
 
-async function load() {
-  buildDashboardSkeleton();
+  async function load() {
+    buildDashboardSkeleton();
 
-  try {
-    const raw = await api.getDashboardStats();
-    const { counts, perStage, deptCompare, alerts } = normalizeStats(raw);
+    try {
+      const raw = await api.getDashboardStats();
+      const { counts, perStage, deptCompare, alerts } = normalizeStats(raw);
 
-    const statsGrid = document.getElementById("statsGrid");
-    if (statsGrid) {
-      statsGrid.innerHTML = [
-        `<a href="./students.html" class="block">${statCard({ label: "Total Students (MSc + PhD)", value: counts.totalStudents, tone: "blue", hint: "Drill down" })}</a>`,
-        `<a href="${drillLink({ status: "Active" })}" class="block">${statCard({
-          label: "Active / Deferred / Graduated",
-          value: `${counts.active ?? "—"} / ${counts.deferred ?? "—"} / ${counts.graduated ?? "—"}`,
-          hint: "Click to filter",
-        })}</a>`,
-        `<a href="${drillLink({ stage: "Thesis Development" })}" class="block">${statCard({
-          label: "Students in Research Phase",
-          value: counts.researchPhase,
-          tone: "green",
-          hint: "Open students",
-        })}</a>`,
-        `<a href="./reports.html" class="block">${statCard({
-          label: "Pending Quarterly Reports",
-          value: counts.pendingQuarterlyReports,
-          tone: "yellow",
-          hint: "Open reports",
-        })}</a>`,
-        `<a href="${drillLink({ stage: "Defense" })}" class="block">${statCard({
-          label: "Ready for Defense",
-          value: counts.readyForDefense,
-          tone: "purple",
-          hint: "Open students",
-        })}</a>`,
-        statCard({
-          label: "Critical Alerts",
-          value: safeArray(alerts).length,
-          hint: safeArray(alerts).length ? "Review now" : "All clear",
-          tone: safeArray(alerts).length ? "red" : "green",
-        }),
-      ].join("");
-    }
+      const statsGrid = document.getElementById("statsGrid");
+      if (statsGrid) {
+        statsGrid.innerHTML = [
+          `<a href="./students.html" class="block">${statCard({ label: "Total Students (MSc + PhD)", value: counts.totalStudents, tone: "blue", hint: "Drill down" })}</a>`,
+          `<a href="${drillLink({ status: "Active" })}" class="block">${statCard({
+            label: "Active / Deferred / Graduated",
+            value: `${counts.active ?? "—"} / ${counts.deferred ?? "—"} / ${counts.graduated ?? "—"}`,
+            hint: "Click to filter",
+          })}</a>`,
+          `<a href="${drillLink({ stage: "Thesis Development" })}" class="block">${statCard({
+            label: "Students in Research Phase",
+            value: counts.researchPhase,
+            tone: "green",
+            hint: "Open students",
+          })}</a>`,
+          `<a href="./reports.html" class="block">${statCard({
+            label: "Pending Quarterly Reports",
+            value: counts.pendingQuarterlyReports,
+            tone: "yellow",
+            hint: "Open reports",
+          })}</a>`,
+          `<a href="${drillLink({ stage: "Defense" })}" class="block">${statCard({
+            label: "Ready for Defense",
+            value: counts.readyForDefense,
+            tone: "purple",
+            hint: "Open students",
+          })}</a>`,
+          statCard({
+            label: "Critical Alerts",
+            value: safeArray(alerts).length,
+            hint: safeArray(alerts).length ? "Review now" : "All clear",
+            tone: safeArray(alerts).length ? "red" : "green",
+          }),
+        ].join("");
+      }
 
-    const stageLabels = safeArray(perStage).map((x) => x.stage ?? x.name ?? "Stage");
-    const stageValues = safeArray(perStage).map((x) => x.count ?? x.value ?? 0);
-    chartBars(document.getElementById("chartStage"), { labels: stageLabels, values: stageValues, color: "#2563eb" });
+      const stageLabels = safeArray(perStage).map((x) => x.stage ?? x.name ?? "Stage");
+      const stageValues = safeArray(perStage).map((x) => x.count ?? x.value ?? 0);
+      chartBars(document.getElementById("chartStage"), { labels: stageLabels, values: stageValues, color: "#2563eb" });
 
-    const deptLabels = safeArray(deptCompare).map((x) => x.department ?? x.name ?? "Dept");
-    const deptValues = safeArray(deptCompare).map((x) => x.count ?? x.value ?? 0);
-    chartBars(document.getElementById("chartDept"), { labels: deptLabels, values: deptValues, color: "#7c3aed" });
+      const deptLabels = safeArray(deptCompare).map((x) => x.department ?? x.name ?? "Dept");
+      const deptValues = safeArray(deptCompare).map((x) => x.count ?? x.value ?? 0);
+      chartBars(document.getElementById("chartDept"), { labels: deptLabels, values: deptValues, color: "#7c3aed" });
 
-    const alertsList = document.getElementById("alertsList");
-    if (alertsList) {
-      const arr = safeArray(alerts);
-      alertsList.innerHTML = arr.length
-        ? arr
+      const alertsList = document.getElementById("alertsList");
+      if (alertsList) {
+        const arr = safeArray(alerts);
+        alertsList.innerHTML = arr.length
+          ? arr
             .map((a) =>
               alertRow({
                 ...a,
@@ -365,32 +372,34 @@ async function load() {
               })
             )
             .join("")
-        : mountEmptyState({
+          : mountEmptyState({
             title: "No critical alerts",
             message: "No missing reports, NACOSTI, or fees issues were returned by the API.",
             actionsHtml: `<a href="./pipeline.html" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Review pipeline</a>`,
           });
-    }
+      }
 
-    document.getElementById("broadcastBtn")?.addEventListener("click", () =>
-      broadcastModal({ suggestedMessage: "Reminder: outstanding approvals and compliance items must be addressed this week." })
-    );
-  } catch (e) {
-    console.error(e);
-    toast(e?.message || "Failed to load dashboard stats", { tone: "red" });
-    setPageContent(
-      mountEmptyState({
-        title: "Dashboard data unavailable",
-        message:
-          "The dashboard is wired to the API but the backend response was not available. Start the backend at http://localhost:5000 and ensure /api/dashboard/stats is implemented.",
-        actionsHtml: `
+      document.getElementById("broadcastBtn")?.addEventListener("click", () =>
+        broadcastModal({ suggestedMessage: "Reminder: outstanding approvals and compliance items must be addressed this week." })
+      );
+    } catch (e) {
+      console.error(e);
+      toast(e?.message || "Failed to load dashboard stats", { tone: "red" });
+      setPageContent(
+        mountEmptyState({
+          title: "Dashboard data unavailable",
+          message:
+            "The dashboard is wired to the API but the backend response was not available. Start the backend at http://localhost:5000 and ensure /api/dashboard/stats is implemented.",
+          actionsHtml: `
           <a href="./pipeline.html" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Open pipeline</a>
           <a href="./students.html" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">Open students</a>
         `,
-      })
-    );
+        })
+      );
+    }
   }
-}
 
-load();
+  load();
 
+
+})
