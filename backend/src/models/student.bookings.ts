@@ -1,6 +1,6 @@
 import mongoose, { Model } from "mongoose";
 interface Bookings {
-  additionalNotes: string;
+  additionalNotes?: string;
   preferredDate: string;
   preferredTime: string;
   presentationType: string;
@@ -8,7 +8,11 @@ interface Bookings {
   venue: string;
 }
 let BookingSchema = new mongoose.Schema<Bookings>({
-  additionalNotes: String,
+  additionalNotes: {
+    type: String,
+    required: false,
+    default: "",
+  },
   preferredDate: String,
   preferredTime: String,
   presentationType: String,
@@ -18,4 +22,3 @@ let BookingSchema = new mongoose.Schema<Bookings>({
 export let bookingsModel =
   (mongoose.models.bookings as Model<Bookings>) ||
   mongoose.model<Bookings>("bookings", BookingSchema);
-
