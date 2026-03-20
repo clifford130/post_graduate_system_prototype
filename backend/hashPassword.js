@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt"
 async function hashPassword() {
-    const password = 'staff123';
+    const password = 'student123';
     const saltRounds = 10;
 
     try {

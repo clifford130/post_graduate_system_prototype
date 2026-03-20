@@ -52,23 +52,21 @@ isLoggedRouter.post("/islogged", async (req: Request, res: Response) => {
           });
         }
         // Return user data
-        return res.json({
-          isLoggedIn: true,
-          user: {
-            id: user._id,
-            fullName: user.fullName,
-            userNumber: user.userNumber,
-            role: user.role,
-            department: user.department,
-            programme: user.programme,
-            status: user.status,
-            stage: user.stage,
-            atRisk: user.atRisk,
-            financialClearance: user.financialClearance,
-            supervisors: user.supervisors,
-            documents: user.documents,
-          },
-        });
+        if (user.role === "student") {
+          return res.json({
+            isLoggedIn: true,
+            user: {
+              id: user._id,
+              fullName: user.fullName,
+              programme: user.programme,
+              department: user.department,
+              userNumber: user.userNumber,
+              role: user.role,
+              supervisors: user.supervisors,
+              token: token,
+            },
+          });
+        }
       } catch (dbError) {
         console.error("Database error:", dbError);
         return res.status(500).json({
