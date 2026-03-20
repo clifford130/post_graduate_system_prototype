@@ -38,6 +38,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Check if user is logged in with server
     try {
+      // check is users data is placed in local storage
+      let usersData = JSON.parse(localStorage.getItem("postgraduate_user"))
       const result = await fetch("http://localhost:5000/api/islogged", {
         method: "POST",
         credentials: "include",
@@ -48,7 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       // Handle response based on status
-      if (result.status === 401 || !result.ok) {
+      if (result.status === 401 || !result.ok || usersData === null) {
         console.log("User not authenticated, redirecting to login");
         clearUserData();
         window.location.href = "../login/login.html";
