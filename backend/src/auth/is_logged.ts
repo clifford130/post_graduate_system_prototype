@@ -4,7 +4,7 @@ import { UserModel } from "../models/user.model.js";
 
 export let isLoggedRouter = Router();
 
-isLoggedRouter.post("/islogged", async (req: Request, res: Response) => {
+export async function handleIsLogged(req: Request, res: Response) {
   try {
     // Get token from cookie
     const token = req.cookies?.userToken;
@@ -82,4 +82,5 @@ isLoggedRouter.post("/islogged", async (req: Request, res: Response) => {
       message: "Server error",
     });
   }
-});
+}
+isLoggedRouter.post("/islogged", handleIsLogged);

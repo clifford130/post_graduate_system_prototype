@@ -145,8 +145,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async submitBooking(bookingData, userData) {
-      console.log(bookingData,userData);
-      
+      console.log(bookingData, userData);
+
       // Prepare request payload
       const payload = {
         presentationType: bookingData.presentationType,
@@ -165,8 +165,6 @@ document.addEventListener("DOMContentLoaded", () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userData.token}`,
-          'X-Request-ID': this.generateRequestId()
         },
         credentials: 'include',
         body: JSON.stringify(payload)

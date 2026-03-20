@@ -18,3 +18,4 @@ let BookingSchema = new mongoose.Schema<Bookings>({
 export let bookingsModel =
   (mongoose.models.bookings as Model<Bookings>) ||
   mongoose.model<Bookings>("bookings", BookingSchema);
+
