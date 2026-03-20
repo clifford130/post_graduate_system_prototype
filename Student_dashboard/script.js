@@ -1,4 +1,377 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // ===== PRESENTATION BOOKING HANDLER =====
+  class PresentationBookingHandler {
+    constructor() {
+      this.apiBaseUrl = 'http://localhost:5000/api';
+      this.initializeEventListeners();
+    }
+
+    initializeEventListeners() {
+      // Find the booking button in the scheduling section
+      const bookingButton = document.querySelector('#section-scheduling .btn-primary');
+      if (bookingButton) {
+        // Remove existing onclick to avoid duplicates
+        const newButton = bookingButton.cloneNode(true);
+        bookingButton.parentNode.replaceChild(newButton, bookingButton);
+        newButton.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.handleBooking();
+        });
+      }
+    }
+
+    async handleBooking() {
+      try {
+        // Get form data from the scheduling section
+        const bookingData = this.collectBookingData();
+
+        // Validate form data
+        const validation = this.validateBookingData(bookingData);
+        if (!validation.isValid) {
+          this.showNotification(validation.message, 'error');
+          return;
+        }
+
+        // Get user data from localStorage
+        const userData = this.getUserData();
+        if (!userData) {
+          this.showNotification('Please login to book a presentation', 'error');
+          window.location.href = '../login/login.html';
+          return;
+        }
+
+        // Show loading state
+        this.showLoadingState(true);
+
+        // Submit booking to server
+        const response = await this.submitBooking(bookingData, userData);
+
+        // Handle response
+        if (response.success) {
+          this.showNotification('Presentation request submitted successfully! You will receive a confirmation email within 3 working days.', 'success');
+          this.resetForm();
+          this.trackBookingAnalytics(bookingData);
+        } else {
+          this.showNotification(response.message || 'Failed to submit booking request', 'error');
+        }
+
+      } catch (error) {
+        console.error('Booking error:', error);
+        this.showNotification(error.message || 'Network error. Please check your connection and try again.', 'error');
+      } finally {
+        this.showLoadingState(false);
+      }
+    }
+
+    collectBookingData() {
+      // Get form elements from the scheduling section
+      const section = document.getElementById('section-scheduling');
+
+      const presentationType = section.querySelector('.form-group:first-child select')?.value || '';
+      const preferredDate = section.querySelector('#pres-date')?.value || '';
+      const preferredTime = section.querySelector('.form-group:nth-child(3) select')?.value || '';
+      const venue = section.querySelector('.form-group:nth-child(4) select')?.value || '';
+      const additionalNotes = section.querySelector('.form-group:last-child textarea')?.value || '';
+
+      return {
+        presentationType,
+        preferredDate,
+        preferredTime,
+        venue,
+        additionalNotes,
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    validateBookingData(data) {
+      if (!data.presentationType) {
+        return { isValid: false, message: 'Please select a presentation type' };
+      }
+
+      if (!data.preferredDate) {
+        return { isValid: false, message: 'Please select a preferred date' };
+      }
+
+      // Validate date is not in the past
+      const selectedDate = new Date(data.preferredDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (selectedDate < today) {
+        return { isValid: false, message: 'Please select a future date' };
+      }
+
+      // Check if date is within allowed range (next 90 days)
+      const maxDate = new Date();
+      maxDate.setDate(maxDate.getDate() + 90);
+      if (selectedDate > maxDate) {
+        return { isValid: false, message: 'Please select a date within the next 90 days' };
+      }
+
+      if (!data.preferredTime) {
+        return { isValid: false, message: 'Please select a preferred time' };
+      }
+
+      if (!data.venue) {
+        return { isValid: false, message: 'Please select a venue' };
+      }
+
+      // Additional notes length check
+      if (data.additionalNotes && data.additionalNotes.length > 500) {
+        return { isValid: false, message: 'Additional notes cannot exceed 500 characters' };
+      }
+
+      return { isValid: true, message: '' };
+    }
+
+    getUserData() {
+      try {
+        const rawData = localStorage.getItem('postgraduate_user');
+        if (!rawData) return null;
+
+        const userData = JSON.parse(rawData);
+        return {
+          id: userData.id || userData._id,
+          fullName: userData.fullName || userData.name,
+          email: userData.email,
+          role: userData.role,
+          token: userData.token,
+          userNumber: userData.userNumber || userData.studentId
+        };
+      } catch (error) {
+        console.error('Error getting user data:', error);
+        return null;
+      }
+    }
+
+    async submitBooking(bookingData, userData) {
+      console.log(bookingData,userData);
+      
+      // Prepare request payload
+      const payload = {
+        presentationType: bookingData.presentationType,
+        preferredDate: bookingData.preferredDate,
+        preferredTime: bookingData.preferredTime,
+        venue: bookingData.venue,
+        additionalNotes: bookingData.additionalNotes,
+        studentId: userData.id,
+        studentName: userData.fullName,
+        studentEmail: userData.email,
+        studentNumber: userData.userNumber
+      };
+
+      // Make API request
+      const response = await fetch(`${this.apiBaseUrl}/presentations/request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userData.token}`,
+          'X-Request-ID': this.generateRequestId()
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || `HTTP ${response.status}`);
+      }
+
+      return result;
+    }
+
+    showNotification(message, type = 'info') {
+      // Create notification element if it doesn't exist
+      let notification = document.getElementById('booking-notification');
+      if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'booking-notification';
+        notification.className = 'booking-notification';
+        document.body.appendChild(notification);
+
+        // Add styles for notification
+        const style = document.createElement('style');
+        style.textContent = `
+          .booking-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          }
+          
+          .booking-notification.success {
+            background: #10b981;
+            color: white;
+            border-left: 4px solid #059669;
+          }
+          
+          .booking-notification.error {
+            background: #ef4444;
+            color: white;
+            border-left: 4px solid #dc2626;
+          }
+          
+          .booking-notification.info {
+            background: #3b82f6;
+            color: white;
+            border-left: 4px solid #2563eb;
+          }
+          
+          .booking-notification.warning {
+            background: #f59e0b;
+            color: white;
+            border-left: 4px solid #d97706;
+          }
+          
+          @keyframes slideIn {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+          
+          @keyframes slideOut {
+            from {
+              transform: translateX(0);
+              opacity: 1;
+            }
+            to {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
+      // Set notification content and style
+      notification.textContent = message;
+      notification.className = `booking-notification ${type}`;
+      notification.style.display = 'block';
+
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+          notification.style.display = 'none';
+          notification.style.animation = '';
+        }, 300);
+      }, 5000);
+    }
+
+    showLoadingState(isLoading) {
+      const button = document.querySelector('#section-scheduling .btn-primary');
+      if (!button) return;
+
+      if (isLoading) {
+        // Save original text
+        button.setAttribute('data-original-text', button.textContent);
+        button.textContent = '⏳ Submitting...';
+        button.disabled = true;
+        button.style.opacity = '0.7';
+      } else {
+        // Restore original text
+        const originalText = button.getAttribute('data-original-text') || '📅 Request Booking';
+        button.textContent = originalText;
+        button.disabled = false;
+        button.style.opacity = '1';
+      }
+    }
+
+    resetForm() {
+      const section = document.getElementById('section-scheduling');
+
+      // Reset select fields
+      const selects = section.querySelectorAll('select');
+      selects.forEach(select => {
+        if (select.options.length > 0) {
+          select.selectedIndex = 0;
+        }
+      });
+
+      // Reset date input
+      const dateInput = section.querySelector('#pres-date');
+      if (dateInput) {
+        dateInput.value = '';
+        // Set min date to tomorrow
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        dateInput.min = tomorrow.toISOString().split('T')[0];
+      }
+
+      // Reset textarea
+      const textarea = section.querySelector('textarea');
+      if (textarea) {
+        textarea.value = '';
+      }
+    }
+
+    generateRequestId() {
+      return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    async trackBookingAnalytics(bookingData) {
+      try {
+        // Optional: Send analytics to server
+        const analytics = {
+          event: 'presentation_booking',
+          data: {
+            type: bookingData.presentationType,
+            venue: bookingData.venue,
+            timestamp: new Date().toISOString(),
+            userId: this.getUserData()?.id
+          }
+        };
+
+        // Send to analytics endpoint if available
+        await fetch(`${this.apiBaseUrl}/analytics/track`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(analytics),
+          keepalive: true
+        }).catch(() => { }); // Silent fail for analytics
+      } catch (error) {
+        // Don't block booking for analytics errors
+        console.debug('Analytics error:', error);
+      }
+    }
+
+    checkExistingBookings() {
+      // Optional: Check if student already has pending bookings
+      const userData = this.getUserData();
+      if (!userData) return;
+
+      fetch(`${this.apiBaseUrl}/presentations/my-presentations`, {
+        headers: { 'Authorization': `Bearer ${userData.token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.data && data.data.upcoming && data.data.upcoming.length > 0) {
+            const pending = data.data.upcoming.filter(p => p.status === 'pending');
+            if (pending.length > 0) {
+              this.showNotification(
+                `You have ${pending.length} pending booking request(s). Please wait for them to be processed before booking new ones.`,
+                'warning'
+              );
+            }
+          }
+        })
+        .catch(() => { });
+    }
+  }
+
+  // ===== MAIN APPLICATION CODE =====
   (async () => {
     // Helper function to handle user data storage
     const updateUserStorage = (userData) => {
@@ -38,8 +411,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Check if user is logged in with server
     try {
-      // check is users data is placed in local storage
-      let usersData = JSON.parse(localStorage.getItem("postgraduate_user"))
       const result = await fetch("http://localhost:5000/api/islogged", {
         method: "POST",
         credentials: "include",
@@ -159,21 +530,6 @@ document.addEventListener("DOMContentLoaded", () => {
       profileNameElement.innerHTML = "Student";
     }
 
-    // Helper function to check if user has permission for certain actions
-    const hasPermission = (requiredRole) => {
-      if (!currentUserData) return false;
-      const roleHierarchy = {
-        'student': 1,
-        'supervisor': 2,
-        'chair': 3,
-        'admin': 4,
-        'dean': 5
-      };
-      const userRoleLevel = roleHierarchy[currentUserData.role] || 0;
-      const requiredLevel = roleHierarchy[requiredRole] || 0;
-      return userRoleLevel >= requiredLevel;
-    };
-
     // ===== STATE =====
     let currentStatus = 'ACTIVE';
     const statuses = ['ACTIVE', 'DEFERRED', 'RESUMED', 'GRADUATED'];
@@ -257,12 +613,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function requestDeferral() {
       currentStatus = currentStatus === 'DEFERRED' ? 'RESUMED' : 'DEFERRED';
-      updateStatusUI();
-    }
-
-    function cycleStatus() {
-      const idx = statuses.indexOf(currentStatus);
-      currentStatus = statuses[(idx + 1) % statuses.length];
       updateStatusUI();
     }
 
@@ -426,16 +776,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    function bookPresentation() {
-      const dateInput = document.getElementById('pres-date');
-      const date = dateInput ? dateInput.value : null;
-      if (!date) {
-        alert('Please select a preferred presentation date.');
-        return;
-      }
-      alert('✅ Booking request submitted for ' + new Date(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + '. You will receive confirmation within 3 working days.');
-    }
-
     // ===== MODULE 6: FINANCE =====
     function toggleClearance() {
       clearanceGranted = !clearanceGranted;
@@ -493,16 +833,22 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPipeline();
     updateStatusUI();
 
+    // Initialize Presentation Booking Handler
+    const bookingHandler = new PresentationBookingHandler();
+
+    // Check existing bookings after user data is loaded
+    setTimeout(() => {
+      bookingHandler.checkExistingBookings();
+    }, 2000);
+
     // Export functions to global scope for HTML onclick handlers
     window.requestDeferral = requestDeferral;
-    window.cycleStatus = cycleStatus;
     window.advancePipeline = advancePipeline;
     window.submitReport = submitReport;
     window.toggleUpload = toggleUpload;
     window.toggleCheck = toggleCheck;
     window.requestSignoff = requestSignoff;
-    window.bookPresentation = bookPresentation;
     window.toggleClearance = toggleClearance;
-
+    // Note: bookPresentation is replaced by the handler class, so we don't export it
   })();
 });
