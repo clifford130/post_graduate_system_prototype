@@ -23,13 +23,6 @@ studentBookings.post(
       presentationType,
       venue,
     } = req.body;
-    console.log(
-      additionalNotes,
-      preferredDate,
-      preferredTime,
-      presentationType,
-      venue,
-    );
     if (!preferredDate || !preferredTime || !presentationType || !venue) {
       //   res.status(400).json({ message: "Invalid inputs" });
 

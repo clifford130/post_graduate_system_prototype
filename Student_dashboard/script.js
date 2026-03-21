@@ -73,7 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const preferredDate = section.querySelector('#pres-date')?.value || '';
       const preferredTime = section.querySelector('.form-group:nth-child(3) select')?.value || '';
       const venue = section.querySelector('.form-group:nth-child(4) select')?.value || '';
-      const additionalNotes = section.querySelector('.form-group:last-child textarea')?.value || '';
+      const additionalNotes = section.querySelector('.form-group:last-of-type textarea')?.value || '';
 
       return {
         presentationType,
@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async submitBooking(bookingData, userData) {
-      console.log(bookingData, userData);
+      console.log("-->", bookingData, userData);
       // Prepare request payload
       const payload = {
         presentationType: bookingData.presentationType,
