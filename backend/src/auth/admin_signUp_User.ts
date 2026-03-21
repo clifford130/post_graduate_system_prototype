@@ -12,10 +12,10 @@ UserSignUpRouter.post(
         res.status(400).json({ message: "body is empty" });
         return;
       }
-      const { fullName, userNumber, password, programme, role } = req.body;
+      const { fullName, userNumber, password, programme, role, department } = req.body;
 
       // 1. Validate required fields
-      if (!fullName || !userNumber || !password || !programme) {
+      if (!fullName || !userNumber || !password || !programme || !department) {
         res.status(400).json({ message: "All fields are required" });
         return;
       }
@@ -37,6 +37,7 @@ UserSignUpRouter.post(
         userNumber,
         password: hashedPassword,
         programme,
+        department,
         role: role || "student",
         isVerified: false,
       });

@@ -80,6 +80,56 @@ DirectorRouter.post(
   },
 );
 
+// 4.1 POST /students/:id/status
+DirectorRouter.post(
+  "/students/:id/status",
+  async (req: Request, res: Response) => {
+    try {
+      const { status, reason, effectiveDate } = req.body;
+      const update: any = { status };
+      const student = await UserModel.findByIdAndUpdate(req.params.id, update, {
+        new: true,
+      });
+      res.json({ message: "Status updated", student });
+    } catch (error) {
+      res.status(500).json({ message: "Error updating status", error });
+    }
+  },
+);
+
+// Update student documents (e.g., NACOSTI)
+DirectorRouter.post(
+  "/students/:id/documents",
+  async (req: Request, res: Response) => {
+    try {
+      const { type, status } = req.body;
+      const student = await UserModel.findById(req.params.id);
+      if (!student) return res.status(404).json({ message: "Not found" });
+
+      if (type === "nacosti") {
+        if (!student.documents) {
+          student.documents = {
+            conceptNote: "pending",
+            proposal: "pending",
+            thesis: "pending",
+            nacosti: "pending",
+            journalPaper: "pending",
+            mentorship: "pending",
+          };
+        }
+        student.documents.nacosti = status;
+        student.markModified("documents");
+      }
+
+      await student.save();
+      res.json({ success: true, student });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: "Error updating documents" });
+    }
+  },
+);
+
 // 5. POST /students/:id/supervisors
 DirectorRouter.post(
   "/students/:id/supervisors",

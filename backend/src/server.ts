@@ -10,6 +10,7 @@ import { DirectorRouter } from "./api/director.js";
 import { SupervisorRouter } from "./api/supervisor.js";
 import { isLoggedRouter } from "./auth/is_logged.js";
 import { studentBookings } from "./api/student.bookings.js";
+import { SeminarSlotRouter } from "./api/seminar.slots.js";
 dotenv.config();
 let app = express();
 
@@ -40,6 +41,8 @@ app.use("/api", SupervisorRouter);
 app.use("/api", isLoggedRouter);
 // handling student bookings
 app.use("/api", studentBookings);
+// handling seminar slots
+app.use("/api/slots", SeminarSlotRouter);
 // handling unknown route
 app.use((req: Request, res: Response): void => {
   res.status(500).json({ message: "No route found" });

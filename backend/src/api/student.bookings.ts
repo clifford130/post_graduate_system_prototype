@@ -250,6 +250,19 @@ studentBookings.put(
   },
 );
 
+// GET all bookings for admin
+studentBookings.get(
+  "/presentations/admin/all",
+  async (req: Request, res: Response) => {
+    try {
+      const bookings = await bookingsModel.find().sort({ createdAt: -1 });
+      res.status(200).json({ success: true, bookings });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  },
+);
+
 // Optional: Admin route to cancel any booking
 // @route   PUT /api/presentations/admin/:bookingId/cancel
 // @desc    Admin can cancel any booking (for administrative purposes)
