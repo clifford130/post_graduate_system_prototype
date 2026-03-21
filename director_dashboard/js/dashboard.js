@@ -10,13 +10,7 @@ import {
   toast,
 } from "./main.js";
 document.addEventListener("DOMContentLoaded", async () => {
-  let response = await fetch("http://localhost:5000/api/islogged", {
-    method: "POST",
-    credentials: "include"
-  })
-  if (response.status === 401) {
-    window.location.href = "../../login/login.html"
-  }
+  
   function statCard({ label, value, hint, tone = "slate" }) {
     const tones = {
       slate: "border-slate-200",

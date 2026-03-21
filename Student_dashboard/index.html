@@ -20,31 +20,37 @@
     </div>
   </div>
 
-  <nav class="sidebar-nav">
-    <div class="nav-section-label">Dashboard</div>
-    <button class="nav-item active" onclick="navigate('profile', this)">
-      <span class="nav-icon">👤</span> My Profile
-    </button>
-    <button class="nav-item" onclick="navigate('pipeline', this)">
-      <span class="nav-icon">🔬</span> Research Progess
-    </button>
+ <nav class="sidebar-nav">
+  <div class="nav-section-label">Dashboard</div>
+  <button class="nav-item active" onclick="navigate('profile', this)">
+    <span class="nav-icon">👤</span> My Profile
+  </button>
+  <button class="nav-item" onclick="navigate('pipeline', this)">
+    <span class="nav-icon">🔬</span> Research Progess
+  </button>
 
-    <div class="nav-section-label" style="margin-top:8px;">Academic</div>
-    <button class="nav-item" onclick="navigate('reports', this)">
-      <span class="nav-icon">📋</span> Quarterly Reports
-    </button>
-    <button class="nav-item" onclick="navigate('compliance', this)">
-      <span class="nav-icon">🛡️</span> Compliance Center
-    </button>
-    <button class="nav-item" onclick="navigate('scheduling', this)">
-      <span class="nav-icon">📅</span> Scheduling
-    </button>
+  <div class="nav-section-label" style="margin-top:8px;">Academic</div>
+  <button class="nav-item" onclick="navigate('reports', this)">
+    <span class="nav-icon">📋</span> Quarterly Reports
+  </button>
+  <button class="nav-item" onclick="navigate('compliance', this)">
+    <span class="nav-icon">🛡️</span> Compliance Center
+  </button>
+  <button class="nav-item" onclick="navigate('scheduling', this)">
+    <span class="nav-icon">📅</span> Scheduling
+  </button>
 
-    <div class="nav-section-label" style="margin-top:8px;">Administration</div>
-    <button class="nav-item" onclick="navigate('finance', this)">
-      <span class="nav-icon">🏛️</span> ERP Finance
-    </button>
-  </nav>
+  <div class="nav-section-label" style="margin-top:8px;">Administration</div>
+  <button class="nav-item" onclick="navigate('finance', this)">
+    <span class="nav-icon">🏛️</span> ERP Finance
+  </button>
+
+  <!-- ADD LOGOUT BUTTON HERE -->
+  <div class="nav-section-label" style="margin-top:8px;">Account</div>
+  <button class="nav-item" id="logout-btn-sidebar" onclick="logoutUser()">
+    <span class="nav-icon">🚪</span> Logout
+  </button>
+</nav>
 
   <div class="sidebar-footer">
     <div class="sidebar-user">
@@ -56,6 +62,7 @@
     </div>
   </div>
 </aside>
+
 
 <main class="main">
 

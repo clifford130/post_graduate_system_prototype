@@ -11,7 +11,15 @@ export const STAGES = [
   "Defense",
   "Graduation",
 ];
-
+document.addEventListener("DOMContentLoaded", async () => {
+  let response = await fetch("http://localhost:5000/api/islogged", {
+    method: "POST",
+    credentials: "include"
+  })
+  if (response.status === 401) {
+    window.location.href = "../../login/login.html"
+  }
+})
 export const DEPARTMENTS = ["CJM", "IHRS"];
 export const PROGRAMMES = ["MSc", "PhD"];
 export const STATUSES = ["Active", "Deferred", "Resumed", "Graduated"];
@@ -113,11 +121,10 @@ export function openModal({ title, bodyHtml, footerHtml, size = "md" } = {}) {
           <div class="p-5 max-h-[70vh] overflow-auto app-scroll">
             ${bodyHtml || ""}
           </div>
-          ${
-            footerHtml
-              ? `<div class="px-5 py-4 border-t border-slate-200 bg-slate-50">${footerHtml}</div>`
-              : ""
-          }
+          ${footerHtml
+      ? `<div class="px-5 py-4 border-t border-slate-200 bg-slate-50">${footerHtml}</div>`
+      : ""
+    }
         </div>
       </div>
     </div>
@@ -241,20 +248,19 @@ export async function initShell() {
         </div>
         <nav class="px-0 pb-5 space-y-0.5 overflow-auto app-scroll">
           ${nav
-            .map((n) => {
-              const active = n.key === navKey;
-              return `
-                <a href="${n.href}" class="${
-                  active
-                    ? "bg-[#334155] text-white border-l-4 border-blue-600"
-                    : "text-slate-300 hover:bg-[#334155] hover:text-white border-l-4 border-transparent"
-                } flex items-center gap-3 px-6 py-3 text-sm font-medium transition-all">
+      .map((n) => {
+        const active = n.key === navKey;
+        return `
+                <a href="${n.href}" class="${active
+            ? "bg-[#334155] text-white border-l-4 border-blue-600"
+            : "text-slate-300 hover:bg-[#334155] hover:text-white border-l-4 border-transparent"
+          } flex items-center gap-3 px-6 py-3 text-sm font-medium transition-all">
                   <span class="h-1.5 w-1.5 rounded-full ${active ? "bg-blue-400" : "bg-slate-500"}"></span>
                   <span>${escapeHtml(n.label)}</span>
                 </a>
               `;
-            })
-            .join("")}
+      })
+      .join("")}
         </nav>
       </aside>
 
@@ -309,20 +315,19 @@ export async function initShell() {
         </div>
         <nav class="px-0 pb-5 space-y-0.5 overflow-auto app-scroll mt-4">
           ${nav
-            .map((n) => {
-              const active = n.key === navKey;
-              return `
-                <a href="${n.href}" class="${
-                  active
-                    ? "bg-[#334155] text-white border-l-4 border-blue-600"
-                    : "text-slate-300 hover:bg-[#334155] hover:text-white border-l-4 border-transparent"
-                } flex items-center gap-3 px-6 py-3 text-sm font-medium transition-all">
+      .map((n) => {
+        const active = n.key === navKey;
+        return `
+                <a href="${n.href}" class="${active
+            ? "bg-[#334155] text-white border-l-4 border-blue-600"
+            : "text-slate-300 hover:bg-[#334155] hover:text-white border-l-4 border-transparent"
+          } flex items-center gap-3 px-6 py-3 text-sm font-medium transition-all">
                   <span class="h-1.5 w-1.5 rounded-full ${active ? "bg-blue-400" : "bg-slate-500"}"></span>
                   <span>${escapeHtml(n.label)}</span>
                 </a>
               `;
-            })
-            .join("")}
+      })
+      .join("")}
         </nav>
       </div>
     </div>
@@ -460,8 +465,8 @@ export function mountEmptyState({ title, message, actionsHtml } = {}) {
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
       <div class="text-base font-semibold text-slate-900">${escapeHtml(title || "No data yet")}</div>
       <div class="mt-1 text-sm text-slate-600">${escapeHtml(
-        message || "Waiting for the API response."
-      )}</div>
+    message || "Waiting for the API response."
+  )}</div>
       ${actionsHtml ? `<div class="mt-4 flex flex-wrap gap-2">${actionsHtml}</div>` : ""}
     </div>
   `;
