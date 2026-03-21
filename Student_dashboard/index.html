@@ -347,8 +347,7 @@
     </section>
 
     <section id="section-scheduling" class="section">
-      <div class="grid-2" style="align-items:start;">
-        <div class="card">
+      <div class="card" style="max-width: 600px; margin: 0 auto;">
           <div class="card-header">
             <div class="card-title">Book Presentation / Viva</div>
             <div class="card-sub">Schedule your proposal or thesis defence</div>
@@ -392,58 +391,6 @@
             <button class="btn btn-primary" onclick="bookPresentation()">📅 Request Booking</button>
           </div>
         </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">AI Corrections Checklist</div>
-            <div class="card-sub">Complete all items before requesting supervisor sign-off</div>
-          </div>
-          <div class="alert alert-info" style="margin-bottom:14px; font-size:0.8rem;">
-            <span class="alert-icon">🤖</span>
-            <div>These corrections were automatically flagged by the AI grammar and plagiarism review engine. Tick each item to confirm you have addressed it.</div>
-          </div>
-          <div class="checklist" id="corrections-checklist">
-            <div class="check-item" onclick="toggleCheck(this)">
-              <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
-              <label>Resolve 3 instances of passive-voice overuse in Chapter 2 (pp. 34–36)</label>
-            </div>
-            <div class="check-item" onclick="toggleCheck(this)">
-              <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
-              <label>Reduce similarity index in Literature Review from 18% to below 12%</label>
-            </div>
-            <div class="check-item" onclick="toggleCheck(this)">
-              <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
-              <label>Add missing in-text citations on pages 58, 72, and 91</label>
-            </div>
-            <div class="check-item" onclick="toggleCheck(this)">
-              <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
-              <label>Correct inconsistent APA 7th Edition formatting in reference list (14 entries)</label>
-            </div>
-            <div class="check-item" onclick="toggleCheck(this)">
-              <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
-              <label>Rewrite abstract to not exceed 350 words (currently 412 words)</label>
-            </div>
-            <div class="check-item" onclick="toggleCheck(this)">
-              <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
-              <label>Clarify visual methodology charts in Chapter 4 (Figures 4.2, 4.7, 4.11)</label>
-            </div>
-            <div class="check-item" onclick="toggleCheck(this)">
-              <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
-              <label>Address examiner comment: strengthen the discussion on advertising limitations (p. 114)</label>
-            </div>
-          </div>
-          <div class="flex-between mt-4">
-            <div class="text-sm text-muted"><span id="check-count">0</span> / 7 completed</div>
-            <button class="btn btn-success" id="signoff-btn" disabled onclick="requestSignoff()">✍️ Request Sign-off</button>
-          </div>
-          <div id="signoff-alert" style="display:none;" class="mt-3">
-            <div class="alert alert-success">
-              <span class="alert-icon">✅</span>
-              <div><strong>Sign-off Requested!</strong> Your supervisor has been notified to review and countersign the corrections acknowledgement form.</div>
-            </div>
-          </div>
-        </div>
-      </div>
     </section>
 
     <section id="section-finance" class="section">
