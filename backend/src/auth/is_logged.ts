@@ -1,10 +1,19 @@
-import { Router, type Request, type Response } from "express";
+import {
+  Router,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import jwt from "jsonwebtoken";
 import { UserModel } from "../models/user.model.js";
 
 export let isLoggedRouter = Router();
 
-export async function handleIsLogged(req: Request, res: Response) {
+export async function handleIsLogged(
+  req: Request,
+  res: Response,
+  nxt: NextFunction,
+) {
   try {
     // Get token from cookie
     const token = req.cookies?.userToken;
@@ -55,6 +64,7 @@ export async function handleIsLogged(req: Request, res: Response) {
         if (user.role === "student") {
           return res.json({
             isLoggedIn: true,
+            success: true,
             user: {
               id: user._id,
               fullName: user.fullName,
@@ -67,6 +77,18 @@ export async function handleIsLogged(req: Request, res: Response) {
             },
           });
         }
+
+        // Handle other roles
+        return res.json({
+          isLoggedIn: true,
+          success: true,
+          user: {
+            id: user._id,
+            fullName: user.fullName,
+            role: user.role,
+            token: token,
+          },
+        });
       } catch (dbError) {
         console.error("Database error:", dbError);
         return res.status(500).json({

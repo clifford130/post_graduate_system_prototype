@@ -45,6 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Submit booking to server
         const response = await this.submitBooking(bookingData, userData);
+        console.log(response);
+
 
         // Handle response
         if (response.success) {
@@ -146,7 +148,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async submitBooking(bookingData, userData) {
       console.log(bookingData, userData);
-
       // Prepare request payload
       const payload = {
         presentationType: bookingData.presentationType,
@@ -156,7 +157,6 @@ document.addEventListener("DOMContentLoaded", () => {
         additionalNotes: bookingData.additionalNotes,
         studentId: userData.id,
         studentName: userData.fullName,
-        studentEmail: userData.email,
         studentNumber: userData.userNumber
       };
 
@@ -171,6 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       const result = await response.json();
+      console.log(result);
 
       if (!response.ok) {
         throw new Error(result.message || `HTTP ${response.status}`);
