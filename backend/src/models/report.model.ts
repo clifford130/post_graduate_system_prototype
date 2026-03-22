@@ -15,6 +15,8 @@ interface ReportsStructure {
   ownerId?: mongoose.Types.ObjectId;
   reportUrl: string;
   reportingQuarter: string;
+  quarter?: number; // Add quarter field
+  year?: number; // Add year field
   researchActivities: string;
   challengesEncountered: string;
   plannedActivities: string;
@@ -29,16 +31,22 @@ let ReportSchema = new mongoose.Schema<ReportsStructure>(
     },
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
+      unique:false
     },
     reportUrl: {
       type: String,
-      default: null,
     },
     reportingQuarter: {
       type: String,
       required: true,
+    },
+    quarter: {
+      type: Number,
+      default: null,
+    },
+    year: {
+      type: Number,
+      default: null,
     },
     researchActivities: {
       type: String,

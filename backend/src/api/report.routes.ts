@@ -24,7 +24,6 @@ const storage = multer.diskStorage({
   },
 });
 
-
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
@@ -84,7 +83,27 @@ const isMulterError = (err: unknown): err is MulterError => {
   );
 };
 
-// ===== SUBMIT QUARTERLY REPORT =====
+// Add these helper functions at the top of your file
+const getQuarterNumber = (quarterStr: string): number => {
+  const quarterMap: { [key: string]: number } = {
+    "Q1 — July to September 2025": 1,
+    "Q2 — October to December 2025": 2,
+    "Q3 — January to March 2026": 3,
+    "Q4 — April to June 2026": 4,
+  };
+  return quarterMap[quarterStr] || 0;
+};
+
+const getYearFromQuarter = (quarterStr: string): number => {
+  const yearMatch = quarterStr.match(/(\d{4})/);
+
+  if (yearMatch && yearMatch[1]) {
+    return parseInt(yearMatch[1], 10);
+  }
+
+  return new Date().getFullYear();
+};
+
 reportRouter.post(
   "/reports/submit",
   upload.single("reportFile"),
@@ -178,10 +197,15 @@ reportRouter.post(
         });
       }
 
-      // --- Check for existing report for the same quarter and user ---
+      // --- Calculate quarter and year from reportingQuarter ---
+      const quarter = getQuarterNumber(reportingQuarter);
+      const year = getYearFromQuarter(reportingQuarter);
+
+      // --- Check for existing report using ownerId, quarter, and year ---
       const existingReport = await ReportModel.findOne({
-        reportingQuarter: reportingQuarter,
         ownerId: decoded.id,
+        quarter: quarter,
+        year: year,
       });
 
       if (existingReport) {
@@ -244,15 +268,18 @@ reportRouter.post(
         .from("campusHub_PDF")
         .getPublicUrl(fileName);
 
-      // --- Save Report in DB ---
+      // --- Save Report in DB with quarter and year ---
       const newReport = await ReportModel.create({
         owner: decoded.userNumber || decoded.id,
         ownerId: decoded.id,
         reportUrl: data.publicUrl,
         reportingQuarter,
+        quarter: quarter, // Add quarter number
+        year: year, // Add year
         researchActivities,
         challengesEncountered: challengesEncountered || "",
         plannedActivities,
+        status: "pending", // Initial status
       });
 
       return res.status(201).json({
@@ -263,6 +290,8 @@ reportRouter.post(
         report: {
           id: newReport._id,
           reportingQuarter: newReport.reportingQuarter,
+          quarter: newReport.quarter,
+          year: newReport.year,
         },
       });
     } catch (error) {
