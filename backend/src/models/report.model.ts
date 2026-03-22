@@ -1,6 +1,7 @@
 import mongoose, { Model } from "mongoose";
 interface ReportsStructure {
   owner: string;
+  ownerId: string;
   reportUrl: string;
   reportingQuarter: string;
   researchActivities: string;
@@ -9,6 +10,7 @@ interface ReportsStructure {
 }
 let ReportSchema = new mongoose.Schema<ReportsStructure>({
   owner: String,
+  ownerId: String,
   reportUrl: String,
   reportingQuarter: String,
   researchActivities: String,

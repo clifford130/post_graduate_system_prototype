@@ -36,6 +36,21 @@ const upload = multer({
   },
 });
 
+// Helper function to get user from token (promise-based)
+const getUserFromToken = (token: string, secret: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, secret, (err: any, decoded: any) => {
+      if (err) reject(err);
+      else resolve(decoded);
+    });
+  });
+};
+
+// Define custom error type
+interface MulterError extends Error {
+  code?: string;
+}
+
 // ===== SUBMIT QUARTERLY REPORT =====
 // @route   POST /api/reports/submit
 // @desc    Submit a quarterly report with optional PDF attachment
@@ -44,12 +59,18 @@ reportRouter.post(
   "/reports/submit",
   upload.single("reportFile"),
   async (req: Request, res: Response) => {
+    let filePath: string | null = null;
+
     try {
       // --- Authorization Check ---
       const accessToken = req.cookies?.userToken;
       const jwtSecret = process.env.JWT_SECRET;
 
       if (!accessToken || !jwtSecret) {
+        // Clean up uploaded file if exists
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
         return res.status(401).json({
           success: false,
           message: "Unauthorized access",
@@ -65,6 +86,10 @@ reportRouter.post(
       } = req.body;
 
       if (!reportingQuarter || !researchActivities || !plannedActivities) {
+        // Clean up uploaded file if exists
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
         return res.status(400).json({
           success: false,
           message:
@@ -77,13 +102,55 @@ reportRouter.post(
       const PROJECT_REF = process.env.SUPABASE_URL;
 
       if (!SERVICE_KEY || !PROJECT_REF) {
-        return res.status(500).json({ error: "Missing Supabase credentials" });
+        // Clean up uploaded file if exists
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(500).json({
+          success: false,
+          error: "Missing Supabase credentials",
+        });
       }
 
       // --- File Validation ---
       if (!req.file) {
         return res.status(400).json({
-          error: "Invalid file type. Please upload only PDF files.",
+          success: false,
+          error: "No file uploaded. Please upload a PDF file.",
+        });
+      }
+
+      filePath = req.file.path;
+
+      // --- Verify JWT and get user data ---
+      let decoded;
+      try {
+        decoded = await getUserFromToken(accessToken, jwtSecret);
+      } catch (jwtError) {
+        // Clean up uploaded file
+        if (filePath && fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+        return res.status(401).json({
+          success: false,
+          message: "Invalid or expired token",
+        });
+      }
+
+      // --- Check for existing report (optional - prevent duplicates) ---
+      const existingReport = await ReportModel.findOne({
+        reportingQuarter: reportingQuarter,
+        ownerId: decoded.id,
+      });
+
+      if (existingReport) {
+        // Clean up uploaded file
+        if (filePath && fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+        return res.status(400).json({
+          success: false,
+          message: `You have already submitted a report for ${reportingQuarter}`,
         });
       }
 
@@ -95,26 +162,34 @@ reportRouter.post(
       });
 
       const fileName = `${Date.now()}-${req.file.originalname}`;
-      const fileBuffer = await readFile(req.file.path);
+      const fileBuffer = await readFile(filePath);
 
       // --- Upload File to Supabase ---
-      const { error } = await storageClient
+      const { error: uploadError } = await storageClient
         .from("campusHub_PDF")
         .upload(fileName, fileBuffer, {
           contentType: "application/pdf",
           upsert: false,
         });
 
-      if (error) {
+      if (uploadError) {
+        console.error("Supabase upload error:", uploadError);
+        // Clean up local file
+        if (filePath && fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
         return res.status(500).json({
+          success: false,
           error: "Failed to upload to Supabase",
-          newError: error,
+          details: uploadError.message,
         });
       }
 
       // --- Delete Local File After Upload ---
       try {
-        fs.unlinkSync(req.file.path);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
       } catch (unlinkError) {
         console.error("Failed to delete local file:", unlinkError);
       }
@@ -123,21 +198,16 @@ reportRouter.post(
       const { data } = storageClient
         .from("campusHub_PDF")
         .getPublicUrl(fileName);
-      //
-      jwt.verify(accessToken, jwtSecret, async (err: any, load: any) => {
-        if (err) {
-          res.status(401).json({ message: "Unauthorized" });
-          return;
-        }
-        // --- Save Report in DB ---
-        await ReportModel.create({
-          owner: load.userNumber,
-          reportUrl: data.publicUrl,
-          reportingQuarter,
-          researchActivities,
-          challengesEncountered,
-          plannedActivities,
-        });
+
+      // --- Save Report in DB ---
+      const newReport = await ReportModel.create({
+        owner: decoded.userNumber || decoded.id,
+        ownerId: decoded.id,
+        reportUrl: data.publicUrl,
+        reportingQuarter,
+        researchActivities,
+        challengesEncountered: challengesEncountered || "",
+        plannedActivities,
       });
 
       return res.status(201).json({
@@ -147,10 +217,101 @@ reportRouter.post(
       });
     } catch (error) {
       console.error("Error submitting report:", error);
+
+      // Clean up local file if it exists
+      if (filePath && fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (cleanupError) {
+          console.error("Error cleaning up file:", cleanupError);
+        }
+      }
+
+      // Check if headers already sent
+      if (res.headersSent) {
+        console.log("Headers already sent, cannot send error response");
+        return;
+      }
+
+      // Type guard to check if error is MulterError
+      const isMulterError = (err: unknown): err is MulterError => {
+        return err instanceof Error && "code" in err;
+      };
+
+      // Handle specific Multer errors
+      if (isMulterError(error) && error instanceof multer.MulterError) {
+        if (error.code === "LIMIT_FILE_SIZE") {
+          return res.status(400).json({
+            success: false,
+            message: "File too large. Maximum size is 5MB.",
+          });
+        }
+        if (error.code === "LIMIT_FILE_COUNT") {
+          return res.status(400).json({
+            success: false,
+            message: "Too many files. Only one file allowed.",
+          });
+        }
+      }
+
+      // Handle file type error
+      if (
+        error instanceof Error &&
+        error.message === "Only PDF files are allowed"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
+      // Handle general errors
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+
       return res.status(500).json({
         success: false,
         message: "Server error. Please try again later.",
+        error:
+          process.env.NODE_ENV === "development" ? errorMessage : undefined,
       });
     }
   },
 );
+
+// Add error handling middleware for multer errors
+reportRouter.use((err: any, req: Request, res: Response, next: any) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({
+        success: false,
+        message: "File too large. Maximum size is 5MB.",
+      });
+    }
+    if (err.code === "LIMIT_FILE_COUNT") {
+      return res.status(400).json({
+        success: false,
+        message: "Too many files. Only one file allowed.",
+      });
+    }
+    if (err.code === "LIMIT_UNEXPECTED_FILE") {
+      return res.status(400).json({
+        success: false,
+        message: 'Unexpected field name. Please use "reportFile".',
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: `Upload error: ${err.message}`,
+    });
+  }
+
+  if (err instanceof Error && err.message === "Only PDF files are allowed") {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  next(err);
+});

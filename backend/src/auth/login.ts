@@ -25,7 +25,9 @@ UserLoginRouter.post(
       }
       let User = await UserModel.findOne({ userNumber: userNumber });
       if (!User) {
-        res.status(400).json({ message: "Invalid credentials" });
+        res
+          .status(400)
+          .json({ message: "Invalid credentials", issue: "user not found" });
         return;
       }
 
@@ -35,6 +37,7 @@ UserLoginRouter.post(
       if (!isMatch) {
         res.status(401).json({
           message: "Invalid credentials",
+          issue: "invalid password",
         });
         return;
       }

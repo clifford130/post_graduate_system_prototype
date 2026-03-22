@@ -10,11 +10,17 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeEventListeners() {
       const submitButton = document.querySelector('#section-reports .btn-primary');
       if (submitButton) {
+        // Remove the existing onclick attribute from HTML
+        submitButton.removeAttribute('onclick');
+
+        // Remove any existing listeners to avoid duplicates
         const newButton = submitButton.cloneNode(true);
         submitButton.parentNode.replaceChild(newButton, submitButton);
+
+        // Add the new event listener
         newButton.addEventListener('click', (e) => {
           e.preventDefault();
-          e.stopPropagation(); // Add this to prevent event bubbling
+          e.stopPropagation();
           this.handleReportSubmission();
         });
       }
@@ -59,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
         this.showLoadingState(true);
 
         // Submit report
-        const response = await this.submitReport(reportData, userData);
+        const response = await this.submitReport(reportData, userData, event);
 
         // Handle successful submission
         if (response.success) {
@@ -87,18 +93,18 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error('Report submission error:', error);
 
         // Handle different types of errors
-        if (error.message.includes('File size')) {
+        if (error.message && error.message.includes('File size')) {
           this.showNotification('File size exceeds 5MB limit. Please compress your PDF.', 'error');
-        } else if (error.message.includes('PDF')) {
+        } else if (error.message && error.message.includes('PDF')) {
           this.showNotification('Only PDF files are allowed. Please upload a PDF document.', 'error');
-        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        } else if (error.message && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
           this.showNotification('Your session has expired. Please login again.', 'error');
           setTimeout(() => {
             window.location.href = '../login/login.html';
           }, 2000);
-        } else if (error.message.includes('Network')) {
+        } else if (error.message && error.message.includes('Network')) {
           this.showNotification('Network error. Please check your internet connection.', 'error');
-        } else if (error.message.includes('already submitted')) {
+        } else if (error.message && error.message.includes('already submitted')) {
           this.showNotification('You have already submitted a report for this quarter.', 'warning');
         } else {
           this.showNotification(error.message || 'Network error. Please try again.', 'error');
@@ -148,7 +154,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return { isValid: true, message: '' };
     }
 
-    async submitReport(reportData, userData) {
+    async submitReport(reportData, userData, event) {
+      event.preventDefault()
       const formData = new FormData();
       formData.append('reportingQuarter', reportData.reportingQuarter);
       formData.append('researchActivities', reportData.researchActivities);
@@ -390,6 +397,9 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeEventListeners() {
       const bookingButton = document.querySelector('#section-scheduling .btn-primary');
       if (bookingButton) {
+        // Remove the existing onclick attribute from HTML
+        bookingButton.removeAttribute('onclick');
+
         const newButton = bookingButton.cloneNode(true);
         bookingButton.parentNode.replaceChild(newButton, bookingButton);
         newButton.addEventListener('click', (e) => {
@@ -787,6 +797,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // ===== OVERRIDE THE OLD SUBMIT REPORT FUNCTION =====
+  // This prevents the HTML onclick from causing page reload
+  window.originalSubmitReport = window.submitReport;
+  window.submitReport = function () {
+    console.log('Report submission handled by QuarterlyReportsHandler');
+    // Find the button and trigger the handler
+    const submitButton = document.querySelector('#section-reports .btn-primary');
+    if (submitButton) {
+      const clickEvent = new Event('click', { bubbles: true, cancelable: true });
+      submitButton.dispatchEvent(clickEvent);
+    }
+    return false;
+  };
+
   // ===== MAIN APPLICATION CODE =====
   (async () => {
     const updateUserStorage = (userData) => {
@@ -1011,7 +1035,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    function submitReport() {
+    // The old submitReport function is replaced by the override above
+    // This function is kept for compatibility but won't cause page reload
+    function oldSubmitReport() {
       reportSubmitted = true;
       const steps = [
         { id: 'wf-1', s: 'wf-1-s', cls: 'wf-active', status: 'Under Review', delay: 0 },
@@ -1111,7 +1137,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Export functions to global scope
     window.requestDeferral = requestDeferral;
     window.advancePipeline = advancePipeline;
-    window.submitReport = submitReport;
     window.toggleUpload = toggleUpload;
     window.toggleCheck = toggleCheck;
     window.requestSignoff = requestSignoff;
