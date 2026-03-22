@@ -15,6 +15,7 @@ async function request(path, { method = "GET", query, body, headers, signal } = 
   const url = buildUrl(path, query);
   const res = await fetch(url, {
     method,
+    credentials: "include",
     headers: {
       Accept: "application/json",
       "Content-Type": body ? "application/json" : "application/json",
@@ -37,6 +38,8 @@ async function request(path, { method = "GET", query, body, headers, signal } = 
       (data && (data.message || data.error)) ||
       `Request failed (${res.status} ${res.statusText})`;
     const err = new Error(message);
+    console.log(err);
+
     err.status = res.status;
     err.data = data;
     throw err;
@@ -169,8 +172,10 @@ export const api = {
   },
 
   // Reports
-  async getReports({ status, q } = {}) {
-    return request("/reports", { query: { status, q } });
+  async getReports({ status, q, page = 1, limit = 20 } = {}) {
+    return request("/reports", {
+      query: { status, q, page, limit },
+    });
   },
   async approveReport(id) {
     return request(`/reports/${encodeURIComponent(id)}/approve`, { method: "POST" });

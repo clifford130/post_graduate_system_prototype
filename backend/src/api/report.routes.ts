@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { StorageClient } from "@supabase/storage-js";
 import jwt from "jsonwebtoken";
-import { ReportModel } from "../models/report.model.js";
+import { ReportModel, ReportStatus } from "../models/report.model.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -57,33 +57,7 @@ const isValidQuarter = (quarterStr: string): boolean => {
   return validQuarters.includes(quarterStr);
 };
 
-// Define custom error types
-interface MulterError extends Error {
-  code?: string;
-}
-
-interface MongoError extends Error {
-  code?: number;
-  keyPattern?: Record<string, any>;
-  keyValue?: Record<string, any>;
-}
-
-// Type guard for MongoDB errors
-const isMongoError = (err: unknown): err is MongoError => {
-  return err instanceof Error && "code" in err;
-};
-
-// Type guard for Multer errors
-const isMulterError = (err: unknown): err is MulterError => {
-  return (
-    (err instanceof Error &&
-      "code" in err &&
-      (err as any).code === "LIMIT_FILE_SIZE") ||
-    (err as any).code === "LIMIT_FILE_COUNT"
-  );
-};
-
-// Add these helper functions at the top of your file
+// Helper functions for quarter parsing
 const getQuarterNumber = (quarterStr: string): number => {
   const quarterMap: { [key: string]: number } = {
     "Q1 — July to September 2025": 1,
@@ -104,6 +78,7 @@ const getYearFromQuarter = (quarterStr: string): number => {
   return new Date().getFullYear();
 };
 
+// ===== SUBMIT QUARTERLY REPORT =====
 reportRouter.post(
   "/reports/submit",
   upload.single("reportFile"),
@@ -111,12 +86,10 @@ reportRouter.post(
     let filePath: string | null = null;
 
     try {
-      // --- Authorization Check ---
       const accessToken = req.cookies?.userToken;
       const jwtSecret = process.env.JWT_SECRET;
 
       if (!accessToken || !jwtSecret) {
-        // Clean up uploaded file if exists
         if (req.file && req.file.path && fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
         }
@@ -126,7 +99,6 @@ reportRouter.post(
         });
       }
 
-      // --- Body Validation ---
       const {
         reportingQuarter,
         researchActivities,
@@ -135,19 +107,18 @@ reportRouter.post(
       } = req.body;
 
       if (!reportingQuarter || !researchActivities || !plannedActivities) {
-        // Clean up uploaded file if exists
         if (req.file && req.file.path && fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
         }
         return res.status(400).json({
           success: false,
-          message:
-            "Missing required fields: reportingQuarter, researchActivities, plannedActivities",
+          message: "Missing required fields",
         });
       }
 
-      // Validate quarter format
-      if (!isValidQuarter(reportingQuarter)) {
+      const quarterStr = String(reportingQuarter);
+
+      if (!isValidQuarter(quarterStr)) {
         if (req.file && req.file.path && fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
         }
@@ -157,12 +128,10 @@ reportRouter.post(
         });
       }
 
-      // --- Supabase Credentials Check ---
       const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const PROJECT_REF = process.env.SUPABASE_URL;
 
       if (!SERVICE_KEY || !PROJECT_REF) {
-        // Clean up uploaded file if exists
         if (req.file && req.file.path && fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
         }
@@ -172,7 +141,6 @@ reportRouter.post(
         });
       }
 
-      // --- File Validation ---
       if (!req.file) {
         return res.status(400).json({
           success: false,
@@ -182,12 +150,10 @@ reportRouter.post(
 
       filePath = req.file.path;
 
-      // --- Verify JWT and get user data ---
       let decoded;
       try {
         decoded = await getUserFromToken(accessToken, jwtSecret);
       } catch (jwtError) {
-        // Clean up uploaded file
         if (filePath && fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
@@ -197,11 +163,9 @@ reportRouter.post(
         });
       }
 
-      // --- Calculate quarter and year from reportingQuarter ---
-      const quarter = getQuarterNumber(reportingQuarter);
-      const year = getYearFromQuarter(reportingQuarter);
+      const quarter = getQuarterNumber(quarterStr);
+      const year = getYearFromQuarter(quarterStr);
 
-      // --- Check for existing report using ownerId, quarter, and year ---
       const existingReport = await ReportModel.findOne({
         ownerId: decoded.id,
         quarter: quarter,
@@ -209,21 +173,15 @@ reportRouter.post(
       });
 
       if (existingReport) {
-        // Clean up uploaded file
         if (filePath && fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
         return res.status(400).json({
           success: false,
-          message: `You have already submitted a report for ${reportingQuarter}. Each quarter only one report is allowed.`,
-          existingReport: {
-            id: existingReport._id,
-            reportUrl: existingReport.reportUrl,
-          },
+          message: `You have already submitted a report for ${quarterStr}`,
         });
       }
 
-      // --- Supabase Storage Setup ---
       const STORAGE_URL = `https://${PROJECT_REF}.supabase.co/storage/v1`;
       const storageClient = new StorageClient(STORAGE_URL, {
         apikey: SERVICE_KEY,
@@ -233,7 +191,6 @@ reportRouter.post(
       const fileName = `${Date.now()}-${req.file.originalname}`;
       const fileBuffer = await readFile(filePath);
 
-      // --- Upload File to Supabase ---
       const { error: uploadError } = await storageClient
         .from("campusHub_PDF")
         .upload(fileName, fileBuffer, {
@@ -243,7 +200,6 @@ reportRouter.post(
 
       if (uploadError) {
         console.error("Supabase upload error:", uploadError);
-        // Clean up local file
         if (filePath && fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
@@ -254,7 +210,6 @@ reportRouter.post(
         });
       }
 
-      // --- Delete Local File After Upload ---
       try {
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
@@ -263,23 +218,21 @@ reportRouter.post(
         console.error("Failed to delete local file:", unlinkError);
       }
 
-      // --- Get Public URL ---
       const { data } = storageClient
         .from("campusHub_PDF")
         .getPublicUrl(fileName);
 
-      // --- Save Report in DB with quarter and year ---
       const newReport = await ReportModel.create({
         owner: decoded.userNumber || decoded.id,
         ownerId: decoded.id,
         reportUrl: data.publicUrl,
-        reportingQuarter,
-        quarter: quarter, // Add quarter number
-        year: year, // Add year
+        reportingQuarter: quarterStr,
+        quarter: quarter,
+        year: year,
         researchActivities,
         challengesEncountered: challengesEncountered || "",
         plannedActivities,
-        status: "pending", // Initial status
+        status: ReportStatus.PENDING,
       });
 
       return res.status(201).json({
@@ -297,7 +250,6 @@ reportRouter.post(
     } catch (error) {
       console.error("Error submitting report:", error);
 
-      // Clean up local file if it exists
       if (filePath && fs.existsSync(filePath)) {
         try {
           fs.unlinkSync(filePath);
@@ -306,13 +258,11 @@ reportRouter.post(
         }
       }
 
-      // Check if headers already sent
       if (res.headersSent) {
         console.log("Headers already sent, cannot send error response");
         return;
       }
 
-      // Handle specific Multer errors
       if (error instanceof multer.MulterError) {
         if (error.code === "LIMIT_FILE_SIZE") {
           return res.status(400).json({
@@ -328,7 +278,6 @@ reportRouter.post(
         }
       }
 
-      // Handle file type error
       if (
         error instanceof Error &&
         error.message === "Only PDF files are allowed"
@@ -339,16 +288,13 @@ reportRouter.post(
         });
       }
 
-      // Handle duplicate key error from MongoDB
       if (error instanceof Error && (error as any).code === 11000) {
         return res.status(400).json({
           success: false,
-          message:
-            "You have already submitted a report for this quarter. Each quarter only one report is allowed.",
+          message: "You have already submitted a report for this quarter.",
         });
       }
 
-      // Handle general errors
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
 
@@ -362,10 +308,290 @@ reportRouter.post(
   },
 );
 
+// ===== GET ALL QUARTERLY REPORTS =====
+reportRouter.get("/reports", async (req: Request, res: Response) => {
+  try {
+    const accessToken = req.cookies?.userToken;
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!accessToken || !jwtSecret) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const decoded = await getUserFromToken(accessToken, jwtSecret);
+
+    // if (!["admin", "chair", "supervisor", "dean"].includes(decoded.role)) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Access denied",
+    //   });
+    // }
+
+    const {
+      status,
+      quarter,
+      year,
+      reportingQuarter,
+      q,
+      page = 1,
+      limit = 20,
+    } = req.query;
+    const query: any = {};
+
+    if (status) query.status = status;
+    if (quarter) query.quarter = parseInt(quarter as string);
+    if (year) query.year = parseInt(year as string);
+    if (reportingQuarter) query.reportingQuarter = reportingQuarter;
+
+    if (q) {
+      query.$or = [
+        { researchActivities: { $regex: q, $options: "i" } },
+        { plannedActivities: { $regex: q, $options: "i" } },
+        { reportingQuarter: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [reports, total] = await Promise.all([
+      ReportModel.find(query)
+        .sort({ year: -1, quarter: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .populate("ownerId", "fullName userNumber email department"),
+      ReportModel.countDocuments(query),
+    ]);
+    console.log(reports);
+
+    const stats = {
+      total,
+      pending: await ReportModel.countDocuments({
+        status: ReportStatus.PENDING,
+      }),
+      underReview: await ReportModel.countDocuments({
+        status: ReportStatus.UNDER_REVIEW,
+      }),
+      approved: await ReportModel.countDocuments({
+        status: ReportStatus.APPROVED,
+      }),
+      rejected: await ReportModel.countDocuments({
+        status: ReportStatus.REJECTED,
+      }),
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: reports,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      },
+      stats,
+    });
+  } catch (error) {
+    console.error("Error fetching reports:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// ===== GET STUDENT'S OWN REPORTS =====
+reportRouter.get("/reports/my-reports", async (req: Request, res: Response) => {
+  try {
+    const accessToken = req.cookies?.userToken;
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!accessToken || !jwtSecret) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const decoded = await getUserFromToken(accessToken, jwtSecret);
+
+    const reports = await ReportModel.find({ ownerId: decoded.id }).sort({
+      year: -1,
+      quarter: -1,
+      createdAt: -1,
+    });
+
+    const stats = {
+      total: reports.length,
+      pending: reports.filter((r) => r.status === ReportStatus.PENDING).length,
+      underReview: reports.filter((r) => r.status === ReportStatus.UNDER_REVIEW)
+        .length,
+      approved: reports.filter((r) => r.status === ReportStatus.APPROVED)
+        .length,
+      rejected: reports.filter((r) => r.status === ReportStatus.REJECTED)
+        .length,
+      quartersSubmitted: reports.map((r) => r.reportingQuarter),
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: reports,
+      stats,
+    });
+  } catch (error) {
+    console.error("Error fetching student reports:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// ===== GET REPORTS BY STATUS =====
+reportRouter.get(
+  "/reports/status/:status",
+  async (req: Request, res: Response) => {
+    try {
+      const accessToken = req.cookies?.userToken;
+      const jwtSecret = process.env.JWT_SECRET;
+
+      type ReportStatusType = (typeof ReportStatus)[keyof typeof ReportStatus];
+
+      function isValidStatus(status: any): status is ReportStatusType {
+        return Object.values(ReportStatus).includes(status);
+      }
+
+      const { status } = req.params;
+
+      if (!accessToken || !jwtSecret) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized access",
+        });
+      }
+
+      const decoded = await getUserFromToken(accessToken, jwtSecret);
+
+      if (!["admin", "chair", "supervisor", "dean"].includes(decoded.role)) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied",
+        });
+      }
+
+      //  Type-safe validation
+      if (!isValidStatus(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid status",
+        });
+      }
+
+      //  NO casting needed anymore
+      const reports = await ReportModel.find({ status })
+        .sort({ createdAt: -1 })
+        .populate("ownerId", "fullName userNumber department");
+
+      return res.status(200).json({
+        success: true,
+        data: reports,
+        count: reports.length,
+      });
+    } catch (error) {
+      console.error("Error fetching reports by status:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  },
+);
+
+// ===== GET REPORT SUMMARY STATISTICS =====
+reportRouter.get("/reports/summary", async (req: Request, res: Response) => {
+  try {
+    const accessToken = req.cookies?.userToken;
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!accessToken || !jwtSecret) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const decoded = await getUserFromToken(accessToken, jwtSecret);
+
+    if (!["admin", "chair", "dean"].includes(decoded.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const currentYear = new Date().getFullYear();
+    const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+
+    const summary = {
+      total: await ReportModel.countDocuments(),
+      byStatus: {
+        pending: await ReportModel.countDocuments({
+          status: ReportStatus.PENDING,
+        }),
+        underReview: await ReportModel.countDocuments({
+          status: ReportStatus.UNDER_REVIEW,
+        }),
+        approved: await ReportModel.countDocuments({
+          status: ReportStatus.APPROVED,
+        }),
+        rejected: await ReportModel.countDocuments({
+          status: ReportStatus.REJECTED,
+        }),
+      },
+      byYear: {
+        [currentYear]: await ReportModel.countDocuments({ year: currentYear }),
+        [currentYear - 1]: await ReportModel.countDocuments({
+          year: currentYear - 1,
+        }),
+        [currentYear - 2]: await ReportModel.countDocuments({
+          year: currentYear - 2,
+        }),
+      },
+      currentQuarter: {
+        number: currentQuarter,
+        submissions: await ReportModel.countDocuments({
+          year: currentYear,
+          quarter: currentQuarter,
+        }),
+      },
+      completionRate: {
+        approved: 0,
+        percentage: 0,
+      },
+    };
+
+    const total = summary.total;
+    const approvedCount = summary.byStatus.approved;
+    summary.completionRate.approved = approvedCount;
+    summary.completionRate.percentage =
+      total > 0 ? Math.round((approvedCount / total) * 100) : 0;
+
+    return res.status(200).json({
+      success: true,
+      data: summary,
+    });
+  } catch (error) {
+    console.error("Error fetching report summary:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
 // ===== GET REPORT HISTORY =====
-// @route   GET /api/reports/history
-// @desc    Get all reports for the authenticated student
-// @access  Private (Student)
 reportRouter.get("/reports/history", async (req: Request, res: Response) => {
   try {
     const accessToken = req.cookies?.userToken;
@@ -392,15 +618,12 @@ reportRouter.get("/reports/history", async (req: Request, res: Response) => {
     console.error("Error fetching report history:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error. Please try again later.",
+      message: "Server error",
     });
   }
 });
 
 // ===== GET SINGLE REPORT =====
-// @route   GET /api/reports/:reportId
-// @desc    Get a specific report by ID
-// @access  Private
 reportRouter.get("/reports/:reportId", async (req: Request, res: Response) => {
   try {
     const accessToken = req.cookies?.userToken;
@@ -436,12 +659,117 @@ reportRouter.get("/reports/:reportId", async (req: Request, res: Response) => {
     console.error("Error fetching report:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error. Please try again later.",
+      message: "Server error",
     });
   }
 });
 
-// Add error handling middleware for multer errors
+// ===== APPROVE REPORT =====
+reportRouter.post(
+  "/reports/:reportId/approve",
+  async (req: Request, res: Response) => {
+    try {
+      const accessToken = req.cookies?.userToken;
+      const jwtSecret = process.env.JWT_SECRET;
+
+      if (!accessToken || !jwtSecret) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized access",
+        });
+      }
+
+      const decoded = await getUserFromToken(accessToken, jwtSecret);
+
+      // if (!["admin", "chair", "supervisor"].includes(decoded.role)) {
+      //   return res.status(403).json({
+      //     success: false,
+      //     message: "Access denied",
+      //   });
+      // }
+
+      const { reportId } = req.params;
+
+      const report = await ReportModel.findById(reportId);
+      if (!report) {
+        return res.status(404).json({
+          success: false,
+          message: "Report not found",
+        });
+      }
+
+      report.status = ReportStatus.APPROVED;
+      await report.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Report approved successfully",
+        report: report,
+      });
+    } catch (error) {
+      console.error("Error approving report:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  },
+);
+
+// ===== REJECT REPORT =====
+reportRouter.post(
+  "/reports/:reportId/reject",
+  async (req: Request, res: Response) => {
+    try {
+      const accessToken = req.cookies?.userToken;
+      const jwtSecret = process.env.JWT_SECRET;
+
+      if (!accessToken || !jwtSecret) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized access",
+        });
+      }
+
+      const decoded = await getUserFromToken(accessToken, jwtSecret);
+
+      // if (!["admin", "chair", "supervisor"].includes(decoded.role)) {
+      //   return res.status(403).json({
+      //     success: false,
+      //     message: "Access denied",
+      //   });
+      // }
+
+      const { reportId } = req.params;
+      const { reason } = req.body;
+
+      const report = await ReportModel.findById(reportId);
+      if (!report) {
+        return res.status(404).json({
+          success: false,
+          message: "Report not found",
+        });
+      }
+
+      report.status = ReportStatus.REJECTED;
+      await report.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Report rejected",
+        report: report,
+      });
+    } catch (error) {
+      console.error("Error rejecting report:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  },
+);
+
+// Error handling middleware
 reportRouter.use((err: any, req: Request, res: Response, next: any) => {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
