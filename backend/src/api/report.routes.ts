@@ -46,10 +46,42 @@ const getUserFromToken = (token: string, secret: string): Promise<any> => {
   });
 };
 
-// Define custom error type
+// Helper function to check if a quarter string is valid
+const isValidQuarter = (quarterStr: string): boolean => {
+  const validQuarters = [
+    "Q1 — July to September 2025",
+    "Q2 — October to December 2025",
+    "Q3 — January to March 2026",
+    "Q4 — April to June 2026",
+  ];
+  return validQuarters.includes(quarterStr);
+};
+
+// Define custom error types
 interface MulterError extends Error {
   code?: string;
 }
+
+interface MongoError extends Error {
+  code?: number;
+  keyPattern?: Record<string, any>;
+  keyValue?: Record<string, any>;
+}
+
+// Type guard for MongoDB errors
+const isMongoError = (err: unknown): err is MongoError => {
+  return err instanceof Error && "code" in err;
+};
+
+// Type guard for Multer errors
+const isMulterError = (err: unknown): err is MulterError => {
+  return (
+    (err instanceof Error &&
+      "code" in err &&
+      (err as any).code === "LIMIT_FILE_SIZE") ||
+    (err as any).code === "LIMIT_FILE_COUNT"
+  );
+};
 
 // ===== SUBMIT QUARTERLY REPORT =====
 // @route   POST /api/reports/submit
@@ -97,6 +129,17 @@ reportRouter.post(
         });
       }
 
+      // Validate quarter format
+      if (!isValidQuarter(reportingQuarter)) {
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(400).json({
+          success: false,
+          message: "Invalid reporting quarter selected",
+        });
+      }
+
       // --- Supabase Credentials Check ---
       const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const PROJECT_REF = process.env.SUPABASE_URL;
@@ -137,7 +180,7 @@ reportRouter.post(
         });
       }
 
-      // --- Check for existing report (optional - prevent duplicates) ---
+      // --- Check for existing report for the same quarter and user ---
       const existingReport = await ReportModel.findOne({
         reportingQuarter: reportingQuarter,
         ownerId: decoded.id,
@@ -150,7 +193,11 @@ reportRouter.post(
         }
         return res.status(400).json({
           success: false,
-          message: `You have already submitted a report for ${reportingQuarter}`,
+          message: `You have already submitted a report for ${reportingQuarter}. Each quarter only one report is allowed.`,
+          existingReport: {
+            id: existingReport._id,
+            reportUrl: existingReport.reportUrl,
+          },
         });
       }
 
@@ -213,7 +260,12 @@ reportRouter.post(
       return res.status(201).json({
         success: true,
         message: "Report submitted successfully",
+        status: newReport.status,
         reportUrl: data.publicUrl,
+        report: {
+          id: newReport._id,
+          reportingQuarter: newReport.reportingQuarter,
+        },
       });
     } catch (error) {
       console.error("Error submitting report:", error);
@@ -233,13 +285,8 @@ reportRouter.post(
         return;
       }
 
-      // Type guard to check if error is MulterError
-      const isMulterError = (err: unknown): err is MulterError => {
-        return err instanceof Error && "code" in err;
-      };
-
       // Handle specific Multer errors
-      if (isMulterError(error) && error instanceof multer.MulterError) {
+      if (error instanceof multer.MulterError) {
         if (error.code === "LIMIT_FILE_SIZE") {
           return res.status(400).json({
             success: false,
@@ -265,6 +312,15 @@ reportRouter.post(
         });
       }
 
+      // Handle duplicate key error from MongoDB
+      if (error instanceof Error && (error as any).code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You have already submitted a report for this quarter. Each quarter only one report is allowed.",
+        });
+      }
+
       // Handle general errors
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
@@ -278,6 +334,85 @@ reportRouter.post(
     }
   },
 );
+
+// ===== GET REPORT HISTORY =====
+// @route   GET /api/reports/history
+// @desc    Get all reports for the authenticated student
+// @access  Private (Student)
+reportRouter.get("/reports/history", async (req: Request, res: Response) => {
+  try {
+    const accessToken = req.cookies?.userToken;
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!accessToken || !jwtSecret) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const decoded = await getUserFromToken(accessToken, jwtSecret);
+
+    const reports = await ReportModel.find({ ownerId: decoded.id }).sort({
+      createdAt: -1,
+    });
+
+    return res.status(200).json({
+      success: true,
+      reports: reports,
+    });
+  } catch (error) {
+    console.error("Error fetching report history:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error. Please try again later.",
+    });
+  }
+});
+
+// ===== GET SINGLE REPORT =====
+// @route   GET /api/reports/:reportId
+// @desc    Get a specific report by ID
+// @access  Private
+reportRouter.get("/reports/:reportId", async (req: Request, res: Response) => {
+  try {
+    const accessToken = req.cookies?.userToken;
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!accessToken || !jwtSecret) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const decoded = await getUserFromToken(accessToken, jwtSecret);
+    const { reportId } = req.params;
+
+    const report = await ReportModel.findOne({
+      _id: reportId,
+      ownerId: decoded.id,
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: "Report not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      report: report,
+    });
+  } catch (error) {
+    console.error("Error fetching report:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error. Please try again later.",
+    });
+  }
+});
 
 // Add error handling middleware for multer errors
 reportRouter.use((err: any, req: Request, res: Response, next: any) => {

@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
         newButton.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          this.handleReportSubmission();
+          this.handleReportSubmission(e);
         });
       }
 
@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    async handleReportSubmission() {
+    async handleReportSubmission(event) {
       try {
         // Get form data
         const reportData = this.collectReportData();
@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
         this.showLoadingState(true);
 
         // Submit report
-        const response = await this.submitReport(reportData, userData, event);
+        const response = await this.submitReport(reportData, userData);
 
         // Handle successful submission
         if (response.success) {
@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           // Scroll to show the submission history
-          const historyContainer = document.querySelector('#section-reports .card:last-child');
+          const historyContainer = document.querySelector('#section-reports .history-container');
           if (historyContainer) {
             historyContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           }
@@ -104,8 +104,10 @@ document.addEventListener("DOMContentLoaded", () => {
           }, 2000);
         } else if (error.message && error.message.includes('Network')) {
           this.showNotification('Network error. Please check your internet connection.', 'error');
-        } else if (error.message && error.message.includes('already submitted')) {
-          this.showNotification('You have already submitted a report for this quarter.', 'warning');
+        } else if (error.message && (error.message.includes('already submitted') || error.message.includes('duplicate'))) {
+          this.showNotification('You have already submitted a report for this quarter. Each quarter only one report is allowed.', 'warning');
+          // Refresh history to show the existing report
+          await this.loadReportHistory();
         } else {
           this.showNotification(error.message || 'Network error. Please try again.', 'error');
         }
@@ -154,8 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return { isValid: true, message: '' };
     }
 
-    async submitReport(reportData, userData, event) {
-      event.preventDefault()
+    async submitReport(reportData, userData) {
       const formData = new FormData();
       formData.append('reportingQuarter', reportData.reportingQuarter);
       formData.append('researchActivities', reportData.researchActivities);
@@ -214,10 +215,54 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     updateHistoryUI(reports) {
-      const historyContainer = document.querySelector('#section-reports .card:last-child');
+      // Find or create the history container - NOT the form card
+      let historyContainer = document.querySelector('#section-reports .history-container');
+
+      // If history container doesn't exist, create it AFTER the form card
+      if (!historyContainer) {
+        const reportsSection = document.getElementById('section-reports');
+        if (reportsSection) {
+          // Find the form card (the first card in the section that contains the form)
+          const cards = reportsSection.querySelectorAll('.card');
+          let formCard = null;
+
+          // Look for the card that contains the submit button (the form card)
+          for (let i = 0; i < cards.length; i++) {
+            if (cards[i].querySelector('.btn-primary')) {
+              formCard = cards[i];
+              break;
+            }
+          }
+
+          // If we found the form card, create history container after it
+          if (formCard) {
+            // Check if there's already a history card after it
+            let existingHistory = formCard.nextElementSibling;
+            if (existingHistory && existingHistory.classList.contains('card') && existingHistory.innerHTML.includes('Submission History')) {
+              historyContainer = existingHistory;
+              historyContainer.classList.add('history-container');
+            } else {
+              // Create new history card
+              const newCard = document.createElement('div');
+              newCard.className = 'card history-container';
+              newCard.style.marginTop = '24px';
+              formCard.insertAdjacentElement('afterend', newCard);
+              historyContainer = newCard;
+            }
+          } else {
+            // If no form card found, create at the end
+            const newCard = document.createElement('div');
+            newCard.className = 'card history-container';
+            newCard.style.marginTop = '24px';
+            reportsSection.appendChild(newCard);
+            historyContainer = newCard;
+          }
+        }
+      }
+
       if (!historyContainer) return;
 
-      if (reports.length === 0) {
+      if (!reports || reports.length === 0) {
         historyContainer.innerHTML = `
           <div class="card-title" style="margin-bottom:12px;">Submission History</div>
           <div style="text-align: center; padding: 20px; color: var(--grey-500);">
@@ -227,21 +272,40 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      // Group reports by quarter for better display
+      const groupedReports = {};
+      reports.forEach(report => {
+        const quarter = report.reportingQuarter;
+        if (!groupedReports[quarter]) {
+          groupedReports[quarter] = [];
+        }
+        groupedReports[quarter].push(report);
+      });
+
       const historyHTML = `
         <div class="card-title" style="margin-bottom:12px;">Submission History</div>
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          ${reports.map(report => `
-            <div class="flex-between" style="font-size:0.82rem; padding: 9px 12px; background: ${this.getStatusColor(report.status)}; border-radius:var(--radius-sm);">
-              <div>
-                <div><strong>${report.reportingQuarter}</strong></div>
-                <div style="font-size: 0.7rem; margin-top: 4px;">Submitted: ${new Date(report.createdAt || report.submittedAt).toLocaleDateString()}</div>
-                ${report.reportUrl ? `<div style="font-size: 0.7rem;"><a href="${report.reportUrl}" target="_blank" style="color: var(--blue);">📄 View PDF</a></div>` : ''}
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          ${Object.keys(groupedReports).map(quarter => `
+            <div style="margin-bottom: 8px;">
+              <div style="font-weight: 600; margin-bottom: 8px; color: var(--grey-700); border-left: 3px solid var(--blue); padding-left: 10px;">
+                ${quarter}
               </div>
-              <span class="badge ${this.getStatusBadgeClass(report.status)}" style="font-size:0.68rem;">${this.getStatusText(report.status)}</span>
+              ${groupedReports[quarter].map(report => `
+                <div class="flex-between" style="font-size:0.82rem; padding: 12px 12px; background: ${this.getStatusColor(report.status)}; border-radius:var(--radius-sm); margin-bottom: 8px;">
+                  <div style="flex: 1;">
+                    <div><strong>Submitted:</strong> ${new Date(report.createdAt || report.submittedAt).toLocaleDateString()}</div>
+                    ${report.reportUrl ? `<div style="margin-top: 6px;"><a href="${report.reportUrl}" target="_blank" style="color: var(--blue); text-decoration: none;">📄 View PDF Report</a></div>` : '<div style="margin-top: 6px; color: var(--grey-500);">No PDF attached</div>'}
+                    ${report.researchActivities ? `<div style="margin-top: 6px; font-size: 0.7rem; color: var(--grey-600);"><strong>Research:</strong> ${report.researchActivities.substring(0, 100)}${report.researchActivities.length > 100 ? '...' : ''}</div>` : ''}
+                    ${report.status ? `<div style="margin-top: 4px; font-size: 0.7rem;"><strong>Status:</strong> ${this.getStatusText(report.status)}</div>` : ''}
+                  </div>
+                  <span class="badge ${this.getStatusBadgeClass(report.status)}" style="font-size:0.68rem; margin-left: 12px;">${this.getStatusText(report.status)}</span>
+                </div>
+              `).join('')}
             </div>
           `).join('')}
         </div>
       `;
+
       historyContainer.innerHTML = historyHTML;
     }
 
