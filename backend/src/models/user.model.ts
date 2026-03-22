@@ -29,6 +29,7 @@ export interface IUser {
   documents?: {
     conceptNote?: string; // status: "pending", "approved", "rejected"
     proposal?: string;
+    proposalScore?: number;
     thesis?: string;
     nacosti?: string;
     journalPaper?: string;
@@ -147,6 +148,7 @@ const UserSchema = new Schema<IUser>({
   documents: {
     conceptNote: { type: String, default: "pending" },
     proposal: { type: String, default: "pending" },
+    proposalScore: { type: Number, default: 0 },
     thesis: { type: String, default: "pending" },
     nacosti: { type: String, default: "pending" },
     journalPaper: { type: String, default: "pending" },

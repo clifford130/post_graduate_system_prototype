@@ -229,10 +229,10 @@ SupervisorRouter.post("/students/:id/automation/suggest", async (req: Request, r
     let suggestedStage = student.stage;
     let aiFlags = [];
 
-    // 1. Minimum Proposal Score Check (if applicable)
-    // If student is at Proposal (School) but score is below settings cap
-    if (student.stage === "Proposal (School)" && student.documents?.proposalScore < (settings?.minProposalScore || 60)) {
-       aiFlags.push(`Warning: Proposal score below required ${settings?.minProposalScore || 60}% threshold.`);
+    const score = student.documents?.proposalScore || 0;
+    const threshold = settings?.minProposalScore || 60;
+    if (student.stage === "Proposal (School)" && score < threshold) {
+       aiFlags.push(`Warning: Proposal score below required ${threshold}% threshold.`);
     }
 
     // 2. Lifecycle Stage Access Rules
