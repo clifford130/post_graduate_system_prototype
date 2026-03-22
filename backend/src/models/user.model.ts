@@ -14,6 +14,13 @@ export interface IUser {
   atRisk?: boolean;
   notes?: string[];
   financialClearance?: boolean;
+  deferralInfo?: {
+    date?: Date;
+    plannedResumption?: string; // Semester format
+    actualResumption?: Date;
+    reason?: string;
+    stageAtDeferral?: string;
+  };
   supervisors?: {
     sup1?: string;
     sup2?: string;
@@ -124,6 +131,13 @@ const UserSchema = new Schema<IUser>({
   financialClearance: {
     type: Boolean,
     default: false,
+  },
+  deferralInfo: {
+    date: Date,
+    plannedResumption: String,
+    actualResumption: Date,
+    reason: String,
+    stageAtDeferral: String,
   },
   supervisors: {
     sup1: { type: String, default: "" },

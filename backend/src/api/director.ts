@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { UserModel } from "../models/user.model.js";
 import { SupervisorAssignmentModel } from "../models/supervisor-action.model.js";
 import { SystemSettingsModel } from "../models/system-settings.model.js";
+import { ReportModel } from "../models/report.model.js";
 
 export const DirectorRouter = Router();
 
@@ -67,14 +68,32 @@ DirectorRouter.post(
   async (req: Request, res: Response) => {
     try {
       const { stage, mode, reason } = req.body;
-      const update: any = { stage };
-      if (reason) {
-        // Logic for audit trail can be added here
+      const student = await UserModel.findById(req.params.id);
+      if (!student) return res.status(404).json({ message: "Student not found" });
+
+      // Block if student is deferred (Section 2.1)
+      if (student.status === "Deferred") {
+        return res.status(403).json({ message: "Pipeline tracking paused for deferred students. Please record a Resumption first." });
       }
-      const student = await UserModel.findByIdAndUpdate(req.params.id, update, {
-        new: true,
-      });
-      res.json({ message: "Stage updated", student });
+
+      // GATE ENFORCEMENT (Section 4.3)
+      const reports = await ReportModel.find({ owner: student.userNumber });
+      const approvedReports = reports.filter(r => r.status === "approved").length;
+
+      // Block Proposal (School) if no reports
+      if (stage === "Proposal (School)" && approvedReports === 0) {
+        return res.status(403).json({ message: "Quarterly report required before School Proposal presentation." });
+      }
+
+      // Block External Examination Submission if not ALL reports approved
+      if (stage === "External Examination Submission") {
+        if (approvedReports < 2) { // Masters Year 2 needs at least 2 reports according to Sem 3/4 mapping.
+          return res.status(403).json({ message: "All quarterly reports must be approved before External Examination Submission." });
+        }
+      }
+
+      const updated = await UserModel.findByIdAndUpdate(req.params.id, { stage }, { new: true });
+      res.json({ message: "Stage updated", student: updated });
     } catch (error) {
       res.status(500).json({ message: "Error updating stage", error });
     }
@@ -86,12 +105,26 @@ DirectorRouter.post(
   "/students/:id/status",
   async (req: Request, res: Response) => {
     try {
-      const { status, reason, effectiveDate } = req.body;
+      const { status, reason, plannedResumption } = req.body;
+      const student = await UserModel.findById(req.params.id);
+      if (!student) return res.status(404).json({ message: "Student not found" });
+
       const update: any = { status };
-      const student = await UserModel.findByIdAndUpdate(req.params.id, update, {
-        new: true,
-      });
-      res.json({ message: "Status updated", student });
+      
+      // Deferral Snapshot (Section 2.1)
+      if (status === "Deferred") {
+        update.deferralInfo = {
+          date: new Date(),
+          reason: reason || "Administrative",
+          plannedResumption,
+          stageAtDeferral: student.stage || "Coursework"
+        };
+      } else if (status === "Resumed") {
+        update["deferralInfo.actualResumption"] = new Date();
+      }
+
+      const updated = await UserModel.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
+      res.json({ message: "Status updated", student: updated });
     } catch (error) {
       res.status(500).json({ message: "Error updating status", error });
     }
@@ -139,6 +172,14 @@ DirectorRouter.post(
       const { sup1, sup2, sup3 } = req.body;
       const studentToUpdate = await UserModel.findById(req.params.id);
       if (!studentToUpdate) return res.status(404).json({ message: "Student not found" });
+
+      // SUPERVISOR COUNT ENFORCEMENT (Section 6.3)
+      if (studentToUpdate.programme === "msc" && sup3) {
+        return res.status(400).json({ message: "Masters students only require 2 supervisors. Please remove Supervisor 3." });
+      }
+      if (studentToUpdate.programme === "phd" && (!sup1 || !sup2 || !sup3)) {
+        return res.status(400).json({ message: "PhD students require exactly 3 supervisors. Please assign Supervisor 3." });
+      }
 
       const settings = await SystemSettingsModel.findOne();
       if (settings?.supervisorLockdown) {

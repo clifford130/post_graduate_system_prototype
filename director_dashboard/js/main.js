@@ -4,12 +4,14 @@ export const STAGES = [
   "Concept Note (School)",
   "Proposal (Department)",
   "Proposal (School)",
-  "PG Approval",
-  "Fieldwork",
-  "Thesis Development",
-  "External Examination",
-  "Defense",
-  "Graduation",
+  "PG School Approval",
+  "Fieldwork / NACOSTI",
+  "Thesis Draft (Department)",
+  "Thesis Draft (School)",
+  "External Examination Submission",
+  "Under External Examination",
+  "Final Defence",
+  "Graduation Clearance",
 ];
 document.addEventListener("DOMContentLoaded", async () => {
   let response = await fetch("http://localhost:5000/api/islogged", {

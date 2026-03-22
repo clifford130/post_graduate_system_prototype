@@ -10,12 +10,14 @@ const STAGES = [
     "Concept Note (School)",
     "Proposal (Department)",
     "Proposal (School)",
-    "PG Approval",
-    "Fieldwork",
-    "Thesis Development",
-    "External Examination",
-    "Defense",
-    "Graduation",
+    "PG School Approval",
+    "Fieldwork / NACOSTI",
+    "Thesis Draft (Department)",
+    "Thesis Draft (School)",
+    "External Examination Submission",
+    "Under External Examination",
+    "Final Defence",
+    "Graduation Clearance",
 ];
 
 const stageMap = {
@@ -24,12 +26,14 @@ const stageMap = {
     'Concept Note (School)': 'Stage 3 — Concept Paper (School)',
     'Proposal (Department)': 'Stage 4 — Proposal Defence (Dept)',
     'Proposal (School)': 'Stage 5 — Proposal Defence (School)',
-    'PG Approval': 'Stage 6 — PG Approval & Clearance',
-    'Fieldwork': 'Stage 7 — NACOSTI & Field Work',
-    'Thesis Development': 'Stage 8 — Thesis Writing',
-    'External Examination': 'Stage 9 — External Review',
-    'Defense': 'Stage 10 — Viva Voce / Defense',
-    'Graduation': 'Stage 11 — Graduation Clearance'
+    'PG School Approval': 'Stage 6 — PG Approval & Clearance',
+    'Fieldwork / NACOSTI': 'Stage 7 — NACOSTI & Field Work',
+    'Thesis Draft (Department)': 'Stage 8 — Thesis Writing (Dept)',
+    'Thesis Draft (School)': 'Stage 9 — Thesis Writing (School)',
+    'External Examination Submission': 'Stage 10 — External Submission',
+    'Under External Examination': 'Stage 11 — External Review',
+    'Final Defence': 'Stage 12 — Viva Voce / Defense',
+    'Graduation Clearance': 'Stage 13 — Graduation Clearance'
 };
 
 const titles = {

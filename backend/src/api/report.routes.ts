@@ -1,32 +1,25 @@
 import { Router, type Request, type Response } from "express";
-import { StorageClient } from "@supabase/storage-js";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import jwt from "jsonwebtoken";
 import { ReportModel } from "../models/report.model.js";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { readFile } from "fs/promises";
 
 export const reportRouter = Router();
 
-// ===== Multer Configuration =====
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), "uploads", "reports");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `report-${uniqueSuffix}${path.extname(file.originalname)}`);
+// ===== AWS S3 Configuration =====
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || "us-east-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
   },
 });
 
+// ===== Multer Configuration (Memory Storage) =====
+const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
     if (file.mimetype === "application/pdf") {
       cb(null, true);
@@ -37,119 +30,85 @@ const upload = multer({
 });
 
 // ===== SUBMIT QUARTERLY REPORT =====
-// @route   POST /api/reports/submit
-// @desc    Submit a quarterly report with optional PDF attachment
-// @access  Private (Student)
 reportRouter.post(
   "/reports/submit",
   upload.single("reportFile"),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
-      // --- Authorization Check ---
+      // Cast 'req' to 'any' to avoid strict Multer/Express interface conflicts
+      const mReq = req as any;
       const accessToken = req.cookies?.userToken;
       const jwtSecret = process.env.JWT_SECRET;
 
       if (!accessToken || !jwtSecret) {
-        return res.status(401).json({
-          success: false,
-          message: "Unauthorized access",
-        });
+         res.status(401).json({ success: false, message: "Unauthorized access" });
+         return;
       }
 
-      // --- Body Validation ---
-      const {
-        reportingQuarter,
-        researchActivities,
-        challengesEncountered,
-        plannedActivities,
-      } = req.body;
+      const { reportingQuarter, reportingYear, researchActivities, challengesEncountered, plannedActivities } = req.body;
 
-      if (!reportingQuarter || !researchActivities || !plannedActivities) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Missing required fields: reportingQuarter, researchActivities, plannedActivities",
-        });
+      if (!mReq.file) {
+        res.status(400).json({ error: "Invalid file type. Please upload only PDF files." });
+        return;
       }
 
-      // --- Supabase Credentials Check ---
-      const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      const PROJECT_REF = process.env.SUPABASE_URL;
+      const file: any = mReq.file;
 
-      if (!SERVICE_KEY || !PROJECT_REF) {
-        return res.status(500).json({ error: "Missing Supabase credentials" });
-      }
+      // --- Upload to AWS S3 ---
+      const fileName = `${Date.now()}-${file.originalname}`;
+      const bucketName = process.env.AWS_S3_BUCKET_NAME || "postgraduate-reports";
 
-      // --- File Validation ---
-      if (!req.file) {
-        return res.status(400).json({
-          error: "Invalid file type. Please upload only PDF files.",
-        });
-      }
-
-      // --- Supabase Storage Setup ---
-      const STORAGE_URL = `https://${PROJECT_REF}.supabase.co/storage/v1`;
-      const storageClient = new StorageClient(STORAGE_URL, {
-        apikey: SERVICE_KEY,
-        Authorization: `Bearer ${SERVICE_KEY}`,
+      const uploadCommand = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: `reports/${fileName}`,
+        Body: file.buffer,
+        ContentType: "application/pdf",
       });
 
-      const fileName = `${Date.now()}-${req.file.originalname}`;
-      const fileBuffer = await readFile(req.file.path);
+      await s3Client.send(uploadCommand);
+      const publicUrl = `https://${bucketName}.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com/reports/${fileName}`;
 
-      // --- Upload File to Supabase ---
-      const { error } = await storageClient
-        .from("campusHub_PDF")
-        .upload(fileName, fileBuffer, {
-          contentType: "application/pdf",
-          upsert: false,
-        });
-
-      if (error) {
-        return res.status(500).json({
-          error: "Failed to upload to Supabase",
-          newError: error,
-        });
-      }
-
-      // --- Delete Local File After Upload ---
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (unlinkError) {
-        console.error("Failed to delete local file:", unlinkError);
-      }
-
-      // --- Get Public URL ---
-      const { data } = storageClient
-        .from("campusHub_PDF")
-        .getPublicUrl(fileName);
-      //
+      // --- Verify JWT and Save in DB ---
       jwt.verify(accessToken, jwtSecret, async (err: any, load: any) => {
         if (err) {
-          res.status(401).json({ message: "Unauthorized" });
+          res.status(401).json({ message: "Unauthorized token" });
           return;
         }
-        // --- Save Report in DB ---
-        await ReportModel.create({
-          owner: load.userNumber,
-          reportUrl: data.publicUrl,
-          reportingQuarter,
-          researchActivities,
-          challengesEncountered,
-          plannedActivities,
-        });
+
+        try {
+          await ReportModel.create({
+            owner: load.userNumber,
+            reportUrl: publicUrl,
+            reportingQuarter: parseInt(reportingQuarter),
+            reportingYear: parseInt(reportingYear || new Date().getFullYear().toString()),
+            researchActivities,
+            challengesEncountered,
+            plannedActivities,
+            status: "pending",
+            approvals: {
+              sup1: "pending",
+              sup2: "pending",
+              sup3: "pending",
+              dean: "pending",
+              finance: "pending",
+            }
+          });
+
+          res.status(201).json({
+            success: true,
+            message: "Report submitted successfully to AWS S3",
+            reportUrl: publicUrl,
+          });
+        } catch (dbError: any) {
+          res.status(500).json({ success: false, message: "DB Error: " + dbError.message });
+        }
       });
 
-      return res.status(201).json({
-        success: true,
-        message: "Report submitted successfully",
-        reportUrl: data.publicUrl,
-      });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting report:", error);
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
-        message: "Server error. Please try again later.",
+        message: error.message || "Server error during file upload",
       });
     }
   },
