@@ -19,23 +19,26 @@ function normalizeStudents(raw) {
   if (Array.isArray(root?.students)) return root;
   if (Array.isArray(root?.items)) return { students: root.items, total: root.total };
   return { students: [] };
+
 }
 
 function row(s) {
-  const name = s?.name || s?.fullName || `${s?.firstName || ""} ${s?.lastName || ""}`.trim() || "Student";
-  const reg = s?.registrationNumber || s?.regNo || s?.studentId || s?.id || "—";
+  const name = s?.fullName || `${s?.firstName || ""} ${s?.lastName || ""}`.trim() || "Student";
+  const reg = s?.userNumber || s?.registrationNumber || s?.studentId || s?.id || "—";
   const dept = s?.department || "—";
   const programme = s?.programme || s?.program || "—";
   const stage = s?.stage || s?.currentStage || "—";
   const status = s?.status || "—";
-  const supervisors = Array.isArray(s?.supervisors)
-    ? s.supervisors
-    : Array.isArray(s?.supervisorNames)
-      ? s.supervisorNames
-      : [];
-  const supText = supervisors.length ? supervisors.join(", ") : "—";
 
-  const href = `./student-details.html?id=${encodeURIComponent(String(s?.id || s?.studentId || reg))}`;
+  // Normalize supervisors: extract values from the object and filter out empty strings
+  let supervisorsList = [];
+  if (s?.supervisors && typeof s.supervisors === "object") {
+    supervisorsList = Object.values(s.supervisors).filter(v => v && v.trim() !== "");
+  }
+  const supText = supervisorsList.length ? supervisorsList.join(", ") : "—";
+
+  const href = `./student-details.html?id=${encodeURIComponent(String(s?._id || s?.studentId || reg))}`;
+
   return `
     <tr class="hover:bg-slate-50 transition">
       <td class="px-4 py-3">
@@ -45,7 +48,7 @@ function row(s) {
       <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(dept)}</td>
       <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(programme)}</td>
       <td class="px-4 py-3">${badge({ label: stage, tone: "blue" })}</td>
-      <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(supText)}</td>
+      <td class="px-4 py-3 text-sm text-slate-700 truncate max-w-[200px]" title="${escapeHtml(supText)}">${escapeHtml(supText)}</td>
       <td class="px-4 py-3">${badge({ label: status, tone: statusTone(status) })}</td>
     </tr>
   `;
