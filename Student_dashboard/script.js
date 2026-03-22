@@ -1,21 +1,400 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // ===== QUARTERLY REPORTS HANDLER =====
+  class QuarterlyReportsHandler {
+    constructor() {
+      this.apiBaseUrl = 'http://localhost:5000/api';
+      this.initializeEventListeners();
+      this.loadReportHistory();
+    }
+
+    initializeEventListeners() {
+      const submitButton = document.querySelector('#section-reports .btn-primary');
+      if (submitButton) {
+        const newButton = submitButton.cloneNode(true);
+        submitButton.parentNode.replaceChild(newButton, submitButton);
+        newButton.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation(); // Add this to prevent event bubbling
+          this.handleReportSubmission();
+        });
+      }
+
+      // Also prevent any form submission if there's a form element
+      const reportSection = document.getElementById('section-reports');
+      if (reportSection) {
+        const forms = reportSection.querySelectorAll('form');
+        forms.forEach(form => {
+          form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          });
+        });
+      }
+    }
+
+    async handleReportSubmission() {
+      try {
+        // Get form data
+        const reportData = this.collectReportData();
+
+        // Validate form data
+        const validation = this.validateReportData(reportData);
+        if (!validation.isValid) {
+          this.showNotification(validation.message, 'error');
+          return;
+        }
+
+        // Get user data
+        const userData = this.getUserData();
+        if (!userData) {
+          this.showNotification('Please login to submit a report', 'error');
+          setTimeout(() => {
+            window.location.href = '../login/login.html';
+          }, 1500);
+          return;
+        }
+
+        // Show loading state
+        this.showLoadingState(true);
+
+        // Submit report
+        const response = await this.submitReport(reportData, userData);
+
+        // Handle successful submission
+        if (response.success) {
+          this.showNotification(response.message || 'Report submitted successfully!', 'success');
+          this.resetForm();
+          await this.loadReportHistory();
+          this.updateWorkflowUI('submitted');
+
+          // Show additional success info if report URL exists
+          if (response.reportUrl) {
+            this.showNotification('Your PDF has been uploaded successfully.', 'info');
+          }
+
+          // Scroll to show the submission history
+          const historyContainer = document.querySelector('#section-reports .card:last-child');
+          if (historyContainer) {
+            historyContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        } else {
+          // Handle server-side errors
+          this.showNotification(response.message || 'Failed to submit report', 'error');
+        }
+
+      } catch (error) {
+        console.error('Report submission error:', error);
+
+        // Handle different types of errors
+        if (error.message.includes('File size')) {
+          this.showNotification('File size exceeds 5MB limit. Please compress your PDF.', 'error');
+        } else if (error.message.includes('PDF')) {
+          this.showNotification('Only PDF files are allowed. Please upload a PDF document.', 'error');
+        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          this.showNotification('Your session has expired. Please login again.', 'error');
+          setTimeout(() => {
+            window.location.href = '../login/login.html';
+          }, 2000);
+        } else if (error.message.includes('Network')) {
+          this.showNotification('Network error. Please check your internet connection.', 'error');
+        } else if (error.message.includes('already submitted')) {
+          this.showNotification('You have already submitted a report for this quarter.', 'warning');
+        } else {
+          this.showNotification(error.message || 'Network error. Please try again.', 'error');
+        }
+      } finally {
+        this.showLoadingState(false);
+      }
+    }
+
+    collectReportData() {
+      const section = document.getElementById('section-reports');
+      const reportingQuarter = section.querySelector('.form-group:first-child select')?.value || '';
+      const researchActivities = section.querySelector('.form-group:nth-child(2) textarea')?.value || '';
+      const challengesEncountered = section.querySelector('.form-group:nth-child(3) textarea')?.value || '';
+      const plannedActivities = section.querySelector('.form-group:nth-child(4) textarea')?.value || '';
+      const fileInput = section.querySelector('input[type="file"]');
+      const file = fileInput?.files?.[0];
+
+      return {
+        reportingQuarter,
+        researchActivities,
+        challengesEncountered,
+        plannedActivities,
+        file: file || null,
+        fileName: file?.name || '',
+        fileSize: file?.size || 0,
+        fileType: file?.type || ''
+      };
+    }
+
+    validateReportData(data) {
+      if (!data.reportingQuarter) {
+        return { isValid: false, message: 'Please select a reporting quarter' };
+      }
+      if (!data.researchActivities || data.researchActivities.trim().length < 20) {
+        return { isValid: false, message: 'Please describe your research activities (minimum 20 characters)' };
+      }
+      if (!data.plannedActivities || data.plannedActivities.trim().length < 20) {
+        return { isValid: false, message: 'Please describe your planned activities (minimum 20 characters)' };
+      }
+      if (data.file && data.file.size > 5 * 1024 * 1024) {
+        return { isValid: false, message: 'File size cannot exceed 5MB' };
+      }
+      if (data.file && data.file.type !== 'application/pdf') {
+        return { isValid: false, message: 'Only PDF files are allowed' };
+      }
+      return { isValid: true, message: '' };
+    }
+
+    async submitReport(reportData, userData) {
+      const formData = new FormData();
+      formData.append('reportingQuarter', reportData.reportingQuarter);
+      formData.append('researchActivities', reportData.researchActivities);
+      formData.append('challengesEncountered', reportData.challengesEncountered);
+      formData.append('plannedActivities', reportData.plannedActivities);
+
+      if (reportData.file) {
+        formData.append('reportFile', reportData.file);
+        formData.append('fileName', reportData.fileName);
+        formData.append('fileSize', reportData.fileSize.toString());
+      }
+
+      const response = await fetch(`${this.apiBaseUrl}/reports/submit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${userData.token}`
+        },
+        credentials: 'include',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Extract meaningful error message
+        const errorMsg = result.message || result.error || `HTTP ${response.status}`;
+        throw new Error(errorMsg);
+      }
+
+      return result;
+    }
+
+    async loadReportHistory() {
+      try {
+        const userData = this.getUserData();
+        if (!userData) return;
+
+        const response = await fetch(`${this.apiBaseUrl}/reports/history`, {
+          headers: { 'Authorization': `Bearer ${userData.token}` },
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          console.error('Failed to load report history');
+          return;
+        }
+
+        const result = await response.json();
+        if (result.success && result.reports) {
+          this.updateHistoryUI(result.reports);
+        }
+      } catch (error) {
+        console.error('Error loading report history:', error);
+        // Don't show notification for history load failure to avoid spamming
+      }
+    }
+
+    updateHistoryUI(reports) {
+      const historyContainer = document.querySelector('#section-reports .card:last-child');
+      if (!historyContainer) return;
+
+      if (reports.length === 0) {
+        historyContainer.innerHTML = `
+          <div class="card-title" style="margin-bottom:12px;">Submission History</div>
+          <div style="text-align: center; padding: 20px; color: var(--grey-500);">
+            No previous submissions found
+          </div>
+        `;
+        return;
+      }
+
+      const historyHTML = `
+        <div class="card-title" style="margin-bottom:12px;">Submission History</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          ${reports.map(report => `
+            <div class="flex-between" style="font-size:0.82rem; padding: 9px 12px; background: ${this.getStatusColor(report.status)}; border-radius:var(--radius-sm);">
+              <div>
+                <div><strong>${report.reportingQuarter}</strong></div>
+                <div style="font-size: 0.7rem; margin-top: 4px;">Submitted: ${new Date(report.createdAt || report.submittedAt).toLocaleDateString()}</div>
+                ${report.reportUrl ? `<div style="font-size: 0.7rem;"><a href="${report.reportUrl}" target="_blank" style="color: var(--blue);">📄 View PDF</a></div>` : ''}
+              </div>
+              <span class="badge ${this.getStatusBadgeClass(report.status)}" style="font-size:0.68rem;">${this.getStatusText(report.status)}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      historyContainer.innerHTML = historyHTML;
+    }
+
+    updateWorkflowUI(status) {
+      if (status === 'submitted') {
+        const step1El = document.getElementById('wf-1');
+        const status1El = document.getElementById('wf-1-s');
+        if (step1El) step1El.className = 'wf-step wf-active';
+        if (status1El) status1El.textContent = 'Under Review';
+      }
+    }
+
+    getStatusColor(status) {
+      const colors = {
+        approved: 'var(--green-light)',
+        under_review: '#fff3e0',
+        rejected: 'var(--red-light)',
+        pending: 'var(--grey-100)'
+      };
+      return colors[status] || 'var(--grey-100)';
+    }
+
+    getStatusBadgeClass(status) {
+      const classes = {
+        approved: 'badge-active',
+        under_review: 'badge-pending',
+        rejected: 'badge-deferred',
+        pending: 'badge-pending'
+      };
+      return classes[status] || 'badge-pending';
+    }
+
+    getStatusText(status) {
+      const texts = {
+        approved: 'Approved ✓',
+        under_review: 'Under Review',
+        rejected: 'Rejected ✗',
+        pending: 'Pending'
+      };
+      return texts[status] || 'Pending';
+    }
+
+    getUserData() {
+      try {
+        const rawData = localStorage.getItem('postgraduate_user');
+        if (!rawData) return null;
+        const userData = JSON.parse(rawData);
+        return {
+          id: userData.id || userData._id,
+          fullName: userData.fullName || userData.name,
+          email: userData.email,
+          role: userData.role,
+          token: userData.token,
+          userNumber: userData.userNumber || userData.studentId
+        };
+      } catch (error) {
+        console.error('Error getting user data:', error);
+        return null;
+      }
+    }
+
+    showNotification(message, type = 'info') {
+      // Remove any existing notification of the same type to avoid stacking
+      const existingNotifications = document.querySelectorAll('.report-notification');
+      existingNotifications.forEach(notif => {
+        notif.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notif.remove(), 300);
+      });
+
+      let notification = document.createElement('div');
+      notification.className = `report-notification ${type}`;
+      notification.textContent = message;
+      document.body.appendChild(notification);
+
+      const style = document.createElement('style');
+      style.textContent = `
+        .report-notification {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          padding: 16px 20px;
+          border-radius: 8px;
+          font-size: 14px;
+          z-index: 10000;
+          animation: slideIn 0.3s ease;
+          max-width: 400px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .report-notification.success { background: #10b981; color: white; border-left: 4px solid #059669; }
+        .report-notification.error { background: #ef4444; color: white; border-left: 4px solid #dc2626; }
+        .report-notification.info { background: #3b82f6; color: white; border-left: 4px solid #2563eb; }
+        .report-notification.warning { background: #f59e0b; color: white; border-left: 4px solid #d97706; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+      `;
+
+      if (!document.querySelector('#notification-styles')) {
+        style.id = 'notification-styles';
+        document.head.appendChild(style);
+      }
+
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        if (notification && notification.parentNode) {
+          notification.style.animation = 'slideOut 0.3s ease';
+          setTimeout(() => {
+            if (notification && notification.parentNode) {
+              notification.remove();
+            }
+          }, 300);
+        }
+      }, 5000);
+    }
+
+    showLoadingState(isLoading) {
+      const button = document.querySelector('#section-reports .btn-primary');
+      if (!button) return;
+
+      if (isLoading) {
+        button.setAttribute('data-original-text', button.textContent);
+        button.textContent = '⏳ Submitting...';
+        button.disabled = true;
+        button.style.opacity = '0.7';
+        button.style.cursor = 'not-allowed';
+      } else {
+        const originalText = button.getAttribute('data-original-text') || '📤 Submit Report';
+        button.textContent = originalText;
+        button.disabled = false;
+        button.style.opacity = '1';
+        button.style.cursor = 'pointer';
+      }
+    }
+
+    resetForm() {
+      const section = document.getElementById('section-reports');
+      const select = section.querySelector('select');
+      if (select && select.options.length > 0) select.selectedIndex = 0;
+      const textareas = section.querySelectorAll('textarea');
+      textareas.forEach(textarea => textarea.value = '');
+      const fileInput = section.querySelector('input[type="file"]');
+      if (fileInput) fileInput.value = '';
+    }
+  }
+
   // ===== PRESENTATION BOOKING HANDLER =====
   class PresentationBookingHandler {
     constructor() {
       this.apiBaseUrl = 'http://localhost:5000/api';
       this.initializeEventListeners();
-      this.loadAndDisplayBookings(); // Load bookings when handler is created
+      this.loadAndDisplayBookings();
     }
 
     initializeEventListeners() {
-      // Find the booking button in the scheduling section
       const bookingButton = document.querySelector('#section-scheduling .btn-primary');
       if (bookingButton) {
-        // Remove existing onclick to avoid duplicates
         const newButton = bookingButton.cloneNode(true);
         bookingButton.parentNode.replaceChild(newButton, bookingButton);
         newButton.addEventListener('click', (e) => {
           e.preventDefault();
+          e.stopPropagation();
           this.handleBooking();
         });
       }
@@ -29,17 +408,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const response = await fetch(`${this.apiBaseUrl}/presentations/my-bookings`, {
           method: 'GET',
           credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${userData.token}`
-          }
+          headers: { 'Authorization': `Bearer ${userData.token}` }
         });
 
-        const data = await response.json();
+        if (!response.ok) {
+          console.error('Failed to load bookings');
+          return;
+        }
 
+        const data = await response.json();
         if (data.success && data.bookings) {
           this.displayBookings(data.bookings, data.hasPendingBooking);
-
-          // If there's a pending booking, disable the booking button
           if (data.hasPendingBooking) {
             const bookingButton = document.querySelector('#section-scheduling .btn-primary');
             if (bookingButton) {
@@ -57,7 +436,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     displayBookings(bookings, hasPendingBooking) {
-      // Create or get the bookings container
       let bookingsContainer = document.getElementById('my-bookings-container');
       const schedulingSection = document.getElementById('section-scheduling');
 
@@ -79,7 +457,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // Separate bookings by status
       const pendingBookings = bookings.filter(b => b.status === 'pending');
       const confirmedBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'scheduled');
       const completedBookings = bookings.filter(b => b.status === 'completed');
@@ -92,81 +469,31 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
 
-      // Pending Bookings Section
       if (pendingBookings.length > 0) {
-        html += `
-          <div class="bookings-section">
-            <div class="section-title" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-              <span style="display: inline-block; width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></span>
-              <h3 style="font-size: 16px; font-weight: 600; color: #f59e0b;">Pending Requests (${pendingBookings.length})</h3>
-            </div>
-            <div class="bookings-grid" style="display: grid; gap: 16px;">
-        `;
-
-        pendingBookings.forEach(booking => {
-          html += this.generateBookingCard(booking, 'pending');
-        });
-
+        html += `<div class="bookings-section"><div class="section-title" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;"><span style="display: inline-block; width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></span><h3 style="font-size: 16px; font-weight: 600; color: #f59e0b;">Pending Requests (${pendingBookings.length})</h3></div><div class="bookings-grid" style="display: grid; gap: 16px;">`;
+        pendingBookings.forEach(booking => { html += this.generateBookingCard(booking, 'pending'); });
         html += `</div></div>`;
       }
 
-      // Confirmed/Scheduled Bookings Section
       if (confirmedBookings.length > 0) {
-        html += `
-          <div class="bookings-section" style="margin-top: 24px;">
-            <div class="section-title" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-              <span style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span>
-              <h3 style="font-size: 16px; font-weight: 600; color: #10b981;">Confirmed/Scheduled (${confirmedBookings.length})</h3>
-            </div>
-            <div class="bookings-grid" style="display: grid; gap: 16px;">
-        `;
-
-        confirmedBookings.forEach(booking => {
-          html += this.generateBookingCard(booking, 'confirmed');
-        });
-
+        html += `<div class="bookings-section" style="margin-top: 24px;"><div class="section-title" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;"><span style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span><h3 style="font-size: 16px; font-weight: 600; color: #10b981;">Confirmed/Scheduled (${confirmedBookings.length})</h3></div><div class="bookings-grid" style="display: grid; gap: 16px;">`;
+        confirmedBookings.forEach(booking => { html += this.generateBookingCard(booking, 'confirmed'); });
         html += `</div></div>`;
       }
 
-      // Completed Bookings Section
       if (completedBookings.length > 0) {
-        html += `
-          <div class="bookings-section" style="margin-top: 24px;">
-            <div class="section-title" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-              <span style="display: inline-block; width: 8px; height: 8px; background: #6b7280; border-radius: 50%;"></span>
-              <h3 style="font-size: 16px; font-weight: 600; color: var(--grey-600);">Completed (${completedBookings.length})</h3>
-            </div>
-            <div class="bookings-grid" style="display: grid; gap: 16px;">
-        `;
-
-        completedBookings.forEach(booking => {
-          html += this.generateBookingCard(booking, 'completed');
-        });
-
+        html += `<div class="bookings-section" style="margin-top: 24px;"><div class="section-title" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;"><span style="display: inline-block; width: 8px; height: 8px; background: #6b7280; border-radius: 50%;"></span><h3 style="font-size: 16px; font-weight: 600; color: var(--grey-600);">Completed (${completedBookings.length})</h3></div><div class="bookings-grid" style="display: grid; gap: 16px;">`;
+        completedBookings.forEach(booking => { html += this.generateBookingCard(booking, 'completed'); });
         html += `</div></div>`;
       }
 
-      // Cancelled Bookings Section
       if (cancelledBookings.length > 0) {
-        html += `
-          <div class="bookings-section" style="margin-top: 24px;">
-            <div class="section-title" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-              <span style="display: inline-block; width: 8px; height: 8px; background: #ef4444; border-radius: 50%;"></span>
-              <h3 style="font-size: 16px; font-weight: 600; color: #ef4444;">Cancelled (${cancelledBookings.length})</h3>
-            </div>
-            <div class="bookings-grid" style="display: grid; gap: 16px;">
-        `;
-
-        cancelledBookings.forEach(booking => {
-          html += this.generateBookingCard(booking, 'cancelled');
-        });
-
+        html += `<div class="bookings-section" style="margin-top: 24px;"><div class="section-title" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;"><span style="display: inline-block; width: 8px; height: 8px; background: #ef4444; border-radius: 50%;"></span><h3 style="font-size: 16px; font-weight: 600; color: #ef4444;">Cancelled (${cancelledBookings.length})</h3></div><div class="bookings-grid" style="display: grid; gap: 16px;">`;
+        cancelledBookings.forEach(booking => { html += this.generateBookingCard(booking, 'cancelled'); });
         html += `</div></div>`;
       }
 
       bookingsContainer.innerHTML = html;
-
-      // Add styles for bookings container if not already added
       this.addBookingStyles();
     }
 
@@ -178,71 +505,27 @@ document.addEventListener("DOMContentLoaded", () => {
         completed: { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af', icon: '✓', label: 'Completed' },
         cancelled: { bg: '#fee2e2', text: '#ef4444', border: '#ef4444', icon: '✗', label: 'Cancelled' }
       };
-
       const colors = statusColors[status] || statusColors.pending;
       const bookingDate = new Date(booking.preferredDate);
       const formattedDate = bookingDate.toLocaleDateString('en-GB', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       });
 
       return `
         <div class="booking-card" style="background: white; border: 1px solid var(--grey-200); border-left: 4px solid ${colors.border}; border-radius: 12px; padding: 20px; transition: all 0.2s;">
           <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-            <div>
-              <h4 style="font-size: 16px; font-weight: 600; color: var(--grey-900); margin-bottom: 4px;">${booking.presentationType}</h4>
-              <span style="display: inline-flex; align-items: center; gap: 4px; background: ${colors.bg}; color: ${colors.text}; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500;">
-                ${colors.icon} ${colors.label}
-              </span>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-size: 12px; color: var(--grey-500);">Booking Ref:</div>
-              <div style="font-size: 12px; font-weight: 500; color: var(--grey-700);">${booking._id.slice(-8).toUpperCase()}</div>
-            </div>
+            <div><h4 style="font-size: 16px; font-weight: 600; color: var(--grey-900); margin-bottom: 4px;">${booking.presentationType}</h4><span style="display: inline-flex; align-items: center; gap: 4px; background: ${colors.bg}; color: ${colors.text}; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500;">${colors.icon} ${colors.label}</span></div>
+            <div style="text-align: right;"><div style="font-size: 12px; color: var(--grey-500);">Booking Ref:</div><div style="font-size: 12px; font-weight: 500; color: var(--grey-700);">${booking._id.slice(-8).toUpperCase()}</div></div>
           </div>
-          
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 16px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 18px;">📅</span>
-              <div>
-                <div style="font-size: 11px; color: var(--grey-500);">Date</div>
-                <div style="font-size: 13px; font-weight: 500; color: var(--grey-700);">${formattedDate}</div>
-              </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 18px;">⏰</span>
-              <div>
-                <div style="font-size: 11px; color: var(--grey-500);">Time</div>
-                <div style="font-size: 13px; font-weight: 500; color: var(--grey-700);">${booking.preferredTime}</div>
-              </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 18px;">📍</span>
-              <div>
-                <div style="font-size: 11px; color: var(--grey-500);">Venue</div>
-                <div style="font-size: 13px; font-weight: 500; color: var(--grey-700);">${booking.venue}</div>
-              </div>
-            </div>
+            <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 18px;">📅</span><div><div style="font-size: 11px; color: var(--grey-500);">Date</div><div style="font-size: 13px; font-weight: 500; color: var(--grey-700);">${formattedDate}</div></div></div>
+            <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 18px;">⏰</span><div><div style="font-size: 11px; color: var(--grey-500);">Time</div><div style="font-size: 13px; font-weight: 500; color: var(--grey-700);">${booking.preferredTime}</div></div></div>
+            <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 18px;">📍</span><div><div style="font-size: 11px; color: var(--grey-500);">Venue</div><div style="font-size: 13px; font-weight: 500; color: var(--grey-700);">${booking.venue}</div></div></div>
           </div>
-          
-          ${booking.additionalNotes ? `
-            <div style="margin-top: 12px; padding: 12px; background: var(--grey-50); border-radius: 8px;">
-              <div style="font-size: 11px; color: var(--grey-500); margin-bottom: 4px;">Additional Notes:</div>
-              <div style="font-size: 13px; color: var(--grey-600);">${booking.additionalNotes}</div>
-            </div>
-          ` : ''}
-          
+          ${booking.additionalNotes ? `<div style="margin-top: 12px; padding: 12px; background: var(--grey-50); border-radius: 8px;"><div style="font-size: 11px; color: var(--grey-500); margin-bottom: 4px;">Additional Notes:</div><div style="font-size: 13px; color: var(--grey-600);">${booking.additionalNotes}</div></div>` : ''}
           <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--grey-200); display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-size: 11px; color: var(--grey-400);">
-              Submitted: ${new Date(booking.createdAt).toLocaleDateString()}
-            </div>
-            ${status === 'pending' ? `
-              <button onclick="window.cancelBooking('${booking._id}')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">
-                Cancel Request
-              </button>
-            ` : ''}
+            <div style="font-size: 11px; color: var(--grey-400);">Submitted: ${new Date(booking.createdAt).toLocaleDateString()}</div>
+            ${status === 'pending' ? `<button onclick="window.cancelBooking('${booking._id}')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">Cancel Request</button>` : ''}
           </div>
         </div>
       `;
@@ -250,39 +533,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     addBookingStyles() {
       if (document.getElementById('booking-styles')) return;
-
       const style = document.createElement('style');
       style.id = 'booking-styles';
       style.textContent = `
-        .booking-card:hover {
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-          transform: translateY(-2px);
-        }
-        
-        .my-bookings-container {
-          animation: fadeIn 0.5s ease;
-        }
-        
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .booking-card {
-            padding: 16px;
-          }
-          
-          .bookings-grid {
-            grid-template-columns: 1fr;
-          }
-        }
+        .booking-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-2px); }
+        .my-bookings-container { animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 768px) { .booking-card { padding: 16px; } .bookings-grid { grid-template-columns: 1fr; } }
       `;
       document.head.appendChild(style);
     }
@@ -295,26 +552,21 @@ document.addEventListener("DOMContentLoaded", () => {
           this.showNotification(validation.message, 'error');
           return;
         }
-
         const userData = this.getUserData();
         if (!userData) {
           this.showNotification('Please login to book a presentation', 'error');
           window.location.href = '../login/login.html';
           return;
         }
-
         this.showLoadingState(true);
         const response = await this.submitBooking(bookingData, userData);
-        console.log(response);
-
         if (response.success) {
           this.showNotification('Presentation request submitted successfully!', 'success');
           this.resetForm();
-          await this.loadAndDisplayBookings(); // Refresh bookings display
+          await this.loadAndDisplayBookings();
         } else {
           this.showNotification(response.message || 'Failed to submit booking request', 'error');
         }
-
       } catch (error) {
         console.error('Booking error:', error);
         this.showNotification(error.message || 'Network error. Please check your connection.', 'error');
@@ -325,49 +577,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
     collectBookingData() {
       const section = document.getElementById('section-scheduling');
-      const presentationType = section.querySelector('.form-group:first-child select')?.value || '';
-      const preferredDate = section.querySelector('#pres-date')?.value || '';
-      const preferredTime = section.querySelector('.form-group:nth-child(3) select')?.value || '';
-      const venue = section.querySelector('.form-group:nth-child(4) select')?.value || '';
-      const additionalNotes = section.querySelector('.form-group:last-child textarea')?.value || '';
-
       return {
-        presentationType,
-        preferredDate,
-        preferredTime,
-        venue,
-        additionalNotes,
+        presentationType: section.querySelector('.form-group:first-child select')?.value || '',
+        preferredDate: section.querySelector('#pres-date')?.value || '',
+        preferredTime: section.querySelector('.form-group:nth-child(3) select')?.value || '',
+        venue: section.querySelector('.form-group:nth-child(4) select')?.value || '',
+        additionalNotes: section.querySelector('.form-group:last-child textarea')?.value || '',
         timestamp: new Date().toISOString()
       };
     }
 
     validateBookingData(data) {
-      if (!data.presentationType) {
-        return { isValid: false, message: 'Please select a presentation type' };
-      }
-      if (!data.preferredDate) {
-        return { isValid: false, message: 'Please select a preferred date' };
-      }
+      if (!data.presentationType) return { isValid: false, message: 'Please select a presentation type' };
+      if (!data.preferredDate) return { isValid: false, message: 'Please select a preferred date' };
       const selectedDate = new Date(data.preferredDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (selectedDate < today) {
-        return { isValid: false, message: 'Please select a future date' };
-      }
-      const maxDate = new Date();
-      maxDate.setDate(maxDate.getDate() + 90);
-      if (selectedDate > maxDate) {
-        return { isValid: false, message: 'Please select a date within the next 90 days' };
-      }
-      if (!data.preferredTime) {
-        return { isValid: false, message: 'Please select a preferred time' };
-      }
-      if (!data.venue) {
-        return { isValid: false, message: 'Please select a venue' };
-      }
-      if (data.additionalNotes && data.additionalNotes.length > 500) {
-        return { isValid: false, message: 'Additional notes cannot exceed 500 characters' };
-      }
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      if (selectedDate < today) return { isValid: false, message: 'Please select a future date' };
+      const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + 90);
+      if (selectedDate > maxDate) return { isValid: false, message: 'Please select a date within the next 90 days' };
+      if (!data.preferredTime) return { isValid: false, message: 'Please select a preferred time' };
+      if (!data.venue) return { isValid: false, message: 'Please select a venue' };
+      if (data.additionalNotes && data.additionalNotes.length > 500) return { isValid: false, message: 'Additional notes cannot exceed 500 characters' };
       return { isValid: true, message: '' };
     }
 
@@ -402,106 +632,45 @@ document.addEventListener("DOMContentLoaded", () => {
         studentEmail: userData.email,
         studentNumber: userData.userNumber
       };
-
       const response = await fetch(`${this.apiBaseUrl}/presentations/request`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(payload)
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload)
       });
-
       const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.message || `HTTP ${response.status}`);
-      }
+      if (!response.ok) throw new Error(result.message || `HTTP ${response.status}`);
       return result;
     }
 
     showNotification(message, type = 'info') {
-      let notification = document.getElementById('booking-notification');
-      if (!notification) {
-        notification = document.createElement('div');
-        notification.id = 'booking-notification';
-        notification.className = 'booking-notification';
-        document.body.appendChild(notification);
+      // Remove existing notifications
+      const existingNotifications = document.querySelectorAll('.booking-notification');
+      existingNotifications.forEach(notif => notif.remove());
 
-        // Add styles for notification
-        const style = document.createElement('style');
-        style.textContent = `
-          .booking-notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 16px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-            max-width: 400px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          }
-          
-          .booking-notification.success {
-            background: #10b981;
-            color: white;
-            border-left: 4px solid #059669;
-          }
-          
-          .booking-notification.error {
-            background: #ef4444;
-            color: white;
-            border-left: 4px solid #dc2626;
-          }
-          
-          .booking-notification.info {
-            background: #3b82f6;
-            color: white;
-            border-left: 4px solid #2563eb;
-          }
-          
-          .booking-notification.warning {
-            background: #f59e0b;
-            color: white;
-            border-left: 4px solid #d97706;
-          }
-          
-          @keyframes slideIn {
-            from {
-              transform: translateX(100%);
-              opacity: 0;
-            }
-            to {
-              transform: translateX(0);
-              opacity: 1;
-            }
-          }
-          
-          @keyframes slideOut {
-            from {
-              transform: translateX(0);
-              opacity: 1;
-            }
-            to {
-              transform: translateX(100%);
-              opacity: 0;
-            }
-          }
-        `;
+      let notification = document.createElement('div');
+      notification.className = `booking-notification ${type}`;
+      notification.textContent = message;
+      document.body.appendChild(notification);
+
+      const style = document.createElement('style');
+      style.textContent = `
+        .booking-notification { position: fixed; top: 20px; right: 20px; padding: 16px 20px; border-radius: 8px; font-size: 14px; z-index: 10000; animation: slideIn 0.3s ease; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .booking-notification.success { background: #10b981; color: white; border-left: 4px solid #059669; }
+        .booking-notification.error { background: #ef4444; color: white; border-left: 4px solid #dc2626; }
+        .booking-notification.info { background: #3b82f6; color: white; border-left: 4px solid #2563eb; }
+        .booking-notification.warning { background: #f59e0b; color: white; border-left: 4px solid #d97706; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+      `;
+
+      if (!document.querySelector('#booking-notification-styles')) {
+        style.id = 'booking-notification-styles';
         document.head.appendChild(style);
       }
 
-      notification.textContent = message;
-      notification.className = `booking-notification ${type}`;
-      notification.style.display = 'block';
-
       setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => {
-          notification.style.display = 'none';
-          notification.style.animation = '';
-        }, 300);
+        if (notification && notification.parentNode) {
+          notification.style.animation = 'slideOut 0.3s ease';
+          setTimeout(() => notification.remove(), 300);
+        }
       }, 5000);
     }
 
@@ -524,11 +693,7 @@ document.addEventListener("DOMContentLoaded", () => {
     resetForm() {
       const section = document.getElementById('section-scheduling');
       const selects = section.querySelectorAll('select');
-      selects.forEach(select => {
-        if (select.options.length > 0) {
-          select.selectedIndex = 0;
-        }
-      });
+      selects.forEach(select => { if (select.options.length > 0) select.selectedIndex = 0; });
       const dateInput = section.querySelector('#pres-date');
       if (dateInput) {
         dateInput.value = '';
@@ -537,39 +702,23 @@ document.addEventListener("DOMContentLoaded", () => {
         dateInput.min = tomorrow.toISOString().split('T')[0];
       }
       const textarea = section.querySelector('textarea');
-      if (textarea) {
-        textarea.value = '';
-      }
+      if (textarea) textarea.value = '';
     }
   }
 
-  // Cancel booking function
+  // ===== CANCEL BOOKING FUNCTION =====
   window.cancelBooking = async function (bookingId) {
     if (!confirm('Are you sure you want to cancel this booking request?')) return;
-
     try {
       const userData = JSON.parse(localStorage.getItem('postgraduate_user'));
-      if (userData === null) {
-        alert('Please login to cancel booking');
-        return;
-      }
+      if (!userData) { alert('Please login to cancel booking'); return; }
       const response = await fetch(`http://localhost:5000/api/presentations/${bookingId}/cancel`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
       });
-
       const result = await response.json();
-
       if (result.success) {
         alert('Booking cancelled successfully');
-        // Refresh the bookings display
-        const handler = window.bookingHandler;
-        if (handler) {
-          await handler.loadAndDisplayBookings();
-        }
+        if (window.bookingHandler) await window.bookingHandler.loadAndDisplayBookings();
       } else {
         alert(result.message || 'Failed to cancel booking');
       }
@@ -580,22 +729,12 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ===== GLOBAL NAVIGATION FUNCTION =====
-  // This must be defined at the global level so HTML onclick can access it
   window.navigate = function (target, el) {
-    // Hide all sections
-    const sections = document.querySelectorAll('.section');
-    sections.forEach(s => s.classList.remove('active'));
-
-    // Remove active class from all nav items
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(n => n.classList.remove('active'));
-
-    // Show selected section
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     const section = document.getElementById('section-' + target);
     if (section) section.classList.add('active');
     if (el) el.classList.add('active');
-
-    // Update page title
     const titles = {
       profile: ['My Profile', 'Student academic particulars & status'],
       pipeline: ['Research Pipeline', '10-Stage postgraduate research tracker'],
@@ -604,7 +743,6 @@ document.addEventListener("DOMContentLoaded", () => {
       scheduling: ['Scheduling & Corrections', 'Presentation booking & AI correction checklist'],
       finance: ['ERP Finance', 'Student finance clearance & account status'],
     };
-
     const pageTitle = document.getElementById('page-title');
     const pageSub = document.getElementById('page-sub');
     if (pageTitle) pageTitle.textContent = titles[target][0];
@@ -613,44 +751,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===== LOGOUT FUNCTION =====
   window.logoutUser = async function () {
+    if (!confirm('Are you sure you want to logout?')) return;
+    const logoutBtn = document.getElementById('logout-btn-sidebar');
+    const originalText = logoutBtn ? logoutBtn.innerHTML : '';
+    if (logoutBtn) {
+      logoutBtn.innerHTML = '<span class="nav-icon">⏳</span> Logging out...';
+      logoutBtn.disabled = true;
+    }
     try {
-      // Show confirmation dialog
-      if (!confirm('Are you sure you want to logout?')) {
-        return;
-      }
-
-      // Show loading state on logout button
-      const logoutBtn = document.getElementById('logout-btn-sidebar');
-      const originalText = logoutBtn ? logoutBtn.innerHTML : '';
-      if (logoutBtn) {
-        logoutBtn.innerHTML = '<span class="nav-icon">⏳</span> Logging out...';
-        logoutBtn.disabled = true;
-      }
-
-      // Call logout API
       const response = await fetch('http://localhost:5000/api/user/login/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }
       });
-
       const data = await response.json();
-
       if (response.ok && data.success) {
-        // Clear local storage
         localStorage.removeItem('postgraduate_user');
         sessionStorage.removeItem('postgraduate_user');
-
-        // Clear any other stored data
         localStorage.removeItem('userToken');
         sessionStorage.clear();
-
-        // Show success message
         alert('Logged out successfully!');
-
-        // Redirect to login page
         window.location.href = '../login/login.html';
       } else {
         throw new Error(data.message || 'Logout failed');
@@ -658,14 +776,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error('Logout error:', error);
       alert('Error during logout: ' + error.message);
-
-      // Even if API fails, clear local data and redirect
       localStorage.removeItem('postgraduate_user');
       sessionStorage.removeItem('postgraduate_user');
       window.location.href = '../login/login.html';
     } finally {
-      // Reset button state (though page will redirect)
-      const logoutBtn = document.getElementById('logout-btn-sidebar');
       if (logoutBtn && logoutBtn.innerHTML !== '<span class="nav-icon">🚪</span> Logout') {
         logoutBtn.innerHTML = '<span class="nav-icon">🚪</span> Logout';
         logoutBtn.disabled = false;
@@ -675,54 +789,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===== MAIN APPLICATION CODE =====
   (async () => {
-    // Helper function to handle user data storage
     const updateUserStorage = (userData) => {
       try {
-        if (userData && userData.id) {
-          localStorage.setItem("postgraduate_user", JSON.stringify(userData));
-          console.log("User data stored successfully");
-        } else {
-          console.warn("Invalid user data, not storing");
-        }
-      } catch (error) {
-        console.error("Failed to store user data:", error);
-      }
+        if (userData && userData.id) localStorage.setItem("postgraduate_user", JSON.stringify(userData));
+      } catch (error) { console.error("Failed to store user data:", error); }
     };
-
-    // Helper function to clear user data
     const clearUserData = () => {
       try {
         localStorage.removeItem("postgraduate_user");
         sessionStorage.removeItem("postgraduate_user");
-        console.log("User data cleared");
-      } catch (error) {
-        console.error("Failed to clear user data:", error);
-      }
+      } catch (error) { console.error("Failed to clear user data:", error); }
     };
 
-    // Get stored user data
     let usersData = null;
     try {
       const storedData = localStorage.getItem("postgraduate_user");
       usersData = storedData ? JSON.parse(storedData) : null;
-      console.log("Stored user data:", usersData);
     } catch (error) {
       console.error("Error parsing stored user data:", error);
       clearUserData();
     }
 
-    // Check if user is logged in with server
     try {
       const result = await fetch("http://localhost:5000/api/islogged", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        }
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "Accept": "application/json" }
       });
 
-      // Handle response based on status
       if (result.status === 401 || !result.ok || usersData === null) {
         console.log("User not authenticated, redirecting to login");
         clearUserData();
@@ -731,21 +823,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (result.status === 200) {
-        // Parse the response
         let responseData;
-        try {
-          responseData = await result.json();
-          console.log("Server response:", responseData);
-        } catch (parseError) {
+        try { responseData = await result.json(); } catch (parseError) {
           console.error("Failed to parse server response:", parseError);
           clearUserData();
           window.location.href = "../login/login.html";
           return;
         }
 
-        // Check if we have valid user data
         if (responseData && responseData.user) {
-          // Prepare user data for storage
           const userData = {
             id: responseData.user.id || responseData.user._id,
             fullName: responseData.user.fullName || responseData.user.name || responseData.user.firstName + " " + responseData.user.lastName || "User",
@@ -758,13 +844,9 @@ document.addEventListener("DOMContentLoaded", () => {
             token: responseData.token || null,
             lastLogin: new Date().toISOString()
           };
-
-          // Store updated user data
           updateUserStorage(userData);
           usersData = userData;
-          console.log("User data updated successfully");
         } else if (responseData && responseData.id) {
-          // Handle case where user data is at root level
           const userData = {
             id: responseData.id,
             fullName: responseData.fullName || responseData.name || "User",
@@ -780,8 +862,6 @@ document.addEventListener("DOMContentLoaded", () => {
           updateUserStorage(userData);
           usersData = userData;
         } else {
-          console.error("Invalid response format from server:", responseData);
-          // Don't redirect if we have local data, but log error
           if (!usersData) {
             clearUserData();
             window.location.href = "../login/login.html";
@@ -791,51 +871,36 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (fetchError) {
       console.error("Network error checking login status:", fetchError);
-
-      // If we have local user data and it's not expired, use it
       if (usersData && usersData.lastLogin) {
         const lastLoginDate = new Date(usersData.lastLogin);
         const now = new Date();
         const hoursSinceLogin = (now - lastLoginDate) / (1000 * 60 * 60);
-
-        // Allow offline mode for up to 24 hours
-        if (hoursSinceLogin < 24) {
-          console.log("Using cached user data (offline mode)");
-          // Continue with cached data
-        } else {
-          console.log("Cached user data expired, redirecting to login");
+        if (hoursSinceLogin >= 24) {
           clearUserData();
           window.location.href = "../login/login.html";
           return;
         }
       } else {
-        console.log("No cached user data available, redirecting to login");
         window.location.href = "../login/login.html";
         return;
       }
     }
 
-    // Safely get the latest user data after all operations
     let currentUserData = null;
     try {
       const storedData = localStorage.getItem("postgraduate_user");
       currentUserData = storedData ? JSON.parse(storedData) : null;
-    } catch (error) {
-      console.error("Error getting final user data:", error);
-    }
+    } catch (error) { console.error("Error getting final user data:", error); }
 
-    // Update UI with user name if element exists
     const profileNameElement = document.querySelector(".profile-name");
     if (profileNameElement && currentUserData) {
       profileNameElement.innerHTML = currentUserData.fullName || "Student";
-    } else if (profileNameElement) {
-      profileNameElement.innerHTML = "Student";
     }
 
     // ===== STATE =====
     let currentStatus = 'ACTIVE';
     const statuses = ['ACTIVE', 'DEFERRED', 'RESUMED', 'GRADUATED'];
-    let currentStage = 3; // 1-indexed, active stage
+    let currentStage = 3;
     let clearanceGranted = false;
     let reportSubmitted = false;
 
@@ -852,7 +917,6 @@ document.addEventListener("DOMContentLoaded", () => {
       { label: 'Graduation\n& Conferment', phase: 2, approver: 'Senate', next: 'Apply for graduation' },
     ];
 
-    // ===== MODULE 1: STATUS =====
     const statusConfig = {
       ACTIVE: { cls: 'badge-active', label: '● ACTIVE', btn: 'btn-danger', btnText: 'Request Deferral', showAlert: false },
       DEFERRED: { cls: 'badge-deferred', label: '⏸ DEFERRED', btn: 'btn-outline', btnText: 'Request Reinstatement', showAlert: true },
@@ -864,30 +928,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const cfg = statusConfig[currentStatus];
       ['status-badge', 'status-badge-2'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) {
-          el.className = 'badge ' + cfg.cls;
-          el.textContent = cfg.label;
-        }
+        if (el) { el.className = 'badge ' + cfg.cls; el.textContent = cfg.label; }
       });
       const btn = document.getElementById('defer-btn');
-      if (btn) {
-        btn.className = 'btn btn-sm ' + cfg.btn;
-        btn.textContent = cfg.btnText;
-      }
+      if (btn) { btn.className = 'btn btn-sm ' + cfg.btn; btn.textContent = cfg.btnText; }
       const alertEl = document.getElementById('deferral-alert');
       if (alertEl) alertEl.style.display = cfg.showAlert ? 'block' : 'none';
-
-      // Lock pipeline if deferred
       const pipelineMsg = document.getElementById('pipeline-locked-msg');
       const gateBtn = document.getElementById('gate-btn');
       if (pipelineMsg && gateBtn) {
-        if (currentStatus === 'DEFERRED') {
-          pipelineMsg.style.display = 'flex';
-          gateBtn.disabled = true;
-        } else {
-          pipelineMsg.style.display = 'none';
-          gateBtn.disabled = (currentStage > 10);
-        }
+        if (currentStatus === 'DEFERRED') { pipelineMsg.style.display = 'flex'; gateBtn.disabled = true; }
+        else { pipelineMsg.style.display = 'none'; gateBtn.disabled = (currentStage > 10); }
       }
     }
 
@@ -896,63 +947,41 @@ document.addEventListener("DOMContentLoaded", () => {
       updateStatusUI();
     }
 
-    // ===== MODULE 2: PIPELINE =====
     function renderPipeline() {
       const p1El = document.getElementById('pipeline-p1');
       const p2El = document.getElementById('pipeline-p2');
       if (!p1El || !p2El) return;
-
-      p1El.innerHTML = '';
-      p2El.innerHTML = '';
-
+      p1El.innerHTML = ''; p2El.innerHTML = '';
       for (let i = 1; i <= 10; i++) {
         const s = stageData[i - 1];
         let state = i < currentStage ? 'completed' : i === currentStage ? 'active' : 'locked';
         const el = document.createElement('div');
         el.className = 'pipeline-step ' + state;
-        el.innerHTML = `
-        <div class="step-circle ${state}">
-          ${state === 'completed' ? '✓' : i}
-        </div>
-        <div class="step-label ${state === 'active' ? 'active-label' : state === 'completed' ? 'completed-label' : ''}">
-          ${s.label.replace('\n', '<br>')}
-        </div>`;
+        el.innerHTML = `<div class="step-circle ${state}">${state === 'completed' ? '✓' : i}</div><div class="step-label ${state === 'active' ? 'active-label' : state === 'completed' ? 'completed-label' : ''}">${s.label.replace('\n', '<br>')}</div>`;
         if (s.phase === 1) p1El.appendChild(el);
         else p2El.appendChild(el);
       }
-
-      // Update badges & meta
       const pct = Math.round(((currentStage - 1) / 10) * 100);
       const progressFill = document.getElementById('pipeline-progress-fill');
       const progressText = document.getElementById('pipeline-progress-text');
       const currentBadge = document.getElementById('pipeline-current-badge');
       const bossStageNum = document.getElementById('boss-stage-num');
       const gateBtn = document.getElementById('gate-btn');
-
       if (progressFill) progressFill.style.width = pct + '%';
-      if (progressText) progressText.innerHTML =
-        `<strong>Stage ${Math.min(currentStage, 10)} of 10</strong> — ${stageData[Math.min(currentStage, 10) - 1].label.replace('\n', ' ')}`;
-      if (currentBadge) currentBadge.textContent =
-        currentStage > 10 ? '🎓 Completed' : `Stage ${currentStage} — Active`;
-
+      if (progressText) progressText.innerHTML = `<strong>Stage ${Math.min(currentStage, 10)} of 10</strong> — ${stageData[Math.min(currentStage, 10) - 1].label.replace('\n', ' ')}`;
+      if (currentBadge) currentBadge.textContent = currentStage > 10 ? '🎓 Completed' : `Stage ${currentStage} — Active`;
       const sd = stageData[Math.min(currentStage, 10) - 1];
       const sdCurrent = document.getElementById('sd-current');
       const sdApprover = document.getElementById('sd-approver');
       const sdPhase = document.getElementById('sd-phase');
       const sdNext = document.getElementById('sd-next');
-
       if (sdCurrent) sdCurrent.textContent = `Stage ${Math.min(currentStage, 10)}: ${sd.label.replace('\n', ' ')}`;
       if (sdApprover) sdApprover.textContent = sd.approver;
       if (sdPhase) sdPhase.textContent = sd.phase === 1 ? 'Phase 1 — Foundation' : 'Phase 2 — Research & Completion';
       if (sdNext) sdNext.textContent = sd.next;
-
       if (bossStageNum) bossStageNum.textContent = currentStage;
       checkBossLevel();
-
-      if (gateBtn) {
-        gateBtn.disabled = (currentStage > 10) || currentStatus === 'DEFERRED';
-        if (currentStage > 10) gateBtn.textContent = '🎓 All Stages Complete';
-      }
+      if (gateBtn) { gateBtn.disabled = (currentStage > 10) || currentStatus === 'DEFERRED'; if (currentStage > 10) gateBtn.textContent = '🎓 All Stages Complete'; }
     }
 
     function advancePipeline() {
@@ -967,29 +996,21 @@ document.addEventListener("DOMContentLoaded", () => {
       const icon = document.getElementById('boss-lock-icon');
       const sub = document.getElementById('boss-sub');
       const nacostiBadge = document.getElementById('nacosti-badge');
-
       if (currentStage >= 8) {
         if (locked) locked.style.display = 'none';
         if (unlocked) unlocked.style.display = 'block';
         if (icon) icon.textContent = '🔓';
         if (sub) sub.textContent = 'Stage 8 Unlocked — Upload all three required documents to proceed';
-        if (nacostiBadge) {
-          nacostiBadge.textContent = '✓';
-          nacostiBadge.className = 'nav-badge';
-        }
+        if (nacostiBadge) { nacostiBadge.textContent = '✓'; nacostiBadge.className = 'nav-badge'; }
       } else {
         if (locked) locked.style.display = 'block';
         if (unlocked) unlocked.style.display = 'none';
         if (icon) icon.textContent = '🔒';
         if (sub) sub.innerHTML = `Unlocks at Pipeline Stage 8 — Currently at Stage <span id="boss-stage-num">${currentStage}</span>`;
-        if (nacostiBadge) {
-          nacostiBadge.textContent = 'S8';
-          nacostiBadge.className = 'nav-badge locked';
-        }
+        if (nacostiBadge) { nacostiBadge.textContent = 'S8'; nacostiBadge.className = 'nav-badge locked'; }
       }
     }
 
-    // ===== MODULE 3: REPORTS =====
     function submitReport() {
       reportSubmitted = true;
       const steps = [
@@ -1010,7 +1031,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // ===== MODULE 4: COMPLIANCE UPLOAD =====
     function toggleUpload(id) {
       const el = document.getElementById(id);
       if (!el) return;
@@ -1026,7 +1046,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // ===== MODULE 5: CHECKLIST =====
     function toggleCheck(itemEl) {
       if (!itemEl.classList.contains('check-item')) return;
       const cb = itemEl.querySelector('input[type="checkbox"]');
@@ -1050,13 +1069,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const alertEl = document.getElementById('signoff-alert');
       const btn = document.getElementById('signoff-btn');
       if (alertEl) alertEl.style.display = 'block';
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = '✅ Sign-off Requested';
-      }
+      if (btn) { btn.disabled = true; btn.textContent = '✅ Sign-off Requested'; }
     }
 
-    // ===== MODULE 6: FINANCE =====
     function toggleClearance() {
       clearanceGranted = !clearanceGranted;
       const display = document.getElementById('clearance-display');
@@ -1064,47 +1079,20 @@ document.addEventListener("DOMContentLoaded", () => {
       const finRow = document.getElementById('finance-row');
       const finBadge = document.getElementById('finance-row-badge');
       const finNavBadge = document.getElementById('finance-badge');
-
       if (!display || !statusVal) return;
-
       if (clearanceGranted) {
         display.className = 'clearance-card clearance-granted';
-        display.innerHTML = `
-        <div class="clearance-icon">✅</div>
-        <div class="clearance-status" style="color:var(--green);">Clearance Granted</div>
-        <div class="clearance-message" style="color:#065F46;">
-          Your student finance account has been fully cleared. You are eligible to proceed with examination registration, thesis submission, and graduation application.
-        </div>
-        <div class="alert alert-success" style="width:100%; text-align:left;">
-          <span class="alert-icon">📋</span>
-          <div>Clearance certificate is available for download from the Finance Office or via the ERP Student Self-Service portal.</div>
-        </div>`;
+        display.innerHTML = `<div class="clearance-icon">✅</div><div class="clearance-status" style="color:var(--green);">Clearance Granted</div><div class="clearance-message" style="color:#065F46;">Your student finance account has been fully cleared. You are eligible to proceed with examination registration, thesis submission, and graduation application.</div><div class="alert alert-success" style="width:100%; text-align:left;"><span class="alert-icon">📋</span><div>Clearance certificate is available for download from the Finance Office or via the ERP Student Self-Service portal.</div></div>`;
         statusVal.innerHTML = '✅ Granted';
         if (finRow) finRow.style.background = 'var(--green-light)';
-        if (finBadge) {
-          finBadge.className = 'badge badge-active';
-          finBadge.textContent = 'Cleared';
-        }
+        if (finBadge) { finBadge.className = 'badge badge-active'; finBadge.textContent = 'Cleared'; }
         if (finNavBadge) finNavBadge.style.display = 'none';
       } else {
         display.className = 'clearance-card clearance-pending';
-        display.innerHTML = `
-        <div class="clearance-icon">⏳</div>
-        <div class="clearance-status" style="color:var(--amber);">Clearance Pending</div>
-        <div class="clearance-message" style="color:#92400E;">
-          Clearance is pending due to an outstanding balance on your student account.
-          Please contact the Finance Office to resolve this matter before your clearance can be granted.
-        </div>
-        <div class="alert alert-error" style="width:100%; text-align:left;">
-          <span class="alert-icon">📧</span>
-          <div>Contact Finance: <a href="mailto:finance@university.edu">finance@university.edu</a> — reference your registration number when writing.</div>
-        </div>`;
+        display.innerHTML = `<div class="clearance-icon">⏳</div><div class="clearance-status" style="color:var(--amber);">Clearance Pending</div><div class="clearance-message" style="color:#92400E;">Clearance is pending due to an outstanding balance on your student account. Please contact the Finance Office to resolve this matter before your clearance can be granted.</div><div class="alert alert-error" style="width:100%; text-align:left;"><span class="alert-icon">📧</span><div>Contact Finance: <a href="mailto:finance@university.edu">finance@university.edu</a> — reference your registration number when writing.</div></div>`;
         statusVal.innerHTML = '⏳ Pending';
         if (finRow) finRow.style.background = 'var(--red-light)';
-        if (finBadge) {
-          finBadge.className = 'badge badge-deferred';
-          finBadge.textContent = 'Pending';
-        }
+        if (finBadge) { finBadge.className = 'badge badge-deferred'; finBadge.textContent = 'Pending'; }
         if (finNavBadge) finNavBadge.style.display = 'inline-flex';
       }
     }
@@ -1113,11 +1101,14 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPipeline();
     updateStatusUI();
 
-    // Initialize Presentation Booking Handler
+    // Initialize handlers
     const bookingHandler = new PresentationBookingHandler();
-    window.bookingHandler = bookingHandler; // Make it accessible globally
+    window.bookingHandler = bookingHandler;
 
-    // Export functions to global scope for HTML onclick handlers
+    const reportsHandler = new QuarterlyReportsHandler();
+    window.reportsHandler = reportsHandler;
+
+    // Export functions to global scope
     window.requestDeferral = requestDeferral;
     window.advancePipeline = advancePipeline;
     window.submitReport = submitReport;
