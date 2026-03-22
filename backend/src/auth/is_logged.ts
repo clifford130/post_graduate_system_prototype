@@ -106,3 +106,5 @@ export async function handleIsLogged(
   }
 }
 isLoggedRouter.post("/islogged", handleIsLogged);
+isLoggedRouter.post("/is-logged", handleIsLogged);
+isLoggedRouter.get("/is-logged", handleIsLogged);

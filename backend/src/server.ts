@@ -10,6 +10,7 @@ import { DirectorRouter } from "./api/director.js";
 import { SupervisorRouter } from "./api/supervisor.js";
 import { isLoggedRouter } from "./auth/is_logged.js";
 import { studentBookings } from "./api/student.bookings.js";
+import { SeminarSlotRouter } from "./api/seminar.slots.js";
 import { reportRouter } from "./api/report.routes.js";
 dotenv.config();
 let app = express();
@@ -41,6 +42,8 @@ app.use("/api", SupervisorRouter);
 app.use("/api", isLoggedRouter);
 // handling student bookings
 app.use("/api", studentBookings);
+// handling seminar slots
+app.use("/api/slots", SeminarSlotRouter);
 // uploading quartely reports
 app.use("/api", reportRouter);
 // handling unknown route

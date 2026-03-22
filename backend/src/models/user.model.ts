@@ -173,7 +173,7 @@ const UserSchema = new Schema<IUser>({
     sup2: { type: String, default: "pending" },
     sup3: { type: String, default: "pending" },
   },
-});
+}, { timestamps: true });
 
 //  Model
 export const UserModel =
