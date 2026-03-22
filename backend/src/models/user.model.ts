@@ -14,6 +14,13 @@ export interface IUser {
   atRisk?: boolean;
   notes?: string[];
   financialClearance?: boolean;
+  deferralInfo?: {
+    date?: Date;
+    plannedResumption?: string; // Semester format
+    actualResumption?: Date;
+    reason?: string;
+    stageAtDeferral?: string;
+  };
   supervisors?: {
     sup1?: string;
     sup2?: string;
@@ -22,6 +29,7 @@ export interface IUser {
   documents?: {
     conceptNote?: string; // status: "pending", "approved", "rejected"
     proposal?: string;
+    proposalScore?: number;
     thesis?: string;
     nacosti?: string;
     journalPaper?: string;
@@ -124,6 +132,13 @@ const UserSchema = new Schema<IUser>({
     type: Boolean,
     default: false,
   },
+  deferralInfo: {
+    date: Date,
+    plannedResumption: String,
+    actualResumption: Date,
+    reason: String,
+    stageAtDeferral: String,
+  },
   supervisors: {
     sup1: { type: String, default: "" },
     sup2: { type: String, default: "" },
@@ -132,6 +147,7 @@ const UserSchema = new Schema<IUser>({
   documents: {
     conceptNote: { type: String, default: "pending" },
     proposal: { type: String, default: "pending" },
+    proposalScore: { type: Number, default: 0 },
     thesis: { type: String, default: "pending" },
     nacosti: { type: String, default: "pending" },
     journalPaper: { type: String, default: "pending" },

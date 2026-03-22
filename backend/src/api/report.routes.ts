@@ -24,6 +24,7 @@ const storage = multer.diskStorage({
   },
 });
 
+
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
@@ -84,9 +85,6 @@ const isMulterError = (err: unknown): err is MulterError => {
 };
 
 // ===== SUBMIT QUARTERLY REPORT =====
-// @route   POST /api/reports/submit
-// @desc    Submit a quarterly report with optional PDF attachment
-// @access  Private (Student)
 reportRouter.post(
   "/reports/submit",
   upload.single("reportFile"),
