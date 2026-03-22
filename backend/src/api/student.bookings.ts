@@ -118,7 +118,108 @@ studentBookings.get(
     );
   },
 );
+// @access  Private (Director/Admin/Chair)
+studentBookings.get(
+  "/presentations/booked-students",
+  async (req: Request, res: Response) => {
+    const accessToken = req.cookies?.userToken;
+    const jwtSecret = process.env.JWT_SECRET;
 
+    if (!accessToken || !jwtSecret) {
+      res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+      return;
+    }
+
+    jwt.verify(
+      accessToken,
+      jwtSecret as string,
+      async (err: any, load: any) => {
+        if (err) {
+          res.status(401).json({
+            success: false,
+            message: "Invalid or expired token",
+          });
+          return;
+        }
+
+        try {
+          const allowedRoles = ["director", "admin", "chair"];
+          if (!allowedRoles.includes(load.role)) {
+            res.status(403).json({
+              success: false,
+              message: "Access denied",
+            });
+            return;
+          }
+
+          const bookings = await bookingsModel
+            .find()
+            .sort({ createdAt: -1 })
+            .lean();
+
+          const ownerIds = [
+            ...new Set(
+              bookings.map((booking) => booking.ownerId).filter(Boolean),
+            ),
+          ];
+
+          const students = await UserModel.find({
+            _id: { $in: ownerIds },
+            role: "student",
+          })
+            .select("fullName userNumber stage programme department status")
+            .lean();
+
+          const studentMap = new Map(
+            students.map((student) => [student._id.toString(), student]),
+          );
+
+          const bookedStudents = bookings
+            .map((booking) => {
+              const student = studentMap.get(booking.ownerId);
+              if (!student) return null;
+
+              return {
+                bookingId: booking._id,
+                studentId: student._id,
+                name: student.fullName,
+                regNo: student.userNumber,
+                stage: student.stage || "Coursework",
+                programme: student.programme,
+                department: student.department,
+                studentStatus: student.status,
+                bookingStatus: booking.status,
+                preferredDate: booking.preferredDate,
+                preferredTime: booking.preferredTime,
+                presentationType: booking.presentationType,
+                venue: booking.venue,
+                additionalNotes: booking.additionalNotes || "",
+                createdAt: booking.createdAt,
+                cancelledAt: booking.cancelledAt,
+                cancellationReason: booking.cancellationReason,
+              };
+            })
+            .filter(Boolean);
+
+          res.status(200).json({
+            success: true,
+            count: bookedStudents.length,
+            students: bookedStudents,
+          });
+        } catch (error) {
+          console.error("Error fetching booked students:", error);
+          res.status(500).json({
+            success: false,
+            message: "Server error",
+          });
+        }
+      },
+    );
+  },
+);
 // GET booking status for a specific booking
 studentBookings.get(
   "/presentations/:bookingId",
@@ -254,106 +355,6 @@ studentBookings.put(
 // GET students who have booked presentations
 // @route   GET /api/presentations/booked-students
 // @desc    Return booked presentation requests enriched with student details
-// @access  Private (Director/Admin/Chair)
-studentBookings.get(
-  "/presentations/booked-students",
-  async (req: Request, res: Response) => {
-    const accessToken = req.cookies?.userToken;
-    const jwtSecret = process.env.JWT_SECRET;
-
-    if (!accessToken || !jwtSecret) {
-      res.status(401).json({
-        success: false,
-        message: "Unauthorized access",
-      });
-      return;
-    }
-
-    jwt.verify(
-      accessToken,
-      jwtSecret as string,
-      async (err: any, load: any) => {
-        if (err) {
-          res.status(401).json({
-            success: false,
-            message: "Invalid or expired token",
-          });
-          return;
-        }
-
-        try {
-          const allowedRoles = ["director", "admin", "chair"];
-          if (!allowedRoles.includes(load.role)) {
-            res.status(403).json({
-              success: false,
-              message: "Access denied",
-            });
-            return;
-          }
-
-          const bookings = await bookingsModel
-            .find()
-            .sort({ createdAt: -1 })
-            .lean();
-
-          const ownerIds = [
-            ...new Set(bookings.map((booking) => booking.ownerId).filter(Boolean)),
-          ];
-
-          const students = await UserModel.find({
-            _id: { $in: ownerIds },
-            role: "student",
-          })
-            .select("fullName userNumber stage programme department status")
-            .lean();
-
-          const studentMap = new Map(
-            students.map((student) => [student._id.toString(), student]),
-          );
-
-          const bookedStudents = bookings
-            .map((booking) => {
-              const student = studentMap.get(booking.ownerId);
-              if (!student) return null;
-
-              return {
-                bookingId: booking._id,
-                studentId: student._id,
-                name: student.fullName,
-                regNo: student.userNumber,
-                stage: student.stage || "Coursework",
-                programme: student.programme,
-                department: student.department,
-                studentStatus: student.status,
-                bookingStatus: booking.status,
-                preferredDate: booking.preferredDate,
-                preferredTime: booking.preferredTime,
-                presentationType: booking.presentationType,
-                venue: booking.venue,
-                additionalNotes: booking.additionalNotes || "",
-                createdAt: booking.createdAt,
-                cancelledAt: booking.cancelledAt,
-                cancellationReason: booking.cancellationReason,
-              };
-            })
-            .filter(Boolean);
-
-          res.status(200).json({
-            success: true,
-            count: bookedStudents.length,
-            students: bookedStudents,
-          });
-        } catch (error) {
-          console.error("Error fetching booked students:", error);
-          res.status(500).json({
-            success: false,
-            message: "Server error",
-          });
-        }
-      },
-    );
-  },
-);
 
 // GET all bookings for admin
 studentBookings.get(
