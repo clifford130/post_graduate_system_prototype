@@ -210,12 +210,15 @@ SupervisorRouter.post("/students/:id/qreports/:reportId/approve", async (req: Re
   }
 });
 
-// 8. Smart Stage Suggestion
+import { SystemSettingsModel } from "../models/system-settings.model.js";
+
+// 8. Smart Stage Suggestion & Global Rule Application
 SupervisorRouter.post("/students/:id/automation/suggest", async (req: Request, res: Response) => {
   try {
     const student = await UserModel.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
 
+    const settings = await SystemSettingsModel.findOne();
     const STAGES = [
       "Coursework", "Concept Note (Department)", "Concept Note (School)", 
       "Proposal (Department)", "Proposal (School)", "PG Approval", 
@@ -226,7 +229,19 @@ SupervisorRouter.post("/students/:id/automation/suggest", async (req: Request, r
     let suggestedStage = student.stage;
     let aiFlags = [];
 
-    // Logic: if Concept Note is approved, suggest School Concept
+    // 1. Minimum Proposal Score Check (if applicable)
+    // If student is at Proposal (School) but score is below settings cap
+    if (student.stage === "Proposal (School)" && student.documents?.proposalScore < (settings?.minProposalScore || 60)) {
+       aiFlags.push(`Warning: Proposal score below required ${settings?.minProposalScore || 60}% threshold.`);
+    }
+
+    // 2. Lifecycle Stage Access Rules
+    if (settings?.autoCourseworkCompletion && student.stage === "Coursework" && student.financialClearance) {
+      suggestedStage = "Concept Note (Department)";
+      aiFlags.push("Auto-advancing: Coursework verified + Financial clearance detected.");
+    }
+
+    // Standard progression suggestions based on document status
     if (student.stage === "Concept Note (Department)" && student.documents?.conceptNote === "approved") {
       suggestedStage = "Concept Note (School)";
     } else if (student.stage === "Proposal (Department)" && student.documents?.proposal === "approved") {

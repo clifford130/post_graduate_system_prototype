@@ -1,14 +1,20 @@
 :root {
-  /* Admin Dashboard Theme Integration */
-  --primary-blue: #2563eb;
-  --primary-hover: #1d4ed8;
-  --sidebar-bg: #1e293b;
-  --sidebar-hover: #334155;
-  --bg-light: #f1f5f9;
+  /* Brand palette */
+  --ru-navy: #122f4a;
+  --ru-navy-light: #194973;
+  --ru-cyan: #14B5D9;
+  --ru-cyan-light: #4dc8e8;
+  --ru-gold: #BF8C2C;
+  --ru-yellow: #F2C335;
+  --ru-bg: #eaecf0;
+
+  --sidebar-bg: var(--ru-navy);
+  --sidebar-hover: rgba(255, 255, 255, 0.1);
+  --bg-light: var(--ru-bg);
   --card-bg: #ffffff;
   --text-main: #0f172a;
   --text-muted: #64748b;
-  --border-color: #e2e8f0;
+  --border-color: #dde1e8;
   
   --success-bg: #dcfce7;
   --success-text: #166534;
@@ -16,6 +22,21 @@
   --warning-text: #854d0e;
   --danger-bg: #fee2e2;
   --danger-text: #991b1b;
+}
+
+/* Base Rongo University UI Overrides */
+.ru-btn-primary {
+  background-color: var(--ru-navy);
+  color: white;
+}
+.ru-btn-primary:hover {
+  background-color: var(--ru-navy-light);
+}
+.ru-text-navy {
+  color: var(--ru-navy);
+}
+.ru-bg-cyan {
+  background-color: var(--ru-cyan);
 }
 
 * { 
@@ -108,7 +129,31 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+/* Tailwind Color Brand Overrides */
+.bg-blue-600 { background-color: var(--ru-navy) !important; }
+.hover\:bg-blue-700:hover { background-color: var(--ru-navy-light) !important; }
+.text-blue-700 { color: var(--ru-navy-light) !important; }
+.text-blue-600 { color: var(--ru-navy) !important; }
+.bg-blue-50 { background-color: var(--ru-cyan-light) !important; }
+.border-blue-200 { border-color: var(--ru-cyan-light) !important; }
+.focus\:border-blue-400:focus { border-color: var(--ru-cyan) !important; }
+.focus\:ring-blue-500\/10:focus { --tw-ring-color: rgba(20, 181, 217, 0.1) !important; }
+.text-blue-500 { color: var(--ru-cyan) !important; }
+.bg-blue-600.text-white { color: white !important; }
 
+/* Dashboard layout specific fixes */
+#pageTitle {
+  color: var(--ru-navy);
+}
+#pageSubtitle {
+  color: var(--ru-navy-light);
+}
+#sidebar {
+  background-color: var(--ru-navy);
+}
+header {
+  background-color: var(--ru-cyan-light);
+}
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { UserModel } from "../models/user.model.js";
 import { SupervisorAssignmentModel } from "../models/supervisor-action.model.js";
+import { SystemSettingsModel } from "../models/system-settings.model.js";
 
 export const DirectorRouter = Router();
 
@@ -136,6 +137,20 @@ DirectorRouter.post(
   async (req: Request, res: Response) => {
     try {
       const { sup1, sup2, sup3 } = req.body;
+      const studentToUpdate = await UserModel.findById(req.params.id);
+      if (!studentToUpdate) return res.status(404).json({ message: "Student not found" });
+
+      const settings = await SystemSettingsModel.findOne();
+      if (settings?.supervisorLockdown) {
+        const STAGES = ["Coursework", "Concept Note (Department)", "Concept Note (School)", "Proposal (Department)", "Proposal (School)", "PG Approval", "Fieldwork", "Thesis Development", "External Examination", "Defense", "Graduation"];
+        const currentStageIdx = STAGES.indexOf(studentToUpdate.stage || "Coursework");
+        const fieldworkIdx = STAGES.indexOf("Fieldwork");
+        
+        if (currentStageIdx > fieldworkIdx) {
+          return res.status(403).json({ message: "Supervisor assignment locked after Fieldwork stage." });
+        }
+      }
+
       const student = await UserModel.findByIdAndUpdate(
         req.params.id,
         {
@@ -286,15 +301,18 @@ DirectorRouter.post(
           },
         );
       }
-      // Check supervisor workload (max 8 students)
+      // Check supervisor workload (dynamic cap)
+      const settings = await SystemSettingsModel.findOne();
+      const cap = settings?.supervisorStudentLimit || 8;
+      
       const activeAssignments = await SupervisorAssignmentModel.countDocuments({
         supervisorId: supervisor._id.toString() as string,
         status: "active" as const,
       });
 
-      if (activeAssignments >= 8) {
+      if (activeAssignments >= cap) {
         return res.status(400).json({
-          message: "Supervisor has reached maximum workload (8 students)",
+          message: `Supervisor has reached maximum workload (${cap} students)`,
         });
       }
       let assignment;
