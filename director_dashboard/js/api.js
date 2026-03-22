@@ -148,11 +148,14 @@ export const api = {
   async getSettings() {
     return request("/settings");
   },
-  async updateSettings(section, payload) {
-    return request(`/settings/${encodeURIComponent(section)}`, {
+  async updateSettings(payload) {
+    return request("/settings/update", {
       method: "POST",
       body: payload || {},
     });
+  },
+  async resetSettings() {
+    return request("/settings/reset", { method: "POST" });
   },
 
   // Dashboard

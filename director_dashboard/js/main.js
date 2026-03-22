@@ -20,6 +20,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.location.href = "../../login/login.html"
   }
 })
+
+export async function handleLogout() {
+  try {
+    const confirm = window.confirm("Are you sure you want to logout?");
+    if (!confirm) return;
+    
+    await fetch("http://localhost:5000/api/user/login/logout", { 
+      method: "POST", 
+      credentials: "include" 
+    });
+    localStorage.removeItem("postgraduate_user");
+    window.location.href = "../../login/login.html";
+  } catch (err) {
+    localStorage.removeItem("postgraduate_user");
+    window.location.href = "../../login/login.html";
+  }
+}
 export const DEPARTMENTS = ["CJM", "IHRS"];
 export const PROGRAMMES = ["MSc", "PhD"];
 export const STATUSES = ["Active", "Deferred", "Resumed", "Graduated"];
@@ -226,108 +243,121 @@ export async function initShell() {
   ];
 
   app.innerHTML = `
-    <div class="min-h-screen flex bg-[#f1f5f9]">
-      <aside id="sidebar" class="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 bg-[#1e293b] text-white">
-        <div class="p-6 flex items-center gap-3 border-b border-[#334155] mb-4">
-          <div class="h-10 w-10 rounded-xl bg-blue-600 grid place-items-center text-white font-bold text-xl">🎓</div>
-          <div>
-            <div class="text-sm font-bold leading-tight">PG Progress</div>
-            <div class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Director Portal</div>
-          </div>
+    <div class="min-h-screen flex bg-[var(--ru-bg)]">
+      <aside id="sidebar" class="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 bg-[var(--ru-navy)] text-white shadow-2xl">
+        <div class="p-6 bg-white flex flex-col items-center gap-2 border-b border-slate-200 mb-4">
+          <img src="/assets/ru.png" alt="R.U logo" class="h-16 w-auto">
+          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Director Portal</div>
         </div>
-        <div class="px-4 pb-4">
-          <div class="rounded-xl bg-slate-900/50 text-white p-4 shadow-lg border border-[#334155]">
-            <div class="flex items-center justify-between">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">System Status</div>
-              <div class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-emerald-500 status-online"></span>
-                <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Online</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <nav class="px-0 pb-5 space-y-0.5 overflow-auto app-scroll">
+        
+        <nav class="px-3 pb-5 space-y-1 overflow-auto app-scroll mt-2">
           ${nav
       .map((n) => {
         const active = n.key === navKey;
         return `
                 <a href="${n.href}" class="${active
-            ? "bg-[#334155] text-white border-l-4 border-blue-600"
-            : "text-slate-300 hover:bg-[#334155] hover:text-white border-l-4 border-transparent"
-          } flex items-center gap-3 px-6 py-3 text-sm font-medium transition-all">
-                  <span class="h-1.5 w-1.5 rounded-full ${active ? "bg-blue-400" : "bg-slate-500"}"></span>
+            ? "bg-white/10 text-white border-l-4 border-[var(--ru-cyan)] font-semibold"
+            : "text-slate-400 hover:bg-white/5 hover:text-white border-l-4 border-transparent"
+          } flex items-center gap-4 px-4 py-3.5 text-sm transition-all rounded-r-lg">
+                  <span class="h-1.5 w-1.5 rounded-full ${active ? "bg-[var(--ru-cyan)]" : "bg-white/20"}"></span>
                   <span>${escapeHtml(n.label)}</span>
                 </a>
               `;
       })
       .join("")}
+          
+          <div class="pt-4 mt-4 border-t border-white/5">
+            <button id="logoutBtn" class="w-full flex items-center gap-4 px-4 py-3.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all border-l-4 border-transparent rounded-r-lg group">
+              <span class="h-1.5 w-1.5 rounded-full bg-rose-500/40 group-hover:bg-rose-500"></span>
+              <span class="font-semibold">Logout</span>
+              <svg class="ml-auto h-4 w-4 opacity-50 group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </button>
+          </div>
         </nav>
+
+        <div class="mt-auto p-4 border-t border-white/5 bg-black/10">
+           <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-full bg-gradient-to-tr from-[var(--ru-cyan)] to-[var(--ru-navy-light)] grid place-items-center text-xs font-bold text-white">DR</div>
+              <div class="min-w-0 flex-1">
+                 <div class="text-xs font-bold truncate">PG Director</div>
+                 <div class="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Governance</div>
+              </div>
+           </div>
+        </div>
       </aside>
 
       <div class="flex min-w-0 flex-1 flex-col lg:pl-72">
-        <header class="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-sm">
-          <div class="px-4 sm:px-6 py-3 flex items-center gap-3">
-            <button id="mobileNavBtn" class="lg:hidden inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition">
+        <header class="sticky top-0 z-40 border-b border-[#dde1e8] bg-[var(--ru-cyan-light)] shadow-sm h-24 flex items-center">
+          <div class="px-6 py-3 flex items-center gap-4 w-full">
+            <button id="mobileNavBtn" class="lg:hidden inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm font-bold text-white hover:bg-white/20 transition">
               Menu
             </button>
-            <div class="hidden md:block mr-4">
-              <div class="relative group">
-                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                  <svg class="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                </div>
-                <input id="superSearch" type="text" class="w-64 rounded-xl border border-slate-200 bg-[#f8fafc] py-2 pl-9 pr-4 text-xs font-bold transition-all focus:w-80 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 placeholder:text-slate-400" placeholder="SUPER SEARCH (Students, IDs, Examiners...)" />
-              </div>
-            </div>
+            
             <div class="min-w-0 flex-1">
-              <div id="pageTitle" class="text-sm sm:text-base font-bold text-slate-900 truncate tracking-tight">Postgraduate Director Dashboard</div>
-              <div id="pageSubtitle" class="text-xs text-slate-500 truncate font-medium">Full lifecycle governance • approvals • compliance • analytics</div>
-            </div>
-            <div class="hidden sm:flex items-center gap-4">
-              <div class="text-right mr-4 border-r border-slate-200 pr-4">
-                  <div id="hdrUserName" class="text-sm font-bold text-slate-900">Guest User</div>
-                  <div id="hdrUserRole" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Visitor</div>
+              <div id="pageTitle" class="text-lg sm:text-xl font-bold text-[var(--ru-navy)] truncate tracking-tight">Postgraduate Director Dashboard</div>
+              <div id="pageSubtitle" class="text-xs text-[var(--ru-navy-light)] truncate font-medium flex items-center gap-2">
+                <span class="h-1.5 w-1.5 rounded-full bg-[var(--ru-gold)]"></span>
+                Governance • Approvals • Compliance • Analytics
               </div>
-              <button id="sysControlBtn" class="h-10 w-10 rounded-xl bg-slate-900 grid place-items-center text-white hover:bg-slate-800 transition shadow-lg shadow-black/10" title="System Control Center">
-                <span class="h-2 w-2 rounded-full bg-blue-400"></span>
+            </div>
+
+            <div class="hidden sm:flex items-center gap-4">
+              <div class="text-right mr-4 border-r border-[var(--ru-navy-light)]/20 pr-4">
+                  <div id="hdrUserName" class="text-sm font-bold text-[var(--ru-navy)]">Dean / Director</div>
+                  <div id="hdrUserRole" class="text-[9px] font-bold text-[var(--ru-navy-light)] uppercase tracking-widest">School Authority</div>
+              </div>
+              <button id="sysControlBtn" class="h-11 w-11 rounded-xl bg-[var(--ru-navy)] grid place-items-center text-white hover:bg-[var(--ru-navy-light)] transition shadow-lg shadow-black/10 border border-white/10" title="System Control Center">
+                <div class="relative">
+                  <span class="h-3 w-3 rounded-full bg-[var(--ru-gold)] block"></span>
+                  <span class="absolute inset-0 h-3 w-3 rounded-full bg-[var(--ru-gold)] block animate-ping opacity-75"></span>
+                </div>
               </button>
             </div>
           </div>
         </header>
 
-        <main class="px-4 sm:px-6 py-6">
+        <main class="px-6 py-8">
           <div id="pageContent"></div>
         </main>
       </div>
+
     </div>
 
     <div id="mobileDrawer" class="lg:hidden fixed inset-0 z-50 hidden">
       <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" data-close="1"></div>
-      <div class="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-[#1e293b] text-white border-r border-[#334155] shadow-2xl">
-        <div class="p-6 flex items-center justify-between border-b border-[#334155]">
+      <div class="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-[var(--ru-navy)] text-white border-r border-white/10 shadow-2xl">
+        <div class="p-6 flex items-center justify-between border-b border-white/10 bg-white">
           <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-xl bg-blue-600 grid place-items-center text-white font-bold text-xl">🎓</div>
-            <div>
-              <div class="text-sm font-bold leading-tight">PG Progress</div>
-              <div class="text-xs text-slate-400">Director Portal</div>
-            </div>
+             <img src="/assets/ru.png" alt="R.U logo" class="h-10 w-auto">
+             <div>
+               <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Director</div>
+               <div class="text-[10px] font-bold text-slate-800 uppercase tracking-widest">Portal</div>
+             </div>
           </div>
-          <button class="rounded-xl border border-[#334155] px-3 py-2 text-xs font-bold" data-close="1">Close</button>
+          <button class="rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600" data-close="1">Close</button>
         </div>
-        <nav class="px-0 pb-5 space-y-0.5 overflow-auto app-scroll mt-4">
+        <nav class="px-3 pb-5 space-y-1 overflow-auto app-scroll mt-4">
           ${nav
       .map((n) => {
         const active = n.key === navKey;
         return `
                 <a href="${n.href}" class="${active
-            ? "bg-[#334155] text-white border-l-4 border-blue-600"
-            : "text-slate-300 hover:bg-[#334155] hover:text-white border-l-4 border-transparent"
-          } flex items-center gap-3 px-6 py-3 text-sm font-medium transition-all">
-                  <span class="h-1.5 w-1.5 rounded-full ${active ? "bg-blue-400" : "bg-slate-500"}"></span>
+            ? "bg-white/10 text-white border-l-4 border-[var(--ru-cyan)] font-semibold"
+            : "text-slate-400 hover:bg-white/5 hover:text-white border-l-4 border-transparent"
+          } flex items-center gap-4 px-4 py-3.5 text-sm transition-all rounded-r-lg">
+                  <span class="h-1.5 w-1.5 rounded-full ${active ? "bg-[var(--ru-cyan)]" : "bg-white/20"}"></span>
                   <span>${escapeHtml(n.label)}</span>
                 </a>
               `;
       })
       .join("")}
+          
+          <div class="pt-4 mt-4 border-t border-white/5">
+            <button id="mobileLogoutBtn" class="w-full flex items-center gap-4 px-4 py-3.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all border-l-4 border-transparent rounded-r-lg group">
+              <span class="h-1.5 w-1.5 rounded-full bg-rose-500/40 group-hover:bg-rose-500"></span>
+              <span class="font-semibold">Logout</span>
+            </button>
+          </div>
         </nav>
       </div>
     </div>
@@ -349,6 +379,8 @@ export async function initShell() {
   });
 
   qs("#sysControlBtn")?.addEventListener("click", openSystemControlCenter);
+  qs("#logoutBtn")?.addEventListener("click", handleLogout);
+  qs("#mobileLogoutBtn")?.addEventListener("click", handleLogout);
 
   // Populate header user info from localStorage if available
   try {

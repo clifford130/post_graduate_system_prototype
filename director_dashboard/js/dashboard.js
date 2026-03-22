@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <div class="flex flex-wrap gap-2">
             <button id="broadcastBtn" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">Broadcast</button>
             <a href="./students.html" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">View students</a>
-            <a href="./pipeline.html" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Open pipeline</a>
+            <a href="./pipeline.html" class="rounded-xl bg-[var(--ru-navy)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--ru-navy-light)] transition">Open pipeline</a>
           </div>
         </div>
 
@@ -346,11 +346,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const stageLabels = safeArray(perStage).map((x) => x.stage ?? x.name ?? "Stage");
       const stageValues = safeArray(perStage).map((x) => x.count ?? x.value ?? 0);
-      chartBars(document.getElementById("chartStage"), { labels: stageLabels, values: stageValues, color: "#2563eb" });
+      chartBars(document.getElementById("chartStage"), { labels: stageLabels, values: stageValues, color: "#122f4a" });
 
       const deptLabels = safeArray(deptCompare).map((x) => x.department ?? x.name ?? "Dept");
       const deptValues = safeArray(deptCompare).map((x) => x.count ?? x.value ?? 0);
-      chartBars(document.getElementById("chartDept"), { labels: deptLabels, values: deptValues, color: "#7c3aed" });
+      chartBars(document.getElementById("chartDept"), { labels: deptLabels, values: deptValues, color: "#BF8C2C" });
 
       const alertsList = document.getElementById("alertsList");
       if (alertsList) {
@@ -369,7 +369,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           : mountEmptyState({
             title: "No critical alerts",
             message: "No missing reports, NACOSTI, or fees issues were returned by the API.",
-            actionsHtml: `<a href="./pipeline.html" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Review pipeline</a>`,
+            actionsHtml: `<a href="./pipeline.html" class="rounded-xl bg-[var(--ru-navy)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--ru-navy-light)] transition">Review pipeline</a>`,
           });
       }
 
