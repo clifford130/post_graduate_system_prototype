@@ -84,12 +84,17 @@ document.addEventListener("DOMContentLoaded", () => {
                         window.location.href = "../Admin_dashboard/index.html"
                     })
                 }
-                else {
-                    // Default fallback
+                else if (role === "panelMember") {
                     setTimeout(() => {
-                        window.location.href = "../dashboard/index.html";
-                    }, 1500);
+                        window.location.href = "../panel dashboard/panel-dashboard.html"
+                    })
                 }
+                // else {
+                //     // Default fallback
+                //     setTimeout(() => {
+                //         window.location.href = "../dashboard/index.html";
+                //     }, 1500);
+                // }
             } else {
                 showMessage(result.message || "Login failed", "error");
             }
