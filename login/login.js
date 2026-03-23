@@ -56,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     department: result.user.department,
                     userNumber: result.user.userNumber,
                     role: result.user.role,
-                    supervisor:result.user.supervisor,
+                    supervisor: result.user.supervisor,
                     token: result.token
                 }));
 
@@ -74,11 +74,17 @@ document.addEventListener("DOMContentLoaded", () => {
                     setTimeout(() => {
                         window.location.href = "../Supervisor_dashboard/index.html";
                     }, 1500);
-                } else if (role === "director" || role === "admin") {
+                } else if (role === "director") {
                     setTimeout(() => {
                         window.location.href = "../director_dashboard/index.html";
                     }, 1500);
-                } else {
+                }
+                else if (role === "admin") {
+                    setTimeout(() => {
+                        window.location.href = "../Admin_dashboard/index.html"
+                    })
+                }
+                else {
                     // Default fallback
                     setTimeout(() => {
                         window.location.href = "../dashboard/index.html";
