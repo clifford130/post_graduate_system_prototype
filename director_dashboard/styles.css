@@ -1,9 +1,9 @@
 :root {
   /* Brand palette */
-  --ru-navy: #122f4a;
+  --ru-navy: #194973;
   --ru-navy-light: #194973;
   --ru-cyan: #14B5D9;
-  --ru-cyan-light: #4dc8e8;
+  --ru-cyan-light: #F2C335;
   --ru-gold: #BF8C2C;
   --ru-yellow: #F2C335;
   --ru-bg: #eaecf0;
@@ -13,7 +13,7 @@
   --bg-light: var(--ru-bg);
   --card-bg: #ffffff;
   --text-main: #0f172a;
-  --text-muted: #64748b;
+  --text-muted: #ffffff;
   --border-color: #dde1e8;
   
   --success-bg: #dcfce7;
@@ -139,7 +139,7 @@ body {
 .focus\:border-blue-400:focus { border-color: var(--ru-cyan) !important; }
 .focus\:ring-blue-500\/10:focus { --tw-ring-color: rgba(20, 181, 217, 0.1) !important; }
 .text-blue-500 { color: var(--ru-cyan) !important; }
-.bg-blue-600.text-white { color: white !important; }
+.bg-blue-600.text-white { color: rgb(255, 255, 255) !important; }
 
 /* Dashboard layout specific fixes */
 #pageTitle {
