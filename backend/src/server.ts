@@ -21,7 +21,10 @@ app.use(cookies());
 // Enable CORS before defining routes so preflight and responses include headers
 app.use(
   cors({
-    origin: "http://localhost:5500",
+    origin: [
+      "http://localhost:5500",
+      "https://post-graduate-system-prototype.vercel.app",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
