@@ -23,7 +23,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5500",
-      "https://post-graduate-system-prototype.vercel.app/",
+      "https://post-graduate-system-prototype.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
