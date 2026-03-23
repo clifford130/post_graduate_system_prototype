@@ -59,7 +59,11 @@ UserLoginRouter.post(
         RawJwtSecret as string,
         { expiresIn: "1d" },
       );
-      res.cookie("userToken", token);
+      res.cookie("userToken", token, {
+        httpOnly: true,
+        secure: true, // MUST be true for cross-origin (HTTPS only)
+        sameSite: "none",
+      });
       // 5. Send response
       res.status(200).json({
         message: "Login successful",
@@ -93,12 +97,7 @@ UserLoginRouter.post(
   async (req: Request, res: Response): Promise<void> => {
     try {
       // Clear the userToken cookie
-      res.clearCookie("userToken", {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        path: "/",
-      });
+      res.clearCookie("userToken");
 
       // Also clear any other session-related cookies if they exist
       res.clearCookie("connect.sid", {
@@ -198,12 +197,7 @@ UserLoginRouter.post(
         // await UserModel.findByIdAndUpdate(decoded.id, { $inc: { tokenVersion: 1 } });
 
         // Clear the cookie
-        res.clearCookie("userToken", {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
-          path: "/",
-        });
+        res.clearCookie("userToken");
 
         res.status(200).json({
           success: true,
@@ -211,12 +205,7 @@ UserLoginRouter.post(
         });
       } catch (verifyError) {
         // Token is already invalid, just clear it
-        res.clearCookie("userToken", {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
-          path: "/",
-        });
+        res.clearCookie("userToken");
 
         res.status(200).json({
           success: true,
