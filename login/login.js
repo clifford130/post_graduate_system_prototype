@@ -86,7 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 else if (role === "panelMember") {
                     setTimeout(() => {
-                        window.location.href = "../panel dashboard/panel-dashboard.html"
+                        window.location.href = "../panel dashboard/index.html"
                     })
                 }
                 // else {
