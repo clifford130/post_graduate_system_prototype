@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Seminar Chair Dashboard – Postgraduate Assessment System</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #f8fafc;
+    --card:        #ffffff;
+    --text:        #1e293b;
+    --muted:       #475569;
+    --border:      #e2e8f0;
+    --primary:     #2563eb;
+    --primary-lt:  #dbeafe;
+    --red:         #dc2626;
+    --red-lt:      #fee2e2;
+    --amber:       #ca8a04;
+    --amber-lt:    #fef9c3;
+    --green:       #16a34a;
+    --green-lt:    #dcfce7;
+    --radius:      10px;
+    --shadow:      0 1px 3px rgba(0,0,0,.08), 0 1px 8px rgba(0,0,0,.04);
+    --shadow-md:   0 4px 16px rgba(0,0,0,.10);
+    --font:        'Inter', system-ui, sans-serif;
+    --sidebar-w:   300px;
+    --nav-h:       60px;
+    --trans:       .18s ease;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Top Navigation ───────────────────────────────────────── */
+  .topnav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    height: var(--nav-h);
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    box-shadow: var(--shadow);
+  }
+  .topnav-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 15px; color: var(--text);
+  }
+  .topnav-brand svg { color: var(--primary); }
+  .topnav-brand span.sub { font-weight: 400; color: var(--muted); font-size: 13px; }
+
+  .topnav-right {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .role-badge {
+    background: var(--primary-lt); color: var(--primary);
+    font-size: 12px; font-weight: 600;
+    padding: 4px 12px; border-radius: 20px;
+    letter-spacing: .02em;
+  }
+  .notif-btn {
+    position: relative; background: none; border: none; cursor: pointer;
+    color: var(--muted); padding: 6px; border-radius: 8px;
+    transition: background var(--trans), color var(--trans);
+  }
+  .notif-btn:hover { background: var(--primary-lt); color: var(--primary); }
+  .notif-dot {
+    position: absolute; top: 4px; right: 4px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--red); border: 2px solid var(--card);
+  }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ── Layout ───────────────────────────────────────────────── */
+  .layout {
+    display: flex;
+    padding-top: var(--nav-h);
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ──────────────────────────────────────────────── */
+  .sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    position: fixed; top: var(--nav-h); left: 0; bottom: 0;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px 0;
+  }
+  .sidebar-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 0 20px 12px;
+  }
+
+  .queue-item {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background var(--trans);
+    position: relative;
+  }
+  .queue-item:hover { background: var(--bg); }
+  .queue-item.active { background: var(--primary-lt); border-left: 3px solid var(--primary); }
+  .queue-item.active .q-name { color: var(--primary); }
+
+  .q-meta {
+    display: flex; gap: 6px; align-items: center;
+    font-size: 11px; color: var(--muted); margin-bottom: 5px;
+  }
+  .q-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
+  .q-name { font-weight: 600; font-size: 13px; color: var(--text); margin-bottom: 4px; }
+  .q-stage {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 500; color: var(--primary);
+    background: var(--primary-lt); padding: 2px 8px; border-radius: 12px;
+    margin-bottom: 10px;
+  }
+  .btn-assess {
+    width: 100%;
+    background: var(--primary); color: #fff;
+    border: none; padding: 7px 0; border-radius: 7px;
+    font-family: var(--font); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: opacity var(--trans), transform var(--trans);
+  }
+  .btn-assess:hover { opacity: .88; transform: translateY(-1px); }
+  .btn-assess:active { transform: translateY(0); }
+
+  /* ── Main Content ─────────────────────────────────────────── */
+  .main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    padding: 28px 32px;
+    max-width: calc(100vw - var(--sidebar-w));
+  }
+
+  /* ── Welcome State ────────────────────────────────────────── */
+  .welcome-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 60vh; gap: 16px; color: var(--muted); text-align: center;
+  }
+  .welcome-state svg { opacity: .25; }
+  .welcome-state h2 { font-size: 20px; color: var(--text); }
+  .welcome-state p { max-width: 360px; }
+
+  /* ── Cards ────────────────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg, #f8fafc 0%, #fff 100%);
+  }
+  .card-header h2 {
+    font-size: 15px; font-weight: 700; color: var(--text);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-header h2 svg { color: var(--primary); }
+  .card-body { padding: 24px; }
+
+  /* ── Student Header ───────────────────────────────────────── */
+  .student-header {
+    display: flex; align-items: center; gap: 18px;
+    background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%);
+    border-radius: 10px; padding: 20px 24px; color: #fff;
+    margin-bottom: 24px; box-shadow: 0 4px 14px rgba(37,99,235,.35);
+  }
+  .student-avatar {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(255,255,255,.25); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,.5);
+  }
+  .student-info h3 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .student-meta {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    font-size: 12px; opacity: .85;
+  }
+  .student-meta span { display: flex; align-items: center; gap: 5px; }
+
+  /* ── Score Display ────────────────────────────────────────── */
+  .score-display {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 24px;
+  }
+  .score-circle {
+    width: 70px; height: 70px; border-radius: 50%;
+    border: 4px solid var(--primary);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: border-color .3s;
+  }
+  .score-circle .pct {
+    font-size: 18px; font-weight: 800; color: var(--primary);
+    line-height: 1; transition: color .3s;
+  }
+  .score-circle .label { font-size: 10px; color: var(--muted); font-weight: 500; }
+  .score-breakdown { flex: 1; }
+  .score-breakdown h4 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .score-bars { display: flex; flex-direction: column; gap: 6px; }
+  .score-bar-row { display: flex; align-items: center; gap: 10px; }
+  .score-bar-row span:first-child { width: 120px; font-size: 12px; color: var(--muted); }
+  .score-bar-track {
+    flex: 1; height: 6px; background: var(--border); border-radius: 4px; overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%; background: var(--primary); border-radius: 4px;
+    transition: width .4s cubic-bezier(.4,0,.2,1);
+  }
+  .score-bar-row span:last-child { width: 36px; font-size: 12px; font-weight: 600; text-align: right; }
+
+  /* ── Rubric Sections ──────────────────────────────────────── */
+  .rubric-section { margin-bottom: 28px; }
+  .rubric-section-title {
+    font-size: 13px; font-weight: 700; color: var(--primary);
+    text-transform: uppercase; letter-spacing: .06em;
+    padding-bottom: 10px; border-bottom: 2px solid var(--primary-lt);
+    margin-bottom: 18px;
+  }
+  .rubric-criteria { display: flex; flex-direction: column; gap: 18px; }
+  .criterion { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .criterion-head {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+  }
+  .criterion-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .criterion-weight {
+    font-size: 11px; color: var(--muted); background: var(--border);
+    padding: 2px 8px; border-radius: 10px;
+  }
+  .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .slider-row input[type=range] {
+    flex: 1; accent-color: var(--primary); cursor: pointer; height: 4px;
+  }
+  .slider-val {
+    min-width: 36px; text-align: center;
+    font-size: 16px; font-weight: 800; color: var(--primary);
+  }
+  .slider-labels {
+    display: flex; justify-content: space-between;
+    font-size: 10px; color: var(--muted); margin-bottom: 10px;
+  }
+
+  .checkbox-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .checkbox-label {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--text); cursor: pointer;
+    padding: 8px 12px; border-radius: 7px; background: var(--card);
+    border: 1px solid var(--border); transition: background var(--trans), border-color var(--trans);
+  }
+  .checkbox-label:hover { background: var(--primary-lt); border-color: var(--primary); }
+  .checkbox-label input[type=checkbox] { accent-color: var(--primary); width: 15px; height: 15px; cursor: pointer; }
+  .checkbox-label input[type=checkbox]:checked + span { color: var(--primary); font-weight: 500; }
+  .checkbox-weight {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    background: var(--border); padding: 1px 7px; border-radius: 8px;
+  }
+
+  .comment-area {
+    width: 100%; border: 1px solid var(--border); border-radius: 7px;
+    padding: 10px 12px; font-family: var(--font); font-size: 13px; color: var(--text);
+    background: var(--card); resize: vertical; min-height: 72px;
+    transition: border-color var(--trans), box-shadow var(--trans);
+    outline: none;
+  }
+  .comment-area:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-lt); }
+
+  /* ── Pass/Fail Toggle ─────────────────────────────────────── */
+  .verdict-row {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 20px;
+  }
+  .verdict-label { font-size: 13px; font-weight: 600; }
+  .toggle-group { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .toggle-btn {
+    padding: 7px 20px; border: none; font-family: var(--font);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: background var(--trans), color var(--trans);
+    background: var(--card); color: var(--muted);
+  }
+  .toggle-btn.pass.active { background: var(--green); color: #fff; }
+  .toggle-btn.fail.active { background: var(--red); color: #fff; }
+  .toggle-btn:hover:not(.active) { background: var(--bg); }
+
+  .btn-primary {
+    background: var(--primary); color: #fff;
+    border: none; padding: 12px 28px; border-radius: 8px;
+    font-family: var(--font); font-size: 13px; font-weight: 700;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    transition: opacity var(--trans), transform var(--trans), box-shadow var(--trans);
+    box-shadow: 0 2px 8px rgba(37,99,235,.3);
+  }
+  .btn-primary:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(37,99,235,.4); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-secondary {
+    background: var(--card); color: var(--primary);
+    border: 1.5px solid var(--primary); padding: 10px 22px; border-radius: 8px;
+    font-family: var(--font); font-size: 13px; font-weight: 600;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    transition: background var(--trans), transform var(--trans);
+  }
+  .btn-secondary:hover { background: var(--primary-lt); transform: translateY(-1px); }
+
+  /* ── Upload Section ───────────────────────────────────────── */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px; padding: 32px;
+    text-align: center; cursor: pointer;
+    transition: border-color var(--trans), background var(--trans);
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: var(--primary-lt); }
+  .upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { color: var(--primary); margin-bottom: 10px; }
+  .upload-zone h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .upload-zone p { font-size: 12px; color: var(--muted); }
+  .upload-formats { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+  .fmt-badge {
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px;
+    background: var(--border); color: var(--muted);
+  }
+  .upload-status {
+    margin-top: 14px; display: none;
+    background: var(--green-lt); color: var(--green);
+    border-radius: 8px; padding: 10px 14px;
+    font-size: 13px; font-weight: 500;
+    align-items: center; gap: 8px;
+  }
+  .upload-status.show { display: flex; }
+
+  /* ── AI Corrections ───────────────────────────────────────── */
+  .urgency-group { margin-bottom: 20px; }
+  .urgency-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    margin-bottom: 10px;
+  }
+  .urgency-header.critical { background: var(--red-lt); color: var(--red); }
+  .urgency-header.major    { background: var(--amber-lt); color: var(--amber); }
+  .urgency-header.minor    { background: var(--green-lt); color: var(--green); }
+  .urgency-count {
+    margin-left: auto; background: rgba(0,0,0,.08);
+    border-radius: 10px; padding: 1px 8px; font-size: 11px;
+  }
+
+  .correction-item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+    margin-bottom: 8px; display: flex; align-items: flex-start; gap: 14px;
+    transition: opacity .2s, transform .2s;
+  }
+  .correction-item.approved { border-color: var(--green); background: var(--green-lt); }
+  .correction-item.rejected { opacity: .45; transform: scale(.98); border-color: var(--border); }
+  .correction-item.editing .ci-text { display: none; }
+  .correction-item.editing .ci-edit-form { display: block; }
+  .ci-edit-form { display: none; margin-bottom: 10px; }
+  .ci-edit-input {
+    width: 100%; border: 1.5px solid var(--primary); border-radius: 7px;
+    padding: 8px 12px; font-family: var(--font); font-size: 13px; outline: none;
+    box-shadow: 0 0 0 3px var(--primary-lt);
+  }
+
+  .correction-icon {
+    width: 32px; height: 32px; border-radius: 8px; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px;
+  }
+  .correction-icon.critical { background: var(--red-lt); }
+  .correction-icon.major    { background: var(--amber-lt); }
+  .correction-icon.minor    { background: var(--green-lt); }
+
+  .ci-body { flex: 1; }
+  .ci-source {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px;
+  }
+  .ci-text { font-size: 13px; color: var(--text); line-height: 1.5; margin-bottom: 10px; }
+  .ci-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  .ci-btn {
+    padding: 5px 14px; border-radius: 6px;
+    font-family: var(--font); font-size: 12px; font-weight: 600;
+    border: 1.5px solid; cursor: pointer;
+    transition: background var(--trans), color var(--trans), opacity var(--trans);
+  }
+  .ci-btn.approve { border-color: var(--green); color: var(--green); background: transparent; }
+  .ci-btn.approve:hover { background: var(--green); color: #fff; }
+  .ci-btn.edit    { border-color: var(--primary); color: var(--primary); background: transparent; }
+  .ci-btn.edit:hover { background: var(--primary); color: #fff; }
+  .ci-btn.reject  { border-color: var(--red); color: var(--red); background: transparent; }
+  .ci-btn.reject:hover { background: var(--red); color: #fff; }
+  .ci-btn.save    { border-color: var(--primary); color: #fff; background: var(--primary); }
+
+  .ci-status {
+    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .ci-status.approved { background: var(--green-lt); color: var(--green); }
+  .ci-status.rejected { background: var(--red-lt); color: var(--red); }
+
+  .publish-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%);
+    border-radius: 10px; padding: 18px 24px; color: #fff;
+    margin-top: 24px;
+  }
+  .publish-bar h4 { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+  .publish-bar p  { font-size: 12px; opacity: .8; }
+  .btn-publish {
+    background: #fff; color: var(--primary);
+    border: none; padding: 10px 24px; border-radius: 8px;
+    font-family: var(--font); font-size: 13px; font-weight: 700;
+    cursor: pointer; flex-shrink: 0;
+    transition: transform var(--trans), box-shadow var(--trans);
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  .btn-publish:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+
+  /* ── Toast ────────────────────────────────────────────────── */
+  .toast {
+    position: fixed; bottom: 28px; right: 28px; z-index: 999;
+    background: var(--text); color: #fff;
+    padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 500;
+    box-shadow: var(--shadow-md);
+    transform: translateY(80px); opacity: 0;
+    transition: transform .3s cubic-bezier(.4,0,.2,1), opacity .3s;
+    display: flex; align-items: center; gap: 10px;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { background: var(--green); }
+  .toast.error   { background: var(--red); }
+
+  /* ── Scrollbar ────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+
+  /* ── Section divider ──────────────────────────────────────── */
+  .section-divider {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .07em;
+    margin: 28px 0 20px;
+  }
+  .section-divider::before, .section-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOP NAV
+══════════════════════════════════════════════════════════════ -->
+<nav class="topnav">
+  <div class="topnav-brand">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+    </svg>
+    Postgraduate Assessment System
+    <span class="sub">/ Panel Dashboard</span>
+  </div>
+  <div class="topnav-right">
+    <span class="role-badge">Seminar Chair</span>
+    <button class="notif-btn" title="Notifications" id="notifBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      <span class="notif-dot" id="notifDot"></span>
+    </button>
+    <div class="avatar">SC</div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAYOUT
+══════════════════════════════════════════════════════════════ -->
+<div class="layout">
+
+  <!-- ─── SIDEBAR ─── -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Upcoming Assessments</div>
+
+    <!-- Student 1 -->
+    <div class="queue-item active" id="qi-0" onclick="loadStudent(0)">
+      <div class="q-meta">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Mon 23 Jun 2025
+        <span class="q-dot"></span>09:00 AM
+      </div>
+      <div class="q-name">Enos Mulongo</div>
+      <div class="q-stage">Stage 3: Proposal Dept.</div>
+      <button class="btn-assess" onclick="event.stopPropagation();loadStudent(0)">Assess Now →</button>
+    </div>
+
+    <!-- Student 2 -->
+    <div class="queue-item" id="qi-1" onclick="loadStudent(1)">
+      <div class="q-meta">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Mon 23 Jun 2025
+        <span class="q-dot"></span>11:30 AM
+      </div>
+      <div class="q-name">Amara Osei</div>
+      <div class="q-stage">Stage 2: Concept Paper</div>
+      <button class="btn-assess" onclick="event.stopPropagation();loadStudent(1)">Assess Now →</button>
+    </div>
+
+    <!-- Student 3 -->
+    <div class="queue-item" id="qi-2" onclick="loadStudent(2)">
+      <div class="q-meta">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Tue 24 Jun 2025
+        <span class="q-dot"></span>10:00 AM
+      </div>
+      <div class="q-name">Fatuma Wanjiku</div>
+      <div class="q-stage">Stage 4: Final Defense</div>
+      <button class="btn-assess" onclick="event.stopPropagation();loadStudent(2)">Assess Now →</button>
+    </div>
+
+    <!-- Student 4 -->
+    <div class="queue-item" id="qi-3" onclick="loadStudent(3)">
+      <div class="q-meta">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Tue 24 Jun 2025
+        <span class="q-dot"></span>02:00 PM
+      </div>
+      <div class="q-name">Kevin Otieno</div>
+      <div class="q-stage">Stage 1: Title Approval</div>
+      <button class="btn-assess" onclick="event.stopPropagation();loadStudent(3)">Assess Now →</button>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ─── -->
+  <main class="main" id="mainContent">
+
+    <!-- Welcome state (hidden once a student is loaded) -->
+    <div class="welcome-state" id="welcomeState" style="display:none;">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+      </svg>
+      <h2>Select a Student to Begin</h2>
+      <p>Choose an assessment from the queue on the left to load the grading interface.</p>
+    </div>
+
+    <!-- ═══ ASSESSMENT WORKSPACE ═══ -->
+    <div id="assessmentWorkspace">
+
+      <!-- Student Header -->
+      <div class="student-header" id="studentHeader">
+        <div class="student-avatar" id="studentAvatar">EM</div>
+        <div class="student-info">
+          <h3 id="studentName">Enos Mulongo</h3>
+          <div class="student-meta">
+            <span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span id="studentReg">GCA/012/2023</span>
+            </span>
+            <span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <span id="studentUniv">Rongo University</span>
+            </span>
+            <span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span id="studentStage">Stage 3: Proposal Dept.</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ RUBRIC CARD ═══ -->
+      <div class="card">
+        <div class="card-header">
+          <h2>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Digital Assessment Rubric
+          </h2>
+          <span style="font-size:12px;color:var(--muted);">Auto-scored · Live</span>
+        </div>
+        <div class="card-body">
+
+          <!-- Live Score -->
+          <div class="score-display">
+            <div class="score-circle" id="scoreCircle">
+              <span class="pct" id="scorePct">0%</span>
+              <span class="label">Score</span>
+            </div>
+            <div class="score-breakdown">
+              <h4>Score Breakdown</h4>
+              <div class="score-bars">
+                <div class="score-bar-row">
+                  <span>Literature Review</span>
+                  <div class="score-bar-track"><div class="score-bar-fill" id="barLit" style="width:0%"></div></div>
+                  <span id="litPct">0%</span>
+                </div>
+                <div class="score-bar-row">
+                  <span>Methodology</span>
+                  <div class="score-bar-track"><div class="score-bar-fill" id="barMeth" style="width:0%"></div></div>
+                  <span id="methPct">0%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Literature Review -->
+          <div class="rubric-section">
+            <div class="rubric-section-title">Literature Review <span style="font-size:11px;font-weight:500;opacity:.7;">(50% weight)</span></div>
+            <div class="rubric-criteria">
+
+              <div class="criterion">
+                <div class="criterion-head">
+                  <span class="criterion-name">Breadth &amp; Depth of Sources</span>
+                  <span class="criterion-weight">Slider · /10</span>
+                </div>
+                <div class="slider-row">
+                  <input type="range" min="0" max="10" value="0" id="s_lit1" oninput="calcScore()" />
+                  <span class="slider-val" id="v_lit1">0</span>
+                </div>
+                <div class="slider-labels"><span>Poor</span><span>Adequate</span><span>Excellent</span></div>
+                <textarea class="comment-area" placeholder="Add comments on literature breadth…" rows="2"></textarea>
+              </div>
+
+              <div class="criterion">
+                <div class="criterion-head">
+                  <span class="criterion-name">Critical Analysis &amp; Synthesis</span>
+                  <span class="criterion-weight">Slider · /10</span>
+                </div>
+                <div class="slider-row">
+                  <input type="range" min="0" max="10" value="0" id="s_lit2" oninput="calcScore()" />
+                  <span class="slider-val" id="v_lit2">0</span>
+                </div>
+                <div class="slider-labels"><span>Descriptive</span><span>Analytical</span><span>Synthesised</span></div>
+                <textarea class="comment-area" placeholder="Comment on critical engagement with literature…" rows="2"></textarea>
+              </div>
+
+              <div class="criterion">
+                <div class="criterion-head">
+                  <span class="criterion-name">Literature Review Qualitative Criteria</span>
+                  <span class="criterion-weight">Checkboxes · +5 pts each</span>
+                </div>
+                <div class="checkbox-group" id="litChecks">
+                  <label class="checkbox-label"><input type="checkbox" data-pts="5" onchange="calcScore()" /><span>Identifies clear research gap</span><span class="checkbox-weight">+5 pts</span></label>
+                  <label class="checkbox-label"><input type="checkbox" data-pts="5" onchange="calcScore()" /><span>Uses peer-reviewed journals (≥70%)</span><span class="checkbox-weight">+5 pts</span></label>
+                  <label class="checkbox-label"><input type="checkbox" data-pts="5" onchange="calcScore()" /><span>Recent sources (within 10 years)</span><span class="checkbox-weight">+5 pts</span></label>
+                  <label class="checkbox-label"><input type="checkbox" data-pts="5" onchange="calcScore()" /><span>Proper citation format (APA/MLA)</span><span class="checkbox-weight">+5 pts</span></label>
+                </div>
+                <textarea class="comment-area" placeholder="Overall literature comments…" rows="2"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Methodology -->
+          <div class="rubric-section">
+            <div class="rubric-section-title">Methodology <span style="font-size:11px;font-weight:500;opacity:.7;">(50% weight)</span></div>
+            <div class="rubric-criteria">
+
+              <div class="criterion">
+                <div class="criterion-head">
+                  <span class="criterion-name">Research Design Appropriateness</span>
+                  <span class="criterion-weight">Slider · /10</span>
+                </div>
+                <div class="slider-row">
+                  <input type="range" min="0" max="10" value="0" id="s_meth1" oninput="calcScore()" />
+                  <span class="slider-val" id="v_meth1">0</span>
+                </div>
+                <div class="slider-labels"><span>Unclear</span><span>Justified</span><span>Rigorous</span></div>
+                <textarea class="comment-area" placeholder="Comment on research design choice…" rows="2"></textarea>
+              </div>
+
+              <div class="criterion">
+                <div class="criterion-head">
+                  <span class="criterion-name">Data Collection &amp; Analysis Plan</span>
+                  <span class="criterion-weight">Slider · /10</span>
+                </div>
+                <div class="slider-row">
+                  <input type="range" min="0" max="10" value="0" id="s_meth2" oninput="calcScore()" />
+                  <span class="slider-val" id="v_meth2">0</span>
+                </div>
+                <div class="slider-labels"><span>Vague</span><span>Outlined</span><span>Detailed</span></div>
+                <textarea class="comment-area" placeholder="Comment on data collection plan…" rows="2"></textarea>
+              </div>
+
+              <div class="criterion">
+                <div class="criterion-head">
+                  <span class="criterion-name">Methodology Qualitative Criteria</span>
+                  <span class="criterion-weight">Checkboxes · +5 pts each</span>
+                </div>
+                <div class="checkbox-group" id="methChecks">
+                  <label class="checkbox-label"><input type="checkbox" data-pts="5" onchange="calcScore()" /><span>Ethical considerations addressed</span><span class="checkbox-weight">+5 pts</span></label>
+                  <label class="checkbox-label"><input type="checkbox" data-pts="5" onchange="calcScore()" /><span>Validity &amp; reliability measures stated</span><span class="checkbox-weight">+5 pts</span></label>
+                  <label class="checkbox-label"><input type="checkbox" data-pts="5" onchange="calcScore()" /><span>Sample size justification provided</span><span class="checkbox-weight">+5 pts</span></label>
+                  <label class="checkbox-label"><input type="checkbox" data-pts="5" onchange="calcScore()" /><span>Limitations acknowledged</span><span class="checkbox-weight">+5 pts</span></label>
+                </div>
+                <textarea class="comment-area" placeholder="Overall methodology comments…" rows="2"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Verdict & Submit -->
+          <div class="section-divider">Recommendation</div>
+          <div class="verdict-row">
+            <span class="verdict-label">Recommend:</span>
+            <div class="toggle-group">
+              <button class="toggle-btn pass" id="btnPass" onclick="setVerdict('pass')">✓ Pass</button>
+              <button class="toggle-btn fail" id="btnFail" onclick="setVerdict('fail')">✗ Fail</button>
+            </div>
+            <span id="verdictNote" style="font-size:12px;color:var(--muted);margin-left:8px;"></span>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="btn-primary" onclick="submitAssessment()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Submit Assessment
+            </button>
+            <button class="btn-secondary" onclick="resetForm()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+              Reset Form
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ AI TRANSCRIPT PORTAL ═══ -->
+      <div class="card">
+        <div class="card-header">
+          <h2>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            AI Transcript &amp; Corrections Portal
+          </h2>
+        </div>
+        <div class="card-body">
+
+          <!-- Upload -->
+          <div class="upload-zone" id="uploadZone">
+            <input type="file" accept=".txt,.pdf,.mp3,.wav,.m4a,.docx" onchange="handleUpload(event)" />
+            <div class="upload-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+            </div>
+            <h4>Upload Seminar Transcript</h4>
+            <p>Drag &amp; drop or click to select your transcript or audio recording</p>
+            <div class="upload-formats">
+              <span class="fmt-badge">.TXT</span>
+              <span class="fmt-badge">.PDF</span>
+              <span class="fmt-badge">.DOCX</span>
+              <span class="fmt-badge">.MP3</span>
+              <span class="fmt-badge">.WAV</span>
+            </div>
+          </div>
+          <div class="upload-status" id="uploadStatus">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="uploadStatusText">File uploaded and processed by AI.</span>
+          </div>
+
+          <!-- Corrections -->
+          <div id="correctionsSection" style="display:none;">
+            <div class="section-divider">AI-Extracted Corrections</div>
+
+            <!-- CRITICAL -->
+            <div class="urgency-group">
+              <div class="urgency-header critical">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Critical
+                <span class="urgency-count">2 corrections</span>
+              </div>
+              <div id="corrections-critical"></div>
+            </div>
+
+            <!-- MAJOR -->
+            <div class="urgency-group">
+              <div class="urgency-header major">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Major
+                <span class="urgency-count">3 corrections</span>
+              </div>
+              <div id="corrections-major"></div>
+            </div>
+
+            <!-- MINOR -->
+            <div class="urgency-group">
+              <div class="urgency-header minor">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Minor
+                <span class="urgency-count">2 corrections</span>
+              </div>
+              <div id="corrections-minor"></div>
+            </div>
+
+            <!-- Publish Bar -->
+            <div class="publish-bar">
+              <div>
+                <h4>Ready to Publish Validated Corrections?</h4>
+                <p id="publishSummary">Review all corrections before publishing to student portal.</p>
+              </div>
+              <button class="btn-publish" onclick="publishCorrections()">
+                Publish to Student →
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- end assessmentWorkspace -->
+  </main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toastMsg">Action completed.</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════════ -->
+<script>
+/* ── Student data ──────────────────────────────────────── */
+const students = [
+  { name: 'Enos Mulongo',   initials: 'EM', reg: 'GCA/012/2023', univ: 'Rongo University',  stage: 'Stage 3: Proposal Dept.' },
+  { name: 'Amara Osei',     initials: 'AO', reg: 'GCA/047/2022', univ: 'UoN Nairobi',       stage: 'Stage 2: Concept Paper'   },
+  { name: 'Fatuma Wanjiku', initials: 'FW', reg: 'GCA/089/2021', univ: 'Kenyatta University',stage: 'Stage 4: Final Defense'   },
+  { name: 'Kevin Otieno',   initials: 'KO', reg: 'GCA/003/2024', univ: 'Maseno University', stage: 'Stage 1: Title Approval'  },
+];
+
+let activeStudent = 0;
+let verdict = null;
+
+function loadStudent(idx) {
+  activeStudent = idx;
+  const s = students[idx];
+  document.getElementById('studentAvatar').textContent = s.initials;
+  document.getElementById('studentName').textContent   = s.name;
+  document.getElementById('studentReg').textContent    = s.reg;
+  document.getElementById('studentUniv').textContent   = s.univ;
+  document.getElementById('studentStage').textContent  = s.stage;
+  document.querySelectorAll('.queue-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+  resetForm();
+  // reset upload
+  document.getElementById('uploadStatus').classList.remove('show');
+  document.getElementById('correctionsSection').style.display = 'none';
+  showToast(`Loaded: ${s.name}`, 'success');
+}
+
+/* ── Auto-scoring ──────────────────────────────────────── */
+function calcScore() {
+  // Update slider labels
+  ['lit1','lit2','meth1','meth2'].forEach(id => {
+    const val = document.getElementById('s_' + id).value;
+    document.getElementById('v_' + id).textContent = val;
+  });
+
+  const litSlider  = (+document.getElementById('s_lit1').value  + +document.getElementById('s_lit2').value)  / 2; // 0-10
+  const methSlider = (+document.getElementById('s_meth1').value + +document.getElementById('s_meth2').value) / 2; // 0-10
+
+  let litCheck = 0, methCheck = 0;
+  document.querySelectorAll('#litChecks  input[type=checkbox]:checked').forEach(cb => litCheck  += +cb.dataset.pts);
+  document.querySelectorAll('#methChecks input[type=checkbox]:checked').forEach(cb => methCheck += +cb.dataset.pts);
+
+  // Max: slider 10pts + checks 20pts = 30 pts each section
+  const litRaw  = litSlider  + litCheck;   // 0-30
+  const methRaw = methSlider + methCheck;  // 0-30
+  const litPct  = Math.round((litRaw  / 30) * 100);
+  const methPct = Math.round((methRaw / 30) * 100);
+  const total   = Math.round((litPct + methPct) / 2);
+
+  document.getElementById('scorePct').textContent  = total + '%';
+  document.getElementById('barLit').style.width    = litPct  + '%';
+  document.getElementById('barMeth').style.width   = methPct + '%';
+  document.getElementById('litPct').textContent    = litPct  + '%';
+  document.getElementById('methPct').textContent   = methPct + '%';
+
+  // Color the circle
+  const circle = document.getElementById('scoreCircle');
+  const pctEl  = document.getElementById('scorePct');
+  let col;
+  if (total >= 70) { col = 'var(--green)'; }
+  else if (total >= 50) { col = 'var(--amber)'; }
+  else { col = 'var(--red)'; }
+  circle.style.borderColor = col;
+  pctEl.style.color        = col;
+}
+
+function setVerdict(v) {
+  verdict = v;
+  document.getElementById('btnPass').classList.toggle('active', v === 'pass');
+  document.getElementById('btnFail').classList.toggle('active', v === 'fail');
+  document.getElementById('verdictNote').textContent = v === 'pass' ? 'Student recommended for advancement.' : 'Student recommended for revision.';
+}
+
+function submitAssessment() {
+  if (!verdict) { showToast('Please select Pass or Fail before submitting.', 'error'); return; }
+  showToast(`Assessment for ${students[activeStudent].name} submitted successfully!`, 'success');
+  setTimeout(() => document.getElementById('btnPass').classList.remove('active'), 1800);
+  setTimeout(() => document.getElementById('btnFail').classList.remove('active'), 1800);
+  verdict = null;
+  document.getElementById('verdictNote').textContent = '';
+}
+
+function resetForm() {
+  ['s_lit1','s_lit2','s_meth1','s_meth2'].forEach(id => { document.getElementById(id).value = 0; });
+  document.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+  document.querySelectorAll('.comment-area').forEach(ta => ta.value = '');
+  verdict = null;
+  document.getElementById('btnPass').classList.remove('active');
+  document.getElementById('btnFail').classList.remove('active');
+  document.getElementById('verdictNote').textContent = '';
+  calcScore();
+}
+
+/* ── Upload & Corrections ──────────────────────────────── */
+const corrections = {
+  critical: [
+    { id: 'c1', source: 'Panel Chair (pg. 4)', text: 'The theoretical framework is absent. The student must clearly state and justify the theoretical underpinning of the study before resubmission.' },
+    { id: 'c2', source: 'Prof. Wanjala (pg. 7)', text: 'Research objectives and research questions are misaligned — Objective 3 has no corresponding research question. This is a fundamental structural flaw.' },
+  ],
+  major: [
+    { id: 'm1', source: 'Dr. Achieng (pg. 5)',  text: 'Population sampling methodology lacks justification. Purposive sampling is applied but no rationale for sample size is provided.' },
+    { id: 'm2', source: 'Prof. Wanjala (pg. 9)', text: 'Literature from 2005–2010 cited extensively. Student must update with sources from the past 10 years to reflect current scholarly discourse.' },
+    { id: 'm3', source: 'Panel Chair (pg. 12)',  text: 'Data analysis plan mentions both SPSS and NVivo but the study is purely quantitative. Clarify the mixed-methods approach or remove NVivo reference.' },
+  ],
+  minor: [
+    { id: 'n1', source: 'Dr. Achieng (pg. 2)',  text: 'Abstract exceeds the required 300-word limit (current: 412 words). Revise and condense to highlight only key elements.' },
+    { id: 'n2', source: 'Peer Reviewer',         text: 'Inconsistent citation style detected — APA 7th edition guidelines not uniformly applied. Run a citation audit before final submission.' },
+  ],
+};
+
+const correctionStates = {}; // id → 'approved' | 'rejected' | null
+
+function renderCorrections() {
+  ['critical','major','minor'].forEach(urgency => {
+    const container = document.getElementById('corrections-' + urgency);
+    container.innerHTML = '';
+    corrections[urgency].forEach(c => {
+      const state = correctionStates[c.id] || null;
+      const div = document.createElement('div');
+      div.className = 'correction-item' + (state ? ' ' + state : '');
+      div.id = 'item-' + c.id;
+
+      const icon = urgency === 'critical' ? '⚠' : urgency === 'major' ? '▲' : '✓';
+      const statusHtml = state
+        ? `<span class="ci-status ${state}">${state}</span>`
+        : `<button class="ci-btn approve" onclick="approveCorrection('${c.id}')">Approve</button>
+           <button class="ci-btn edit"    onclick="editCorrection('${c.id}')">Edit</button>
+           <button class="ci-btn reject"  onclick="rejectCorrection('${c.id}')">Reject</button>`;
+
+      div.innerHTML = `
+        <div class="correction-icon ${urgency}">${icon}</div>
+        <div class="ci-body">
+          <div class="ci-source">${c.source}</div>
+          <div class="ci-text" id="text-${c.id}">${c.text}</div>
+          <div class="ci-edit-form" id="edit-${c.id}">
+            <input class="ci-edit-input" id="inp-${c.id}" value="${c.text}" />
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button class="ci-btn save" onclick="saveEdit('${c.id}')">Save</button>
+              <button class="ci-btn edit" onclick="cancelEdit('${c.id}')">Cancel</button>
+            </div>
+          </div>
+          <div class="ci-actions">${statusHtml}</div>
+        </div>`;
+      container.appendChild(div);
+    });
+  });
+  updatePublishSummary();
+}
+
+function approveCorrection(id) {
+  correctionStates[id] = 'approved';
+  renderCorrections();
+  showToast('Correction approved.', 'success');
+}
+function rejectCorrection(id) {
+  correctionStates[id] = 'rejected';
+  renderCorrections();
+  showToast('Correction rejected.', 'error');
+}
+function editCorrection(id) {
+  const item = document.getElementById('item-' + id);
+  item.classList.add('editing');
+  document.getElementById('inp-' + id).focus();
+}
+function saveEdit(id) {
+  const val = document.getElementById('inp-' + id).value.trim();
+  if (!val) return;
+  // Update all urgency lists
+  ['critical','major','minor'].forEach(u => {
+    const c = corrections[u].find(x => x.id === id);
+    if (c) { c.text = val; }
+  });
+  renderCorrections();
+  showToast('Correction updated.', 'success');
+}
+function cancelEdit(id) {
+  document.getElementById('item-' + id).classList.remove('editing');
+}
+function updatePublishSummary() {
+  const all = Object.entries(correctionStates);
+  const approved = all.filter(([,v]) => v === 'approved').length;
+  const rejected = all.filter(([,v]) => v === 'rejected').length;
+  const total = corrections.critical.length + corrections.major.length + corrections.minor.length;
+  document.getElementById('publishSummary').textContent =
+    `${approved} approved, ${rejected} rejected, ${total - all.length} pending review.`;
+}
+function publishCorrections() {
+  const all = Object.values(correctionStates);
+  const approved = all.filter(v => v === 'approved').length;
+  if (approved === 0) { showToast('Approve at least one correction before publishing.', 'error'); return; }
+  showToast(`${approved} correction(s) published to ${students[activeStudent].name}'s portal!`, 'success');
+}
+
+function handleUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl   = document.getElementById('uploadStatus');
+  const statusText = document.getElementById('uploadStatusText');
+  statusText.textContent = `Processing "${file.name}" with AI…`;
+  statusEl.style.background = 'var(--amber-lt)';
+  statusEl.style.color      = 'var(--amber)';
+  statusEl.classList.add('show');
+  setTimeout(() => {
+    statusText.textContent = `"${file.name}" processed — ${corrections.critical.length + corrections.major.length + corrections.minor.length} corrections extracted.`;
+    statusEl.style.background = 'var(--green-lt)';
+    statusEl.style.color      = 'var(--green)';
+    Object.keys(correctionStates).forEach(k => delete correctionStates[k]);
+    renderCorrections();
+    document.getElementById('correctionsSection').style.display = 'block';
+    showToast('AI extraction complete!', 'success');
+  }, 1800);
+}
+
+/* ── Notification Bell ─────────────────────────────────── */
+document.getElementById('notifBtn').addEventListener('click', () => {
+  showToast('3 upcoming seminars this week. Next: Mon 23 Jun at 09:00 AM.', '');
+  document.getElementById('notifDot').style.display = 'none';
+});
+
+/* ── Toast ─────────────────────────────────────────────── */
+let toastTimer;
+function showToast(msg, type = '') {
+  clearTimeout(toastTimer);
+  const t = document.getElementById('toast');
+  t.className = 'toast' + (type ? ' ' + type : '');
+  document.getElementById('toastMsg').textContent = msg;
+  t.classList.add('show');
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* ── Init ──────────────────────────────────────────────── */
+loadStudent(0);
+calcScore();
+</script>
+</body>
+</html>
