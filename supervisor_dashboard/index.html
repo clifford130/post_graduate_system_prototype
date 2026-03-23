@@ -41,6 +41,9 @@
     <button class="nav-item" onclick="navigate('settings', this)">
       <span class="nav-icon">⚙️</span> Settings
     </button>
+    <button class="nav-item" style="color:var(--red);" onclick="handleLogout()">
+      <span class="nav-icon">🚪</span> Logout
+    </button>
   </nav>
 
   <div class="sidebar-footer">
@@ -122,8 +125,9 @@
 </div>
 
 <script type="module">
-   import { initShell, navigateTo } from './js/main.js';
+   import { initShell, navigateTo, handleLogout } from './js/main.js';
    window.navigate = navigateTo; // Global access like student portal
+   window.handleLogout = handleLogout;
    
    document.addEventListener('DOMContentLoaded', initShell);
 </script>

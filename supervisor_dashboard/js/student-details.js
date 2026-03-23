@@ -167,6 +167,7 @@ function setupDetailEvents(student) {
 
 function openReportApprovalModal(student, reportId) {
    const session = getSupervisorSession();
+   const slot = student.supervisors?.sup1 === session.id ? "sup1" : (student.supervisors?.sup2 === session.id ? "sup2" : "sup3");
    openModal({
       title: "Quarterly Report Sign-Off",
       bodyHtml: `<div style="display:flex; flex-direction:column; gap:16px;"><p class="text-sm">Verify the academic activities for <strong>${student.fullName}</strong>.</p><textarea id="report-comment" class="form-textarea" placeholder="Enter findings..."></textarea></div>`,
@@ -179,7 +180,7 @@ function openReportApprovalModal(student, reportId) {
    qsa(".btn-submit-approval").forEach(btn => {
       btn.onclick = async () => {
          try {
-            await api.approveQReport(student._id, reportId, { supervisorId: session.id, role: "sup1", action: btn.dataset.action, comment: qs("#report-comment").value });
+            await api.approveQReport(student._id, reportId, { supervisorId: session.id, role: slot, action: btn.dataset.action, comment: qs("#report-comment").value });
             toast("Sign-off Transmitted", { tone: "green" });
             initStudentDetails(student._id);
          } catch(e) { toast("Error: " + e.message, { tone: "red" }); }

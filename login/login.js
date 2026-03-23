@@ -72,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     }, 1500);
                 } else if (role === "supervisor") {
                     setTimeout(() => {
-                        window.location.href = "../Supervisor_dashboard/index.html";
+                        window.location.href = "../supervisor_dashboard/index.html";
                     }, 1500);
                 } else if (role === "director") {
                     setTimeout(() => {
