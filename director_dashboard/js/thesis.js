@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div class="text-xs font-medium text-slate-500">${escapeHtml(student.regNo)}</div>
           </div>
           <div class="shrink-0">
-            <button data-thesis-action="1" data-id="${student.id}" class="rounded-xl border border-blue-200 bg-blue-50 p-2 text-blue-600 hover:bg-blue-100 transition shadow-sm" title="Manage Thesis">
+            <button data-thesis-action="1" data-id="${student.studentId}" class="rounded-xl border border-blue-200 bg-blue-50 p-2 text-blue-600 hover:bg-blue-100 transition shadow-sm" title="Manage Thesis">
               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
@@ -148,10 +148,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>
         
         <div class="mt-4 flex gap-2">
-          <button data-view-booking="${booking.id}" class="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 transition">
+          <button data-view-booking="${booking.bookingId}" class="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 transition">
             View Details
           </button>
-          <button data-remind="${student.id}" class="flex-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
+          <button data-remind="${student.studentId}" class="flex-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
             Remind
           </button>
         </div>
@@ -314,29 +314,80 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  async function submitThesisOutcome(studentId, status) {
+    const remarks = document.getElementById("thesisRemarks")?.value || "";
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/students/${studentId}/thesis/outcome`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, remarks })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast(`Thesis ${status} successfully!`, { tone: "green" });
+        // Close modal
+        const closeBtn = document.querySelector('[data-modal-close]');
+        if (closeBtn) closeBtn.click();
+        // Reload data
+        load();
+      } else {
+        toast(data.message || "Failed to update thesis outcome", { tone: "red" });
+      }
+    } catch (err) {
+      console.error("Error submitting thesis outcome:", err);
+      toast("Failed to update thesis outcome", { tone: "red" });
+    }
+  }
+
   function openThesisGovernanceModal(studentId) {
     openModal({
       title: `Thesis Governance Center`,
       size: "lg",
       bodyHtml: `
         <div class="space-y-6">
-          <div class="bg-blue-50 p-4 rounded-xl">
-            <div class="text-sm font-semibold text-blue-800">Student ID: ${studentId}</div>
-            <div class="text-xs text-blue-600 mt-1">Manage thesis examination process</div>
+          <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
+                ID
+              </div>
+              <div>
+                <div class="text-sm font-bold text-blue-900">Thesis Decision Authority</div>
+                <div class="text-xs text-blue-600">Student ID: ${studentId}</div>
+              </div>
+            </div>
           </div>
+
           <div class="grid grid-cols-2 gap-3">
-            <button data-appoint-examiners="1" class="rounded-xl bg-blue-600 text-white px-4 py-3 text-sm font-semibold hover:bg-blue-700 transition">
+            <button class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition">
               Appoint Examiners
             </button>
-            <button data-schedule-defense="1" class="rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm font-semibold hover:bg-blue-50 transition">
+            <button class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition">
               Schedule Defense
             </button>
-            <button data-upload-results="1" class="rounded-xl border border-green-200 bg-white px-4 py-3 text-sm font-semibold hover:bg-green-50 transition">
-              Upload Results
-            </button>
-            <button data-override="1" class="rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-semibold hover:bg-amber-50 transition">
-              Override Decision
-            </button>
+          </div>
+
+          <div class="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+            <div class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Final Determination</div>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Director's Decision Note</label>
+                <textarea id="thesisRemarks" rows="3" class="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" placeholder="Enter findings or justification..."></textarea>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <button data-thesis-outcome="approved" data-id="${studentId}" class="rounded-xl bg-emerald-600 px-4 py-4 text-sm font-bold text-white uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg shadow-emerald-200">
+                  Approve Thesis
+                </button>
+                <button data-thesis-outcome="rejected" data-id="${studentId}" class="rounded-xl bg-rose-600 px-4 py-4 text-sm font-bold text-white uppercase tracking-widest hover:bg-rose-700 transition shadow-lg shadow-rose-200">
+                  Reject Thesis
+                </button>
+              </div>
+              <div class="text-center">
+                <p class="text-[10px] text-slate-400 font-medium italic">Approving will automatically advance the student to Graduation stage.</p>
+              </div>
+            </div>
           </div>
         </div>
       `,
@@ -361,6 +412,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const remindBtn = e.target.closest("[data-remind]");
     if (remindBtn) {
       await sendReminder(remindBtn.dataset.remind);
+      return;
+    }
+
+    const outcomeBtn = e.target.closest("[data-thesis-outcome]");
+    if (outcomeBtn) {
+      const { id, thesisOutcome } = outcomeBtn.dataset;
+      await submitThesisOutcome(id, thesisOutcome);
       return;
     }
   });

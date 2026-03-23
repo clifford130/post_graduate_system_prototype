@@ -3,6 +3,7 @@ import { UserModel } from "../models/user.model.js";
 import { SupervisorAssignmentModel } from "../models/supervisor-action.model.js";
 import { SystemSettingsModel } from "../models/system-settings.model.js";
 import { ReportModel } from "../models/report.model.js";
+import { bookingsModel } from "../models/student.bookings.js";
 
 export const DirectorRouter = Router();
 
@@ -140,19 +141,28 @@ DirectorRouter.post(
       const student = await UserModel.findById(req.params.id);
       if (!student) return res.status(404).json({ message: "Not found" });
 
+      if (!student.documents) {
+        student.documents = {
+          conceptNote: "pending",
+          proposal: "pending",
+          thesis: "pending",
+          nacosti: "pending",
+          journalPaper: "pending",
+          mentorship: "pending",
+        };
+      }
+
       if (type === "nacosti") {
-        if (!student.documents) {
-          student.documents = {
-            conceptNote: "pending",
-            proposal: "pending",
-            thesis: "pending",
-            nacosti: "pending",
-            journalPaper: "pending",
-            mentorship: "pending",
-          };
-        }
         student.documents.nacosti = status;
         student.markModified("documents");
+      } else if (type === "thesis") {
+        student.documents.thesis = status;
+        student.markModified("documents");
+        
+        // Auto-advance stage if thesis is approved
+        if (status === "approved") {
+          student.stage = "Graduation";
+        }
       }
 
       await student.save();
@@ -162,6 +172,60 @@ DirectorRouter.post(
       res.status(500).json({ message: "Error updating documents" });
     }
   },
+);
+
+// Specialized route for thesis outcome with remarks
+DirectorRouter.post(
+  "/students/:id/thesis/outcome",
+  async (req: Request, res: Response) => {
+    try {
+      const { status, remarks } = req.body; // status: "approved" | "rejected"
+      const student = await UserModel.findById(req.params.id);
+      if (!student) return res.status(404).json({ message: "Student not found" });
+
+      if (!student.documents) {
+        student.documents = {
+          conceptNote: "pending",
+          proposal: "pending",
+          thesis: "pending",
+          nacosti: "pending",
+          journalPaper: "pending",
+          mentorship: "pending",
+        };
+      }
+
+      student.documents.thesis = status;
+      student.markModified("documents");
+
+      if (remarks) {
+        student.notes = student.notes || [];
+        student.notes.push(`Thesis ${status}: ${remarks} (Date: ${new Date().toLocaleDateString()})`);
+      }
+
+      if (status === "approved") {
+        student.stage = "Graduation";
+        student.status = "Completed";
+
+        // Update booking status to completed
+        await bookingsModel.findOneAndUpdate(
+          { ownerId: student._id.toString(), status: { $in: ["pending", "confirmed"] } },
+          { $set: { status: "completed" } }
+        );
+      } else if (status === "rejected") {
+        // Update booking status to cancelled/rejected
+        await bookingsModel.findOneAndUpdate(
+          { ownerId: student._id.toString(), status: { $in: ["pending", "confirmed"] } },
+          { $set: { status: "cancelled", cancellationReason: remarks || "Thesis rejected by director" } }
+        );
+      }
+
+      await student.save();
+      res.json({ success: true, message: `Thesis ${status} successfully`, student });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error updating thesis outcome", error });
+    }
+  }
 );
 
 // 5. POST /students/:id/supervisors
