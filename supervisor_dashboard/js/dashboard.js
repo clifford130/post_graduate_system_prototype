@@ -53,7 +53,7 @@ function renderDashboard(students, supervisorId) {
 }
 
 function renderStudentRow(student, supervisorId) {
-  const slot = student.supervisors.sup1 === supervisorId ? "sup1" : (student.supervisors.sup2 === supervisorId ? "sup2" : "sup3");
+  const slot = student.supervisors?.sup1 === supervisorId ? "sup1" : (student.supervisors?.sup2 === supervisorId ? "sup2" : "sup3");
   const isPending = student.assignmentStatus?.[slot] === "pending";
   const stageIndex = STAGES.indexOf(student.stage || "Coursework");
   const progressPercent = Math.round(((stageIndex + 1) / STAGES.length) * 100);

@@ -83,8 +83,8 @@ function renderPipeline(students, supervisorId) {
 }
 
 function renderPipelineRow(student, supervisorId) {
-  const slot = student.supervisors.sup1 === supervisorId ? "sup1" : (student.supervisors.sup2 === supervisorId ? "sup2" : "sup3");
-  const isPending = student.assignmentStatus[slot] === "pending";
+  const slot = student.supervisors?.sup1 === supervisorId ? "sup1" : (student.supervisors?.sup2 === supervisorId ? "sup2" : "sup3");
+  const isPending = student.assignmentStatus?.[slot] === "pending";
   const statusColor = student.status === "Active" ? "bg-[#14b5d9]" : (student.status === "Deferred" ? "bg-amber-500" : "bg-slate-400");
   const stageIndex = STAGES.indexOf(student.stage || "Coursework");
   const progressPercent = Math.round(((stageIndex + 1) / STAGES.length) * 100);

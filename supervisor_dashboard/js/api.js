@@ -1,4 +1,4 @@
-const API_BASE = "https://post-graduate-system-prototype.onrender.com/api";
+const API_BASE = "http://localhost:5000/api";
 
 async function request(path, { method = "GET", body, headers } = {}) {
   const url = `${API_BASE}${path}`;
@@ -9,6 +9,7 @@ async function request(path, { method = "GET", body, headers } = {}) {
       "Content-Type": "application/json",
       ...(headers || {}),
     },
+    credentials: "include",
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -87,8 +88,8 @@ export const api = {
     return {
       total: students.length,
       pendingApproval: students.filter(s => {
-        const slot = s.supervisors.sup1 === supervisorId ? "sup1" : (s.supervisors.sup2 === supervisorId ? "sup2" : "sup3");
-        return s.assignmentStatus[slot] === "pending";
+        const slot = s.supervisors?.sup1 === supervisorId ? "sup1" : (s.supervisors?.sup2 === supervisorId ? "sup2" : "sup3");
+        return s.assignmentStatus?.[slot] === "pending";
       }).length,
       active: students.filter(s => s.status === "Active").length,
       deferred: students.filter(s => s.status === "Deferred").length,

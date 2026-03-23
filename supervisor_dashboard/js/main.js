@@ -12,6 +12,26 @@ export const STAGES = [
 // ---------------------------------------------------------
 // Navigation & Shell Logic
 // ---------------------------------------------------------
+export async function handleLogout() {
+  try {
+    const confirm = window.confirm("Are you sure you want to logout?");
+    if (!confirm) return;
+    
+    await fetch("http://localhost:5000/api/user/login/logout", { 
+      method: "POST", 
+      credentials: "include" 
+    });
+    
+    localStorage.removeItem("postgraduate_user");
+    localStorage.removeItem("auth_token");
+    window.location.href = "../login/login.html";
+  } catch (err) {
+    localStorage.removeItem("postgraduate_user");
+    localStorage.removeItem("auth_token");
+    window.location.href = "../login/login.html";
+  }
+}
+
 export function initShell() {
     const session = getSupervisorSession();
     qs("#sup-name").textContent = session.name;
@@ -50,14 +70,16 @@ async function updateSidebarBadges(supervisorId) {
 }
 
 export function getSupervisorSession() {
-  const session = localStorage.getItem("supervisor_session");
-  // Simulated session for hackathon demo
+  const session = localStorage.getItem("postgraduate_user");
+  // Simulated session for hackathon demo fallback
   if (!session) {
-    const mock = { id: "mock_sup_123", name: "Dr. Supervisor" };
+    const mock = { id: "Dr. Supervisor", name: "Dr. Supervisor" };
     localStorage.setItem("supervisor_session", JSON.stringify(mock));
     return mock;
   }
-  return JSON.parse(session);
+  const user = JSON.parse(session);
+  // The backend uses supervisor.fullName to link students, so we map id to fullName
+  return { id: user.fullName || "Dr. Supervisor", name: user.fullName || "Dr. Supervisor" };
 }
 
 import { initDashboard } from './dashboard.js';
