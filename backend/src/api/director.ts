@@ -70,30 +70,53 @@ DirectorRouter.post(
     try {
       const { stage, mode, reason } = req.body;
       const student = await UserModel.findById(req.params.id);
-      if (!student) return res.status(404).json({ message: "Student not found" });
+      if (!student)
+        return res.status(404).json({ message: "Student not found" });
 
       // Block if student is deferred (Section 2.1)
       if (student.status === "Deferred") {
-        return res.status(403).json({ message: "Pipeline tracking paused for deferred students. Please record a Resumption first." });
+        return res
+          .status(403)
+          .json({
+            message:
+              "Pipeline tracking paused for deferred students. Please record a Resumption first.",
+          });
       }
 
       // GATE ENFORCEMENT (Section 4.3)
       const reports = await ReportModel.find({ owner: student.userNumber });
-      const approvedReports = reports.filter(r => r.status === "approved").length;
+      const approvedReports = reports.filter(
+        (r) => r.status === "approved",
+      ).length;
 
       // Block Proposal (School) if no reports
       if (stage === "Proposal (School)" && approvedReports === 0) {
-        return res.status(403).json({ message: "Quarterly report required before School Proposal presentation." });
+        return res
+          .status(403)
+          .json({
+            message:
+              "Quarterly report required before School Proposal presentation.",
+          });
       }
 
       // Block External Examination Submission if not ALL reports approved
       if (stage === "External Examination Submission") {
-        if (approvedReports < 2) { // Masters Year 2 needs at least 2 reports according to Sem 3/4 mapping.
-          return res.status(403).json({ message: "All quarterly reports must be approved before External Examination Submission." });
+        if (approvedReports < 2) {
+          // Masters Year 2 needs at least 2 reports according to Sem 3/4 mapping.
+          return res
+            .status(403)
+            .json({
+              message:
+                "All quarterly reports must be approved before External Examination Submission.",
+            });
         }
       }
 
-      const updated = await UserModel.findByIdAndUpdate(req.params.id, { stage }, { new: true });
+      const updated = await UserModel.findByIdAndUpdate(
+        req.params.id,
+        { stage },
+        { new: true },
+      );
       res.json({ message: "Stage updated", student: updated });
     } catch (error) {
       res.status(500).json({ message: "Error updating stage", error });
@@ -108,23 +131,28 @@ DirectorRouter.post(
     try {
       const { status, reason, plannedResumption } = req.body;
       const student = await UserModel.findById(req.params.id);
-      if (!student) return res.status(404).json({ message: "Student not found" });
+      if (!student)
+        return res.status(404).json({ message: "Student not found" });
 
       const update: any = { status };
-      
+
       // Deferral Snapshot (Section 2.1)
       if (status === "Deferred") {
         update.deferralInfo = {
           date: new Date(),
           reason: reason || "Administrative",
           plannedResumption,
-          stageAtDeferral: student.stage || "Coursework"
+          stageAtDeferral: student.stage || "Coursework",
         };
       } else if (status === "Resumed") {
         update["deferralInfo.actualResumption"] = new Date();
       }
 
-      const updated = await UserModel.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
+      const updated = await UserModel.findByIdAndUpdate(
+        req.params.id,
+        { $set: update },
+        { new: true },
+      );
       res.json({ message: "Status updated", student: updated });
     } catch (error) {
       res.status(500).json({ message: "Error updating status", error });
@@ -158,7 +186,7 @@ DirectorRouter.post(
       } else if (type === "thesis") {
         student.documents.thesis = status;
         student.markModified("documents");
-        
+
         // Auto-advance stage if thesis is approved
         if (status === "approved") {
           student.stage = "Graduation";
@@ -181,7 +209,8 @@ DirectorRouter.post(
     try {
       const { status, remarks } = req.body; // status: "approved" | "rejected"
       const student = await UserModel.findById(req.params.id);
-      if (!student) return res.status(404).json({ message: "Student not found" });
+      if (!student)
+        return res.status(404).json({ message: "Student not found" });
 
       if (!student.documents) {
         student.documents = {
@@ -199,7 +228,9 @@ DirectorRouter.post(
 
       if (remarks) {
         student.notes = student.notes || [];
-        student.notes.push(`Thesis ${status}: ${remarks} (Date: ${new Date().toLocaleDateString()})`);
+        student.notes.push(
+          `Thesis ${status}: ${remarks} (Date: ${new Date().toLocaleDateString()})`,
+        );
       }
 
       if (status === "approved") {
@@ -208,24 +239,39 @@ DirectorRouter.post(
 
         // Update booking status to completed
         await bookingsModel.findOneAndUpdate(
-          { ownerId: student._id.toString(), status: { $in: ["pending", "confirmed"] } },
-          { $set: { status: "completed" } }
+          {
+            ownerId: student._id.toString(),
+            status: { $in: ["cancelled", "pending", "confirmed"] },
+          },
+          { $set: { status: "completed" } },
         );
       } else if (status === "rejected") {
         // Update booking status to cancelled/rejected
         await bookingsModel.findOneAndUpdate(
-          { ownerId: student._id.toString(), status: { $in: ["pending", "confirmed"] } },
-          { $set: { status: "cancelled", cancellationReason: remarks || "Thesis rejected by director" } }
+          {
+            ownerId: student._id.toString(),
+            status: { $in: ["pending", "confirmed"] },
+          },
+          {
+            $set: {
+              status: "cancelled",
+              cancellationReason: remarks || "Thesis rejected by director",
+            },
+          },
         );
       }
 
       await student.save();
-      res.json({ success: true, message: `Thesis ${status} successfully`, student });
+      res.json({
+        success: true,
+        message: `Thesis ${status} successfully`,
+        student,
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error updating thesis outcome", error });
     }
-  }
+  },
 );
 
 // 5. POST /students/:id/supervisors
@@ -235,24 +281,53 @@ DirectorRouter.post(
     try {
       const { sup1, sup2, sup3 } = req.body;
       const studentToUpdate = await UserModel.findById(req.params.id);
-      if (!studentToUpdate) return res.status(404).json({ message: "Student not found" });
+      if (!studentToUpdate)
+        return res.status(404).json({ message: "Student not found" });
 
       // SUPERVISOR COUNT ENFORCEMENT (Section 6.3)
       if (studentToUpdate.programme === "msc" && sup3) {
-        return res.status(400).json({ message: "Masters students only require 2 supervisors. Please remove Supervisor 3." });
+        return res
+          .status(400)
+          .json({
+            message:
+              "Masters students only require 2 supervisors. Please remove Supervisor 3.",
+          });
       }
       if (studentToUpdate.programme === "phd" && (!sup1 || !sup2 || !sup3)) {
-        return res.status(400).json({ message: "PhD students require exactly 3 supervisors. Please assign Supervisor 3." });
+        return res
+          .status(400)
+          .json({
+            message:
+              "PhD students require exactly 3 supervisors. Please assign Supervisor 3.",
+          });
       }
 
       const settings = await SystemSettingsModel.findOne();
       if (settings?.supervisorLockdown) {
-        const STAGES = ["Coursework", "Concept Note (Department)", "Concept Note (School)", "Proposal (Department)", "Proposal (School)", "PG Approval", "Fieldwork", "Thesis Development", "External Examination", "Defense", "Graduation"];
-        const currentStageIdx = STAGES.indexOf(studentToUpdate.stage || "Coursework");
+        const STAGES = [
+          "Coursework",
+          "Concept Note (Department)",
+          "Concept Note (School)",
+          "Proposal (Department)",
+          "Proposal (School)",
+          "PG Approval",
+          "Fieldwork",
+          "Thesis Development",
+          "External Examination",
+          "Defense",
+          "Graduation",
+        ];
+        const currentStageIdx = STAGES.indexOf(
+          studentToUpdate.stage || "Coursework",
+        );
         const fieldworkIdx = STAGES.indexOf("Fieldwork");
-        
+
         if (currentStageIdx > fieldworkIdx) {
-          return res.status(403).json({ message: "Supervisor assignment locked after Fieldwork stage." });
+          return res
+            .status(403)
+            .json({
+              message: "Supervisor assignment locked after Fieldwork stage.",
+            });
         }
       }
 
@@ -409,7 +484,7 @@ DirectorRouter.post(
       // Check supervisor workload (dynamic cap)
       const settings = await SystemSettingsModel.findOne();
       const cap = settings?.supervisorStudentLimit || 8;
-      
+
       const activeAssignments = await SupervisorAssignmentModel.countDocuments({
         supervisorId: supervisor._id.toString() as string,
         status: "active" as const,

@@ -303,6 +303,7 @@ studentBookings.put(
             _id: bookingId,
             ownerId: load.id,
           });
+          console.log(booking);
 
           if (!booking) {
             res.status(404).json({
