@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== QUARTERLY REPORTS HANDLER =====
   class QuarterlyReportsHandler {
     constructor() {
-      this.apiBaseUrl = 'http://localhost:5000/api';
+      this.apiBaseUrl = 'https://post-graduate-system-prototype.onrender.com/api';
       this.initializeEventListeners();
       this.loadReportHistory();
     }
@@ -453,7 +453,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== PRESENTATION BOOKING HANDLER =====
   class PresentationBookingHandler {
     constructor() {
-      this.apiBaseUrl = 'http://localhost:5000/api';
+      this.apiBaseUrl = 'https://post-graduate-system-prototype.onrender.com/api';
       this.initializeEventListeners();
       this.loadAndDisplayBookings();
     }
