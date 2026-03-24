@@ -729,7 +729,7 @@ button {
   gap: 12px;
 }
 .topbar-chip {
-  background: rgba(255, 255, 255, 0.15);
+  background: #194973;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 20px;
   padding: 6px 14px;
@@ -1033,8 +1033,7 @@ button {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 14px;
 }
-.detail-item {
-}
+
 .detail-label {
   font-size: 0.72rem;
   color: var(--grey-500);
