@@ -786,7 +786,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const userData = JSON.parse(localStorage.getItem('postgraduate_user'));
       if (!userData) { alert('Please login to cancel booking'); return; }
-      const response = await fetch(`http://localhost:5000/api/presentations/${bookingId}/cancel`, {
+      const response = await fetch(`https://post-graduate-system-prototype.onrender.com/api/presentations/${bookingId}/cancel`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
       });
       const result = await response.json();
@@ -833,7 +833,7 @@ document.addEventListener("DOMContentLoaded", () => {
       logoutBtn.disabled = true;
     }
     try {
-      const response = await fetch('http://localhost:5000/api/user/login/logout', {
+      const response = await fetch('https://post-graduate-system-prototype.onrender.com/api/user/login/logout', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }
       });
       const data = await response.json();
@@ -899,7 +899,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const result = await fetch("http://localhost:5000/api/islogged", {
+      const result = await fetch("https://post-graduate-system-prototype.onrender.com/api/islogged", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "Accept": "application/json" }
       });
 
