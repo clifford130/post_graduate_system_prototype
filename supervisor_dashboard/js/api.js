@@ -1,9 +1,10 @@
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "https://post-graduate-system-prototype.onrender.com/api";
 
 async function request(path, { method = "GET", body, headers } = {}) {
   const url = `${API_BASE}${path}`;
   const res = await fetch(url, {
     method,
+    credentials: "include",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
