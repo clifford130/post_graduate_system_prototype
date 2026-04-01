@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Center - Rongo University</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-bg: #2b3e50;
+            --sidebar-hover: #1e2c3a;
+            --sidebar-active: #1c4b79;
+            --header-bg: #f4c130;
+            --main-bg: #f8f9fa;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+            --card-bg: #ffffff;
+            --primary-blue: #1c4b79;
+            --light-blue: #00a8ff;
+            --success: #1abc9c;
+            --warning: #f39c12;
+            
+            /* Status Colors */
+            --status-approved-bg: #e8f8f5;
+            --status-approved-text: #1abc9c;
+            --status-pending-bg: #fef9e7;
+            --status-pending-text: #f39c12;
+            --status-missing-bg: #fdedec;
+            --status-missing-text: #e74c3c;
+            --status-review-bg: #eaf2f8;
+            --status-review-text: #3498db;
+            
+            --border-color: #ecf0f1;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { display: flex; height: 100vh; background-color: var(--main-bg); color: var(--text-main); }
+
+        /* Sidebar */
+        .sidebar { width: 250px; background-color: var(--sidebar-bg); color: white; display: flex; flex-direction: column; flex-shrink: 0; box-shadow: 2px 0 10px rgba(0,0,0,0.05); z-index: 10; }
+        .logo-container { background-color: white; padding: 25px 20px; text-align: center; border-bottom: 1px solid #eee; }
+        .logo-container h2 { color: var(--primary-blue); font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+        .logo-container p { color: var(--text-muted); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
+        .nav-section { padding: 20px 0; }
+        .nav-label { padding: 0 25px; font-size: 11px; color: #8fa0b3; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px; font-weight: 600; }
+        .nav-item { padding: 12px 25px; display: flex; align-items: center; color: #d1d8e0; text-decoration: none; font-size: 14px; font-weight: 500; transition: 0.2s ease; cursor: pointer; }
+        .nav-item i { margin-right: 15px; width: 20px; text-align: center; font-size: 16px; }
+        .nav-item:hover { background-color: var(--sidebar-hover); color: white; }
+        .nav-item.active { background-color: var(--sidebar-active); color: white; border-left: 4px solid var(--header-bg); }
+        .user-bottom { margin-top: auto; padding: 15px 20px; background-color: #233444; display: flex; align-items: center; gap: 15px; }
+        .user-avatar-small { width: 38px; height: 38px; background-color: var(--light-blue); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+        .user-info p { font-size: 13px; font-weight: 600; color: white; }
+        .user-info span { font-size: 11px; color: #8fa0b3; }
+
+        /* Main Content */
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .top-header { background-color: var(--header-bg); padding: 25px 45px; display: flex; justify-content: space-between; align-items: center; color: var(--primary-blue); box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 5; }
+        .header-title h1 { font-size: 26px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.5px; }
+        .header-title p { font-size: 14px; font-weight: 500; opacity: 0.9; }
+        .header-actions { display: flex; gap: 12px; }
+        .pill-dark { background-color: var(--primary-blue); color: white; padding: 8px 18px; border-radius: 20px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        .content-area { padding: 35px 45px; max-width: 1100px; margin: 0 auto; width: 100%; }
+
+        /* Warnings & Cards */
+        .info-banner { background-color: #fef9e7; border-left: 5px solid var(--status-pending-text); padding: 20px 25px; border-radius: 8px; margin-bottom: 30px; display: flex; gap: 15px; align-items: center;}
+        .info-banner i { color: var(--status-pending-text); font-size: 24px; }
+        .info-content h4 { font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+        .info-content p { font-size: 13px; color: var(--text-main); }
+        .info-content strong { color: var(--status-missing-text); }
+
+        .card { background-color: var(--card-bg); border-radius: 12px; padding: 30px 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .card-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;}
+        .card-title h3 { font-size: 18px; font-weight: 700; color: var(--primary-blue); display:flex; align-items:center; gap:10px; margin-bottom: 4px;}
+        .card-title p { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+        
+        .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-missing { background-color: var(--status-missing-bg); color: var(--status-missing-text); }
+        .badge-review { background-color: var(--status-review-bg); color: var(--status-review-text); }
+        .badge-approved { background-color: var(--status-approved-bg); color: var(--status-approved-text); }
+
+        /* Upload Area */
+        .upload-container { display: flex; align-items: flex-start; gap: 30px; }
+        .upload-desc { flex: 1; }
+        .upload-desc p { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 15px; }
+        
+        .upload-box { flex: 1; border: 2px dashed #bdc3c7; border-radius: 8px; padding: 30px 20px; text-align: center; background-color: #fafbfc; transition: all 0.3s ease; position: relative; }
+        .upload-box:hover:not(.disabled) { border-color: var(--primary-blue); background-color: #f0f8ff; cursor: pointer; }
+        .upload-box.disabled { opacity: 0.6; cursor: not-allowed; border-color: #ecf0f1; }
+        .upload-icon { font-size: 30px; color: #95a5a6; margin-bottom: 10px; transition: color 0.3s ease;}
+        .upload-box:hover:not(.disabled) .upload-icon { color: var(--primary-blue); }
+        .upload-text { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 5px; }
+        .upload-subtext { font-size: 11px; color: var(--text-muted); }
+        .file-input { display: none; }
+
+        /* File Display (Post-upload) */
+        .file-display { display: none; background-color: #f8f9fa; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; margin-top: 15px; }
+        .file-info { display: flex; align-items: center; gap: 10px; }
+        .file-info i { color: var(--status-missing-text); font-size: 18px; } 
+        .file-name { font-size: 13px; font-weight: 600; color: var(--text-main); }
+        .file-size { font-size: 11px; color: var(--text-muted); }
+        .btn-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+        .btn-remove:hover { color: var(--status-missing-text); }
+
+        /* NEW: Intent to Submit Form Styles */
+        .form-section { margin-bottom: 25px; }
+        .form-section h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--primary-blue); margin-bottom: 15px; border-bottom: 1px dashed #eee; padding-bottom: 5px; }
+        
+        .intent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #fafbfc; padding: 20px; border-radius: 8px; border: 1px solid #eee; }
+        .info-block { display: flex; flex-direction: column; gap: 4px; }
+        .info-block.wide { grid-column: span 2; }
+        .info-block label { font-size: 11px; font-weight: 700; color: #95a5a6; text-transform: uppercase; }
+        .info-block div { font-size: 14px; font-weight: 600; color: var(--text-main); }
+        
+        .form-instruction { font-size: 13px; color: var(--text-muted); margin-bottom: 15px; }
+        .form-group label { font-size: 12px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 6px; }
+        .form-input { padding: 10px 12px; border: 1px solid #bdc3c7; border-radius: 6px; font-size: 14px; width: 100%; transition: border-color 0.2s; }
+        .form-input:focus { border-color: var(--primary-blue); outline: none; }
+        .form-input:disabled { opacity: 0.6; cursor: not-allowed; background: #f1f2f6; }
+        
+        .checkbox-group { display: flex; align-items: flex-start; gap: 12px; background: #f0f8ff; border: 1px solid #cce5ff; padding: 15px; border-radius: 6px; }
+        .checkbox-group label { font-size: 13px; color: var(--primary-blue); font-weight: 600; line-height: 1.4; cursor: pointer; }
+        .custom-checkbox { width: 18px; height: 18px; margin-top: 2px; cursor: pointer; }
+        
+        .mt-15 { margin-top: 15px; } .mt-20 { margin-top: 20px; }
+        
+        /* Action Buttons */
+        .btn-primary { background-color: var(--primary-blue); color: white; border: none; padding: 12px 25px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary:hover:not(:disabled) { background-color: #153759; }
+        .btn-primary:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+        /* Signature Routing UI */
+        .signature-chain { display: flex; align-items: center; justify-content: space-between; background: white; padding: 20px 10px; border-radius: 8px; border: 1px solid #eee; }
+        .sig-step { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; text-align: center; }
+        .sig-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.3s; }
+        .sig-icon.approved { background: #e8f8f5; color: var(--success); border: 2px solid var(--success); }
+        .sig-icon.pending { background: #fef9e7; color: var(--warning); border: 2px solid var(--warning); animation: pulse-warn 2s infinite; }
+        .sig-icon.locked { background: #f1f2f6; color: #bdc3c7; border: 2px solid #ecf0f1; }
+        .sig-name { font-size: 11px; font-weight: 700; color: var(--text-main); text-transform: uppercase; }
+        .sig-sub { font-size: 10px; color: var(--text-muted); }
+        .sig-line { height: 3px; background: #eee; flex: 0.5; margin-bottom: 25px; border-radius: 2px; transition: background 0.3s; }
+        .sig-line.active { background: var(--success); }
+
+        @keyframes pulse-warn {
+            0% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(243, 156, 18, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0); }
+        }
+
+        /* Locked State Overlay */
+        .locked-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; z-index: 10; backdrop-filter: blur(2px); }
+        .locked-overlay i { font-size: 28px; color: #95a5a6; margin-bottom: 10px; }
+        .locked-overlay p { font-size: 14px; font-weight: 700; color: var(--text-main); }
+
+        /* Demo Tools */
+        .demo-tools { position: fixed; bottom: 25px; right: 25px; background: #fff; border: 2px solid #34495e; padding: 20px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 100; width: 260px; }
+        .demo-tools h4 { color: #34495e; margin-bottom: 15px; font-size: 13px; text-transform: uppercase; text-align: center; letter-spacing: 1px; }
+        .demo-btn { display: block; width: 100%; padding: 10px; margin-bottom: 10px; background: #f8f9fa; border: 1px solid #dcdde1; border-radius: 6px; font-size: 13px; font-weight: 600; color: #2c3e50; cursor: pointer; transition: 0.2s; }
+        .demo-btn:hover { background: #ecf0f1; border-color: #bdc3c7; }
+        .demo-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; background: #eee; font-size: 10px; float: right; margin-top: 2px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo-container">
+            <h2>RONGO UNIVERSITY</h2>
+            <p>STUDENT PROFILE</p>
+        </div>
+        <div class="nav-section">
+            <div class="nav-label">DASHBOARD</div>
+            <a href="#" class="nav-item"><i class="fas fa-user"></i> My Profile</a>
+            <a href="#" class="nav-item"><i class="fas fa-flask"></i> Research Progress</a>
+            <div class="nav-label" style="margin-top: 15px;">ACADEMIC</div>
+            <a href="#" class="nav-item"><i class="fas fa-file-alt"></i> Quarterly Reports</a>
+            <a href="#" class="nav-item active"><i class="fas fa-shield-alt"></i> Compliance Center</a>
+            <a href="#" class="nav-item"><i class="fas fa-calendar-alt"></i> Scheduling</a>
+        </div>
+        <div class="user-bottom">
+            <div class="user-avatar-small">EM</div>
+            <div class="user-info">
+                <p>Enos Mulongo</p>
+                <span>GCA/012/2023</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <div class="header-title">
+                <h1>Compliance Center</h1>
+                <p>Document Submission & Regulatory Clearances</p>
+            </div>
+            <div class="header-actions">
+                <div class="pill-dark" id="erpStatusPill"><i class="fas fa-check-circle" style="color:#1abc9c"></i> ERP: Cleared</div>
+                <div class="pill-dark"><i class="fas fa-calendar"></i> <span id="currentDateDisplay">2026-04-01</span></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            
+            <div class="info-banner" id="erpWarningBanner" style="display: none;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div class="info-content">
+                    <h4>ERP Finance Hold</h4>
+                    <p>You have an outstanding fee balance. Document submissions are <strong>locked</strong> until clearance is obtained from the Finance Department.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header-flex">
+                    <div class="card-title">
+                        <div>
+                            <h3><i class="fas fa-file-pdf" style="color:var(--text-muted)"></i> Final Approved Proposal</h3>
+                            <p>Phase 1 Gateway Document</p>
+                        </div>
+                    </div>
+                    <div class="status-badge badge-missing" id="badgeProposal">Pending Upload</div>
+                </div>
+                
+                <div class="upload-container">
+                    <div class="upload-desc">
+                        <p>Upload the final version of your research proposal. This document must incorporate all corrections suggested during your Stage 3 Departmental presentation and pass the similarity index check.</p>
+                        
+                        <div class="file-display" id="displayProposal">
+                            <div class="file-info"><i class="fas fa-file-pdf"></i><div><div class="file-name" id="nameProposal">proposal_final.pdf</div><div class="file-size">2.4 MB</div></div></div>
+                            <button class="btn-remove" onclick="removeFile('Proposal')"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div class="upload-box" id="boxProposal" onclick="triggerInput('Proposal')">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <div class="upload-text">Click to Browse or Drag File Here</div>
+                        <input type="file" class="file-input" id="inputProposal" accept=".pdf" onchange="handleFileSelect(event, 'Proposal')">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header-flex">
+                    <div class="card-title">
+                        <div>
+                            <h3><i class="fas fa-id-card" style="color:var(--text-muted)"></i> NACOSTI Research License</h3>
+                            <p>Regulatory Fieldwork Permit</p>
+                        </div>
+                    </div>
+                    <div class="status-badge badge-missing" id="badgeNacosti">Pending Upload</div>
+                </div>
+                <div class="upload-container">
+                    <div class="upload-desc">
+                        <p>Before proceeding to data collection (Phase 2), you must upload your valid Research License from the National Commission for Science, Technology and Innovation.</p>
+                        
+                        <div class="file-display" id="displayNacosti">
+                            <div class="file-info"><i class="fas fa-file-pdf"></i><div><div class="file-name" id="nameNacosti">nacosti_permit.pdf</div><div class="file-size">1.1 MB</div></div></div>
+                            <button class="btn-remove" onclick="removeFile('Nacosti')"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div class="upload-box" id="boxNacosti" onclick="triggerInput('Nacosti')">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <div class="upload-text">Click to Browse or Drag File Here</div>
+                        <input type="file" class="file-input" id="inputNacosti" accept=".pdf" onchange="handleFileSelect(event, 'Nacosti')">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header-flex">
+                    <div class="card-title">
+                        <div>
+                            <h3><i class="fas fa-clipboard-list" style="color:var(--text-muted)"></i> Form of Intent to Submit Thesis</h3>
+                            <p>FORM/ASA/020-31: Official notification to the Board of Postgraduate Studies</p>
+                        </div>
+                    </div>
+                    <div class="status-badge badge-missing" id="badgeIntent">Not Submitted</div>
+                </div>
+
+                <div id="intentFormArea">
+                    <div class="form-section">
+                        <h4>Section A & B: Candidate & Research Details</h4>
+                        <div class="intent-grid">
+                            <div class="info-block"><label>Candidate Name</label><div>Enos Mulongo</div></div>
+                            <div class="info-block"><label>Registration No.</label><div>GCA/012/2023</div></div>
+                            <div class="info-block"><label>Degree</label><div id="intentDegreeDisplay">Master of Science in Graphics Comm.</div></div>
+                            <div class="info-block"><label>Department</label><div>CJM Department</div></div>
+                            <div class="info-block wide"><label>Approved Thesis Title</label><div>Urban Luo Youth Environmental Knowledge Multimedia Campaign</div></div>
+                            <div class="info-block wide"><label>Assigned Supervisor(s)</label><div id="intentSupervisorsDisplay">Prof. James Odhiambo</div></div>
+                        </div>
+                    </div>
+
+                    <div class="form-section" style="margin-bottom: 0;">
+                        <h4>Section C: Student Declaration</h4>
+                        <p class="form-instruction">Please select your expected date of submission. As per university regulations, this notice must be submitted at least three (3) months prior to actual thesis submission.</p>
+                        
+                        <div class="form-group" style="max-width: 250px;">
+                            <label>Expected Date of Submission</label>
+                            <input type="date" class="form-input intent-input" id="intentDate">
+                        </div>
+                        
+                        <div class="checkbox-group mt-15">
+                            <input type="checkbox" id="intentDeclaration" class="custom-checkbox intent-input">
+                            <label for="intentDeclaration">I hereby declare that I intend to submit my thesis for examination on the date stated above, and that all data collection is complete.</label>
+                        </div>
+
+                        <button class="btn-primary mt-20" id="btnSubmitIntent" onclick="submitIntent()">
+                            <i class="fas fa-paper-plane"></i> Submit Notice of Intent
+                        </button>
+                    </div>
+                </div>
+
+                <div id="intentTrackingArea" style="display: none; margin-top: 10px; border-top: 1px dashed #ecf0f1; padding-top: 25px;">
+                    <h4 style="font-size: 13px; color: var(--primary-blue); margin-bottom: 15px; text-transform: uppercase;">Approval Routing Status</h4>
+                    <div class="signature-chain">
+                        <div class="sig-step">
+                            <div class="sig-icon approved"><i class="fas fa-check"></i></div>
+                            <span class="sig-name">Candidate</span>
+                            <span class="sig-sub">Submitted</span>
+                        </div>
+                        <div class="sig-line active"></div>
+                        <div class="sig-step">
+                            <div class="sig-icon pending" id="sigIconSup"><i class="fas fa-pen-nib"></i></div>
+                            <span class="sig-name" id="sigTextSup">Supervisor(s)</span>
+                            <span class="sig-sub" id="sigSubSup">Pending Approval</span>
+                        </div>
+                        <div class="sig-line" id="sigLineDean"></div>
+                        <div class="sig-step">
+                            <div class="sig-icon locked" id="sigIconDean"><i class="fas fa-lock"></i></div>
+                            <span class="sig-name">Dean / HoD</span>
+                            <span class="sig-sub" id="sigSubDean">Awaiting Previous</span>
+                        </div>
+                        <div class="sig-line" id="sigLineBPS"></div>
+                        <div class="sig-step">
+                            <div class="sig-icon locked" id="sigIconBPS"><i class="fas fa-lock"></i></div>
+                            <span class="sig-name">BPS Director</span>
+                            <span class="sig-sub" id="sigSubBPS">Final Notification</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="position: relative;">
+                <div class="card-header-flex">
+                    <div class="card-title">
+                        <div>
+                            <h3><i class="fas fa-book" style="color:var(--text-muted)"></i> Final Thesis Submission</h3>
+                            <p>Phase 2 Examination Bundle</p>
+                        </div>
+                    </div>
+                    <div class="status-badge badge-missing" id="badgeThesis">Locked</div>
+                </div>
+                
+                <div class="upload-container" style="opacity: 0.5;" id="thesisContainerOp">
+                    <div class="upload-desc">
+                        <p>Upload your final thesis document for external examination. This area will automatically unlock once your <strong>Notice of Intent to Submit</strong> has been fully approved by the BPS.</p>
+                        
+                        <div class="file-display" id="displayThesis">
+                            <div class="file-info"><i class="fas fa-file-pdf"></i><div><div class="file-name" id="nameThesis">final_thesis.pdf</div><div class="file-size">5.8 MB</div></div></div>
+                            <button class="btn-remove" onclick="removeFile('Thesis')"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div class="upload-box disabled" id="boxThesis" onclick="triggerInput('Thesis')">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <div class="upload-text" id="thesisUploadText">Upload Area Locked</div>
+                        <input type="file" class="file-input" id="inputThesis" accept=".pdf" disabled>
+                    </div>
+                </div>
+
+                <div class="locked-overlay" id="overlayThesis">
+                    <i class="fas fa-lock"></i>
+                    <p>Requires Fully Approved Notice of Intent</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="demo-tools">
+        <h4><i class="fas fa-sliders-h"></i> Simulation Tools</h4>
+        
+        <button class="demo-btn" onclick="toggleDegree()">
+            <i class="fas fa-graduation-cap"></i> Toggle Degree <span class="demo-badge" id="demoDegreeBadge">Masters</span>
+        </button>
+        <button class="demo-btn" onclick="toggleERP()"><i class="fas fa-coins"></i> Toggle Finance Gate</button>
+        
+        <div style="height: 1px; background: #eee; margin: 12px 0;"></div>
+        <button class="demo-btn" onclick="simulateDeanApproval()" id="demoDeanBtn" disabled><i class="fas fa-signature"></i> Admin: Sign & Route to Dean</button>
+        <button class="demo-btn" onclick="simulateBPSApproval()" id="demoBpsBtn" disabled><i class="fas fa-check-double"></i> Admin: BPS Final Approval</button>
+        
+        <div style="height: 1px; background: #eee; margin: 12px 0;"></div>
+        <button class="demo-btn" onclick="resetDemo()"><i class="fas fa-redo"></i> Reset Workflow</button>
+    </div>
+
+    <script>
+        document.getElementById('currentDateDisplay').innerText = new Date().toISOString().split('T')[0];
+
+        // --- State Variables ---
+        let isERPCleared = true;
+        let isIntentSubmitted = false;
+        let intentStage = 0; // 0: None, 1: Sups, 2: Dean, 3: Approved
+        let currentDegree = 'Masters';
+
+        const supervisorsList = {
+            'Masters': 'Prof. James Odhiambo',
+            'PhD': 'Prof. James Odhiambo<br>Dr. Sarah Kemboi<br>Dr. Michael Onyango'
+        };
+
+        const degreeNames = {
+            'Masters': 'Master of Science in Graphics Communication',
+            'PhD': 'Doctor of Philosophy in Graphics Communication'
+        };
+
+        // --- Demo Tool: Toggle Degree ---
+        function toggleDegree() {
+            if(isIntentSubmitted) return alert("Reset the workflow before changing degree types.");
+            
+            currentDegree = currentDegree === 'Masters' ? 'PhD' : 'Masters';
+            document.getElementById('demoDegreeBadge').innerText = currentDegree;
+            
+            // Update Intent Auto-fills
+            document.getElementById('intentDegreeDisplay').innerText = degreeNames[currentDegree];
+            document.getElementById('intentSupervisorsDisplay').innerHTML = supervisorsList[currentDegree];
+            
+            // Update Routing text to reflect multiple supervisors
+            const supText = currentDegree === 'PhD' ? '3 Supervisors' : 'Supervisor';
+            document.getElementById('sigTextSup').innerText = supText;
+        }
+
+        // --- Form Interaction ---
+        function submitIntent() {
+            if (!isERPCleared) return alert("Cannot submit: ERP Finance hold active.");
+
+            const date = document.getElementById('intentDate').value;
+            const declared = document.getElementById('intentDeclaration').checked;
+
+            if (!date || !declared) return alert("Please set a submission date and check the declaration box.");
+
+            // Basic 3-month logic check (Mocked for demo purposes, alerts but lets them proceed)
+            const selectedDate = new Date(date);
+            const threeMonthsFromNow = new Date();
+            threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+            if(selectedDate < threeMonthsFromNow) {
+                alert("Notice: University regulations stipulate a 3-month notice period. BPS may reject dates sooner than this.");
+            }
+
+            isIntentSubmitted = true;
+            intentStage = 1;
+
+            // Hide Form, Show Tracking
+            document.getElementById('intentFormArea').style.display = 'none';
+            document.getElementById('intentTrackingArea').style.display = 'block';
+
+            document.getElementById('badgeIntent').className = 'status-badge badge-review';
+            document.getElementById('badgeIntent').innerText = 'Under Review (Sups)';
+
+            // Enable Admin Demo Tools
+            document.getElementById('demoDeanBtn').disabled = false;
+        }
+
+        // --- Routing Simulation ---
+        function simulateDeanApproval() {
+            intentStage = 2;
+            
+            // Update UI: Sups Approved, Dean Pending
+            document.getElementById('sigIconSup').className = 'sig-icon approved';
+            document.getElementById('sigIconSup').innerHTML = '<i class="fas fa-check"></i>';
+            document.getElementById('sigSubSup').innerText = 'Signed & Cleared';
+            document.getElementById('sigLineDean').classList.add('active');
+            
+            document.getElementById('sigIconDean').className = 'sig-icon pending';
+            document.getElementById('sigIconDean').innerHTML = '<i class="fas fa-pen-nib"></i>';
+            document.getElementById('sigSubDean').innerText = 'Pending Approval';
+
+            document.getElementById('badgeIntent').innerText = 'Under Review (Dean)';
+
+            document.getElementById('demoDeanBtn').disabled = true;
+            document.getElementById('demoBpsBtn').disabled = false;
+        }
+
+        function simulateBPSApproval() {
+            intentStage = 3;
+
+            // Update UI: Dean Approved, BPS Approved
+            document.getElementById('sigIconDean').className = 'sig-icon approved';
+            document.getElementById('sigIconDean').innerHTML = '<i class="fas fa-check"></i>';
+            document.getElementById('sigSubDean').innerText = 'Signed & Cleared';
+            document.getElementById('sigLineBPS').classList.add('active');
+
+            document.getElementById('sigIconBPS').className = 'sig-icon approved';
+            document.getElementById('sigIconBPS').innerHTML = '<i class="fas fa-check"></i>';
+            document.getElementById('sigSubBPS').innerText = 'Recorded';
+
+            document.getElementById('badgeIntent').className = 'status-badge badge-approved';
+            document.getElementById('badgeIntent').innerText = 'Approved';
+
+            document.getElementById('demoBpsBtn').disabled = true;
+
+            // Unlock Final Thesis Area
+            document.getElementById('overlayThesis').style.display = 'none';
+            document.getElementById('thesisContainerOp').style.opacity = '1';
+            document.getElementById('badgeThesis').className = 'status-badge badge-missing';
+            document.getElementById('badgeThesis').innerText = 'Pending Upload';
+            
+            const thesisBox = document.getElementById('boxThesis');
+            thesisBox.classList.remove('disabled');
+            document.getElementById('thesisUploadText').innerText = 'Click to Browse or Drag File Here';
+            document.getElementById('inputThesis').disabled = false;
+        }
+
+        // --- ERP Logic ---
+        function toggleERP() {
+            isERPCleared = !isERPCleared;
+            const pill = document.getElementById('erpStatusPill');
+            const warning = document.getElementById('erpWarningBanner');
+            
+            if (isERPCleared) {
+                pill.innerHTML = '<i class="fas fa-check-circle" style="color:#1abc9c"></i> ERP: Cleared';
+                pill.style.backgroundColor = 'var(--primary-blue)';
+                warning.style.display = 'none';
+                
+                document.getElementById('boxProposal').classList.remove('disabled');
+                document.getElementById('boxNacosti').classList.remove('disabled');
+                document.querySelectorAll('.intent-input').forEach(i => i.disabled = false);
+                document.getElementById('btnSubmitIntent').disabled = false;
+                
+                if (intentStage === 3) document.getElementById('boxThesis').classList.remove('disabled');
+
+            } else {
+                pill.innerHTML = '<i class="fas fa-times-circle" style="color:white"></i> ERP: Blocked';
+                pill.style.backgroundColor = 'var(--status-missing-text)';
+                warning.style.display = 'flex';
+                
+                document.getElementById('boxProposal').classList.add('disabled');
+                document.getElementById('boxNacosti').classList.add('disabled');
+                document.querySelectorAll('.intent-input').forEach(i => i.disabled = true);
+                document.getElementById('btnSubmitIntent').disabled = true;
+                document.getElementById('boxThesis').classList.add('disabled');
+            }
+        }
+
+        // --- File Upload Utilities (Simplified for Demo) ---
+        function triggerInput(docType) {
+            if (!isERPCleared) return alert("Hold active.");
+            if (docType === 'Thesis' && intentStage !== 3) return;
+            document.getElementById(`input${docType}`).click();
+        }
+
+        function handleFileSelect(event, docType) {
+            if (event.target.files[0]) {
+                document.getElementById(`box${docType}`).style.display = 'none';
+                document.getElementById(`display${docType}`).style.display = 'flex';
+                document.getElementById(`badge${docType}`).className = 'status-badge badge-review';
+                document.getElementById(`badge${docType}`).innerText = 'Under Review';
+            }
+        }
+
+        function removeFile(docType) {
+            if (!isERPCleared) return;
+            document.getElementById(`input${docType}`).value = '';
+            document.getElementById(`box${docType}`).style.display = 'block';
+            document.getElementById(`display${docType}`).style.display = 'none';
+            
+            const badge = document.getElementById(`badge${docType}`);
+            badge.className = 'status-badge badge-missing';
+            badge.innerText = (docType === 'Thesis' && intentStage !== 3) ? 'Locked' : 'Pending Upload';
+        }
+
+        function resetDemo() {
+            isIntentSubmitted = false;
+            intentStage = 0;
+            if(!isERPCleared) toggleERP();
+
+            // Reset Files
+            ['Proposal', 'Nacosti', 'Thesis'].forEach(removeFile);
+
+            // Reset Intent Form UI
+            document.getElementById('intentDate').value = '';
+            document.getElementById('intentDeclaration').checked = false;
+            document.getElementById('intentFormArea').style.display = 'block';
+            document.getElementById('intentTrackingArea').style.display = 'none';
+            document.getElementById('badgeIntent').className = 'status-badge badge-missing';
+            document.getElementById('badgeIntent').innerText = 'Not Submitted';
+
+            // Reset Tracker HTML to original states
+            document.getElementById('sigIconSup').className = 'sig-icon pending';
+            document.getElementById('sigIconSup').innerHTML = '<i class="fas fa-hourglass-half"></i>';
+            document.getElementById('sigSubSup').innerText = 'Pending Approval';
+            document.getElementById('sigLineDean').classList.remove('active');
+            
+            document.getElementById('sigIconDean').className = 'sig-icon locked';
+            document.getElementById('sigIconDean').innerHTML = '<i class="fas fa-lock"></i>';
+            document.getElementById('sigSubDean').innerText = 'Awaiting Previous';
+            document.getElementById('sigLineBPS').classList.remove('active');
+
+            document.getElementById('sigIconBPS').className = 'sig-icon locked';
+            document.getElementById('sigIconBPS').innerHTML = '<i class="fas fa-lock"></i>';
+            document.getElementById('sigSubBPS').innerText = 'Final Notification';
+
+            // Reset Thesis Lock
+            document.getElementById('overlayThesis').style.display = 'flex';
+            document.getElementById('thesisContainerOp').style.opacity = '0.5';
+            document.getElementById('boxThesis').classList.add('disabled');
+            document.getElementById('thesisUploadText').innerText = 'Upload Area Locked';
+            document.getElementById('inputThesis').disabled = true;
+
+            // Reset Demo Buttons
+            document.getElementById('demoDeanBtn').disabled = true;
+            document.getElementById('demoBpsBtn').disabled = true;
+        }
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quarterly Reports - Rongo University</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-bg: #2b3e50;
+            --sidebar-hover: #1e2c3a;
+            --sidebar-active: #1c4b79;
+            --header-bg: #f4c130;
+            --main-bg: #f8f9fa;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+            --card-bg: #ffffff;
+            --primary-blue: #1c4b79;
+            --light-blue: #00a8ff;
+            
+            /* Status Colors */
+            --status-approved-bg: #e8f8f5;
+            --status-approved-text: #1abc9c;
+            --status-pending-bg: #fef9e7;
+            --status-pending-text: #f39c12;
+            --status-returned-bg: #fdedec;
+            --status-returned-text: #e74c3c;
+            --status-locked-bg: #f2f4f4;
+            --status-locked-text: #7f8c8d;
+            
+            /* UI Elements */
+            --border-color: #ecf0f1;
+            --input-focus: #3498db;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: var(--main-bg);
+            color: var(--text-main);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background-color: var(--sidebar-bg);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        .logo-container {
+            background-color: white;
+            padding: 25px 20px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .logo-container h2 { color: var(--primary-blue); font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+        .logo-container p { color: var(--text-muted); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
+
+        .nav-section { padding: 20px 0; }
+        .nav-label { padding: 0 25px; font-size: 11px; color: #8fa0b3; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px; font-weight: 600; }
+
+        .nav-item {
+            padding: 12px 25px;
+            display: flex;
+            align-items: center;
+            color: #d1d8e0;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: 0.2s ease;
+            cursor: pointer;
+        }
+
+        .nav-item i { margin-right: 15px; width: 20px; text-align: center; font-size: 16px; }
+        .nav-item:hover { background-color: var(--sidebar-hover); color: white; }
+        .nav-item.active { background-color: var(--sidebar-active); color: white; border-left: 4px solid var(--header-bg); }
+
+        .user-bottom {
+            margin-top: auto;
+            padding: 15px 20px;
+            background-color: #233444;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar-small { width: 38px; height: 38px; background-color: var(--light-blue); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+        .user-info p { font-size: 13px; font-weight: 600; color: white; }
+        .user-info span { font-size: 11px; color: #8fa0b3; }
+
+        /* Main Content */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .top-header {
+            background-color: var(--header-bg);
+            padding: 25px 45px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--primary-blue);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            z-index: 5;
+        }
+
+        .header-title h1 { font-size: 26px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.5px; }
+        .header-title p { font-size: 14px; font-weight: 500; opacity: 0.9; }
+
+        .header-actions { display: flex; gap: 12px; }
+        .pill-dark { background-color: var(--primary-blue); color: white; padding: 8px 18px; border-radius: 20px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .pill-dark i { color: var(--header-bg); }
+
+        .content-area { padding: 35px 45px; max-width: 1200px; margin: 0 auto; width: 100%; }
+
+        /* Alert Banners */
+        .alert-banner {
+            padding: 20px 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            display: none;
+            align-items: flex-start;
+            gap: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .alert-banner.active { display: flex; }
+        
+        .alert-icon { font-size: 24px; margin-top: 2px; }
+        .alert-content h4 { font-size: 16px; margin-bottom: 5px; font-weight: 700; }
+        .alert-content p { font-size: 14px; line-height: 1.5; }
+
+        .alert-danger { background-color: #fdedec; border-left: 5px solid #e74c3c; color: #c0392b; }
+        .alert-danger .alert-icon { color: #e74c3c; }
+        
+        .alert-warning { background-color: #fef9e7; border-left: 5px solid #f39c12; color: #d68910; }
+        .alert-warning .alert-icon { color: #f39c12; }
+
+        /* High-Fidelity Cards */
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 35px 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            border: 1px solid rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+
+        .card-header-flex { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+        .card-title h3 { font-size: 20px; font-weight: 700; color: var(--primary-blue); margin-bottom: 6px; letter-spacing: -0.3px; }
+        .card-title p { font-size: 14px; color: var(--text-muted); }
+
+        /* Quarter Progress Bar */
+        .quarter-progress-wrapper {
+            margin-bottom: 25px;
+        }
+        .quarter-progress-bg {
+            height: 6px;
+            background: #ecf0f1;
+            border-radius: 3px;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+        .quarter-progress-fill {
+            height: 100%;
+            background: var(--primary-blue);
+            width: 25%; /* Dynamically set */
+            transition: width 0.4s ease;
+        }
+        .quarter-markers {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* Status Pills */
+        .status-pill {
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-flex;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .pill-draft { background: var(--status-locked-bg); color: var(--status-locked-text); }
+        .pill-pending { background: var(--status-pending-bg); color: var(--status-pending-text); }
+        .pill-approved { background: var(--status-approved-bg); color: var(--status-approved-text); }
+        .pill-returned { background: var(--status-returned-bg); color: var(--status-returned-text); }
+
+        /* Form Styles */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 8px; }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group label i { color: var(--primary-blue); opacity: 0.7; }
+
+        .form-control {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--text-main);
+            background: #fafbfc;
+            resize: vertical;
+            min-height: 100px;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus { outline: none; border-color: var(--input-focus); background: white; box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1); }
+        .form-control:disabled { background: #f1f2f6; cursor: not-allowed; opacity: 0.8; }
+
+        .btn-primary {
+            background-color: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn-primary:hover { background-color: #153759; }
+        .btn-primary:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+        /* Approval & Comments Log Styles */
+        .comments-list {
+            margin-top: 10px;
+        }
+        
+        .empty-log {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-muted);
+            font-style: italic;
+            background: #fafbfc;
+            border-radius: 8px;
+            border: 1px dashed #dcdde1;
+            font-size: 14px;
+        }
+
+        .comment-item {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #f1f2f6;
+        }
+        
+        .comment-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        
+        .comment-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: #f1f2f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: var(--primary-blue);
+            flex-shrink: 0;
+            border: 1px solid #dfe6e9;
+        }
+
+        .comment-body { flex-grow: 1; }
+        
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .comment-name { font-weight: 700; font-size: 14px; color: var(--text-main); }
+        .comment-time { font-size: 12px; color: var(--text-muted); }
+
+        .comment-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 700;
+            margin-left: 10px;
+            text-transform: uppercase;
+        }
+        .cb-approved { background: var(--status-approved-bg); color: var(--status-approved-text); }
+        .cb-returned { background: var(--status-returned-bg); color: var(--status-returned-text); }
+
+        .comment-text {
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.5;
+            background: #fafbfc;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ecf0f1;
+            font-style: italic;
+        }
+        
+        .comment-text.returned {
+            background: #fdfefe;
+            border-color: #fadbd8;
+            border-left: 4px solid #e74c3c;
+        }
+
+        /* Approval Chain Stepper */
+        .approval-chain {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 10px 20px 10px;
+            border-radius: 8px;
+        }
+
+        .chain-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            flex: 1;
+        }
+
+        /* Connecting lines */
+        .chain-node:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: calc(50% + 25px);
+            width: calc(100% - 50px);
+            height: 3px;
+            background: #dfe6e9;
+            z-index: 1;
+            transition: all 0.3s;
+        }
+        
+        .chain-node.completed:not(:last-child)::after {
+            background: var(--status-approved-text);
+        }
+
+        .node-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #dfe6e9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #b2bec3;
+            z-index: 2;
+            position: relative;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .node-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-align: center; line-height: 1.3; }
+
+        /* Node States */
+        .chain-node.completed .node-icon { background: var(--status-approved-text); border-color: var(--status-approved-text); color: white; }
+        .chain-node.completed .node-label { color: var(--text-main); }
+
+        .chain-node.active .node-icon { border-color: var(--status-pending-text); color: var(--status-pending-text); box-shadow: 0 0 0 4px var(--status-pending-bg); animation: pulse 2s infinite; }
+        .chain-node.active .node-label { color: var(--status-pending-text); font-weight: 700; }
+
+        .chain-node.error .node-icon { border-color: var(--status-returned-text); color: var(--status-returned-text); background: var(--status-returned-bg); }
+        .chain-node.error .node-label { color: var(--status-returned-text); font-weight: 700; }
+
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0.4); } 70% { box-shadow: 0 0 0 8px rgba(243, 156, 18, 0); } 100% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0); } }
+
+        /* History Table */
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .history-table th, .history-table td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        .history-table th { background: #fafbfc; font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        .history-table tr:hover td { background: #fdfdfd; }
+        .btn-text { color: var(--primary-blue); background: none; border: none; font-weight: 600; cursor: pointer; font-size: 13px; }
+        .btn-text:hover { text-decoration: underline; }
+
+        /* Hackathon Demo Tools */
+        .demo-tools {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            background: #fff;
+            border: 2px solid #34495e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            z-index: 100;
+            width: 290px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .demo-tools h4 { color: #34495e; margin-bottom: 15px; font-size: 13px; text-transform: uppercase; text-align: center; letter-spacing: 1px; }
+        .demo-btn { display: block; width: 100%; padding: 10px; margin-bottom: 8px; background: #f8f9fa; border: 1px solid #dcdde1; border-radius: 6px; font-size: 12px; font-weight: 600; color: #2c3e50; cursor: pointer; transition: 0.2s; text-align: left; }
+        .demo-btn:hover { background: #ecf0f1; border-color: #bdc3c7; }
+        .demo-btn i { width: 20px; text-align: center; margin-right: 5px; }
+        .demo-btn.danger { color: #e74c3c; }
+        .demo-btn.success { color: #27ae60; }
+        .demo-divider { height: 1px; background: #eee; margin: 12px 0; }
+        .demo-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; background: #eee; font-size: 10px; float: right; margin-top: 2px; }
+        .demo-controls-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .demo-controls-row .demo-btn { margin-bottom: 0; text-align: center; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo-container">
+            <h2>RONGO UNIVERSITY</h2>
+            <p>STUDENT PROFILE</p>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-label">DASHBOARD</div>
+            <a href="#" class="nav-item"><i class="fas fa-user"></i> My Profile</a>
+            <a href="#" class="nav-item"><i class="fas fa-flask"></i> Research Progress</a>
+            
+            <div class="nav-label" style="margin-top: 15px;">ACADEMIC</div>
+            <a href="#" class="nav-item active"><i class="fas fa-file-alt"></i> Quarterly Reports</a>
+            <a href="#" class="nav-item"><i class="fas fa-shield-alt"></i> Compliance Center</a>
+            <a href="#" class="nav-item"><i class="fas fa-calendar-alt"></i> Scheduling</a>
+            
+            <div class="nav-label" style="margin-top: 15px;">ADMINISTRATION</div>
+            <a href="#" class="nav-item"><i class="fas fa-university"></i> ERP Finance</a>
+            
+            <div class="nav-label" style="margin-top: 15px;">ACCOUNT</div>
+            <a href="#" class="nav-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+
+        <div class="user-bottom">
+            <div class="user-avatar-small">EM</div>
+            <div class="user-info">
+                <p>Enos Mulongo</p>
+                <span id="sidebarProgTag">Masters Student</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <div class="header-title">
+                <h1>Quarterly Progress Reports</h1>
+                <p>Mandatory continuous assessment tracking</p>
+            </div>
+            <div class="header-actions">
+                <div class="pill-dark"><i class="fas fa-circle" style="font-size: 8px;"></i> Portal Online</div>
+                <div class="pill-dark"><i class="fas fa-calendar"></i> <span>2026-03-31</span></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            
+            <div class="alert-banner alert-warning" id="deferralAlert">
+                <i class="fas fa-pause-circle alert-icon"></i>
+                <div class="alert-content">
+                    <h4>Studies Currently Deferred</h4>
+                    <p>Your student status is currently set to DEFERRED. Pipeline tracking and quarterly reporting requirements are paused. You cannot submit reports until you officially resume your studies.</p>
+                </div>
+            </div>
+
+            <div class="alert-banner alert-danger" id="financeAlert">
+                <i class="fas fa-exclamation-triangle alert-icon"></i>
+                <div class="alert-content">
+                    <h4>ERP Finance Clearance Failed</h4>
+                    <p>The University ERP system has flagged an outstanding fee balance on your account. Your quarterly report cannot receive final clearance. Please visit the Finance Office or use the ERP Finance tab to resolve this issue.</p>
+                </div>
+            </div>
+
+            <div class="card" id="activeReportCard">
+                <div class="card-header-flex">
+                    <div class="card-title">
+                        <h3 id="reportTitleDisplay">Q1 Progress Report</h3>
+                        <p id="reportSubtitleDisplay">Report 1 of 4 Required</p>
+                    </div>
+                    <div class="status-pill pill-draft" id="reportStatusPill">DRAFT</div>
+                </div>
+
+                <div class="quarter-progress-wrapper">
+                    <div class="quarter-progress-bg">
+                        <div class="quarter-progress-fill" id="quarterProgressFill"></div>
+                    </div>
+                    <div class="quarter-markers" id="quarterMarkers">
+                        </div>
+                </div>
+
+                <form id="reportForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label><i class="fas fa-tasks"></i> 1. Summary of research progress since last report</label>
+                            <textarea class="form-control" id="f1" placeholder="Detail your general progress..." required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-bullseye"></i> 2. Objectives achieved during the quarter</label>
+                            <textarea class="form-control" id="f2" placeholder="List specific milestones hit..." required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-exclamation-circle"></i> 3. Challenges encountered and how addressed</label>
+                            <textarea class="form-control" id="f3" placeholder="Identify blockers and solutions..." required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-road"></i> 4. Plan for the next quarter</label>
+                            <textarea class="form-control" id="f4" placeholder="Outline your goals for the next phase..." required></textarea>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" id="submitReportBtn">
+                        <i class="fas fa-paper-plane"></i> Submit to Supervisor 1
+                    </button>
+                </form>
+            </div>
+
+            <div class="card" id="approvalCard" style="display: none;">
+                <div class="card-header-flex" style="margin-bottom: 25px;">
+                    <div class="card-title">
+                        <h3>Approval Tracking & Comments</h3>
+                        <p>Live status and feedback from the review panel</p>
+                    </div>
+                </div>
+                
+                <div class="approval-chain" id="approvalChainContainer" style="margin-bottom: 30px; border-bottom: 1px solid #f1f2f6; padding-bottom: 30px;">
+                    </div>
+
+                <div class="comments-list" id="commentsListContainer">
+                    <div class="empty-log">No comments or feedback recorded yet.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header-flex" style="margin-bottom: 15px;">
+                    <div class="card-title">
+                        <h3>Report Archive</h3>
+                        <p>History of your fully signed progress reports</p>
+                    </div>
+                </div>
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Quarter</th>
+                            <th>Submission Date</th>
+                            <th>Status</th>
+                            <th>Approvers</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="demo-tools">
+        <h4><i class="fas fa-cogs"></i> Demo Controls</h4>
+        
+        <button class="demo-btn" onclick="toggleProgramme()">
+            <i class="fas fa-exchange-alt"></i> Toggle Programme <span class="demo-badge" id="demoProgBadge">Masters</span>
+        </button>
+        <button class="demo-btn" onclick="toggleDeferral()">
+            <i class="fas fa-pause"></i> Toggle Deferral Lock <span class="demo-badge" id="demoDefBadge">Active</span>
+        </button>
+        
+        <div class="demo-divider"></div>
+        <p style="font-size:10px; color:#7f8c8d; margin-bottom:8px; text-transform:uppercase; font-weight:bold;">Report Progress Tracking</p>
+        <div class="demo-controls-row">
+            <button class="demo-btn" onclick="changeQuarter(-1)"><i class="fas fa-chevron-left"></i> Prev Q</button>
+            <button class="demo-btn" onclick="changeQuarter(1)">Next Q <i class="fas fa-chevron-right"></i></button>
+        </div>
+
+        <div class="demo-divider"></div>
+        <p style="font-size:10px; color:#7f8c8d; margin-bottom:8px; text-transform:uppercase; font-weight:bold;">Workflow Simulation</p>
+        
+        <button class="demo-btn" id="demoApproveBtn" onclick="simulateNextApproval()">
+            <i class="fas fa-check-circle success"></i> Simulate: Next Approval
+        </button>
+        <button class="demo-btn" id="demoReturnBtn" onclick="simulateReturn()">
+            <i class="fas fa-undo danger"></i> Simulate: Return Report
+        </button>
+        <button class="demo-btn" id="demoFinanceBtn" onclick="simulateFinanceError()">
+            <i class="fas fa-university danger"></i> Trigger ERP Finance Error
+        </button>
+        
+        <div class="demo-divider"></div>
+        <button class="demo-btn" onclick="resetDemo()">
+            <i class="fas fa-redo"></i> Reset Demo State
+        </button>
+    </div>
+
+    <script>
+        // --- System State Variables ---
+        let currentProgramme = 'masters'; // 'masters' or 'phd'
+        let isDeferred = false;
+        let currentQuarter = 1; // Tracks which report the student is on
+        
+        // Report State Machine
+        let currentApprovalStep = -1; 
+        let returnedFromStep = null; 
+        let commentsLog = []; 
+
+        // Define the chain structures based on Process Mapping
+        const mastersChain = [
+            { id: 0, label: "Supervisor 1", role: "Sup 1" },
+            { id: 1, label: "Supervisor 2", role: "Sup 2" },
+            { id: 3, label: "PG Dean", role: "Dean" },
+            { id: 4, label: "ERP Finance", role: "System" }
+        ];
+
+        const phdChain = [
+            { id: 0, label: "Supervisor 1", role: "Sup 1" },
+            { id: 1, label: "Supervisor 2", role: "Sup 2" },
+            { id: 2, label: "Supervisor 3", role: "Sup 3" },
+            { id: 3, label: "PG Dean", role: "Dean" },
+            { id: 4, label: "ERP Finance", role: "System" }
+        ];
+
+        // --- DOM Elements ---
+        const chainContainer = document.getElementById('approvalChainContainer');
+        const commentsListContainer = document.getElementById('commentsListContainer');
+        const approvalCard = document.getElementById('approvalCard'); 
+        const reportStatusPill = document.getElementById('reportStatusPill');
+        const submitBtn = document.getElementById('submitReportBtn');
+        const formControls = document.querySelectorAll('.form-control');
+        
+        const deferralAlert = document.getElementById('deferralAlert');
+        const financeAlert = document.getElementById('financeAlert');
+        const activeReportCard = document.getElementById('activeReportCard');
+
+        // Quarter UI Elements
+        const reportTitleDisplay = document.getElementById('reportTitleDisplay');
+        const reportSubtitleDisplay = document.getElementById('reportSubtitleDisplay');
+        const quarterProgressFill = document.getElementById('quarterProgressFill');
+        const quarterMarkers = document.getElementById('quarterMarkers');
+        const historyTableBody = document.getElementById('historyTableBody');
+
+        // --- UI Rendering Functions ---
+
+        function getTotalQuarters() {
+            return currentProgramme === 'masters' ? 4 : 6;
+        }
+
+        function updateQuarterTracker() {
+            const total = getTotalQuarters();
+            
+            // Validate bounds
+            if (currentQuarter < 1) currentQuarter = 1;
+            if (currentQuarter > total) currentQuarter = total;
+
+            // Update Text
+            reportTitleDisplay.innerText = `Q${currentQuarter} Progress Report`;
+            reportSubtitleDisplay.innerText = `Report ${currentQuarter} of ${total} Required in Research Phase`;
+
+            // Update Progress Bar
+            const percentage = (currentQuarter / total) * 100;
+            quarterProgressFill.style.width = `${percentage}%`;
+
+            // Update Markers
+            let markersHtml = '';
+            for(let i=1; i<=total; i++) {
+                const color = i <= currentQuarter ? 'var(--primary-blue)' : 'var(--text-muted)';
+                markersHtml += `<span style="color: ${color};">Q${i}</span>`;
+            }
+            quarterMarkers.innerHTML = markersHtml;
+
+            // Update Fake History Table
+            let historyHtml = '';
+            if (currentQuarter > 1) {
+                for(let i = currentQuarter - 1; i >= 1; i--) {
+                    historyHtml += `
+                        <tr>
+                            <td><strong>Q${i} Report</strong></td>
+                            <td>Prior Semester</td>
+                            <td><span class="status-pill pill-approved">CLEARED</span></td>
+                            <td>All Signatures + ERP</td>
+                            <td><button class="btn-text">View PDF</button></td>
+                        </tr>
+                    `;
+                }
+            } else {
+                historyHtml = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted); font-style:italic;">No previously approved reports.</td></tr>`;
+            }
+            historyTableBody.innerHTML = historyHtml;
+        }
+        
+        function renderChain() {
+            const chainData = currentProgramme === 'masters' ? mastersChain : phdChain;
+            let html = '';
+            
+            chainData.forEach(node => {
+                let nodeClass = '';
+                let iconHtml = '<i class="fas fa-clock"></i>';
+                
+                if (currentApprovalStep === 99 && node.id === returnedFromStep) {
+                    nodeClass = 'error';
+                    iconHtml = '<i class="fas fa-times"></i>';
+                }
+                else if (currentApprovalStep === 99 && node.id < returnedFromStep) {
+                    nodeClass = 'completed';
+                    iconHtml = '<i class="fas fa-check"></i>';
+                }
+                else if (currentApprovalStep === 100 && node.id === 4) {
+                    nodeClass = 'error';
+                    iconHtml = '<i class="fas fa-exclamation"></i>';
+                }
+                else if (currentApprovalStep > node.id || currentApprovalStep === 5) {
+                    nodeClass = 'completed';
+                    iconHtml = '<i class="fas fa-check"></i>';
+                } 
+                else if (currentApprovalStep === node.id) {
+                    nodeClass = 'active';
+                    iconHtml = '<i class="fas fa-pen-nib"></i>';
+                }
+
+                html += `
+                    <div class="chain-node ${nodeClass}">
+                        <div class="node-icon">${iconHtml}</div>
+                        <div class="node-label">${node.label}</div>
+                    </div>
+                `;
+            });
+            
+            chainContainer.innerHTML = html;
+        }
+
+        function renderCommentsLog() {
+            if (commentsLog.length === 0) {
+                commentsListContainer.innerHTML = '<div class="empty-log">No comments or feedback recorded yet.</div>';
+                return;
+            }
+
+            let html = '';
+            // Render from newest to oldest
+            [...commentsLog].reverse().forEach(comment => {
+                const badgeClass = comment.action === 'Approved' ? 'cb-approved' : 'cb-returned';
+                const textClass = comment.action === 'Returned' ? 'returned' : '';
+                
+                html += `
+                    <div class="comment-item">
+                        <div class="comment-avatar">${comment.initials}</div>
+                        <div class="comment-body">
+                            <div class="comment-header">
+                                <div class="comment-name">
+                                    ${comment.author} 
+                                    <span class="comment-badge ${badgeClass}">${comment.action}</span>
+                                </div>
+                                <div class="comment-time">${comment.time}</div>
+                            </div>
+                            <div class="comment-text ${textClass}">"${comment.text}"</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            commentsListContainer.innerHTML = html;
+        }
+
+        function updateFormUI() {
+            updateQuarterTracker();
+
+            if (isDeferred) {
+                deferralAlert.classList.add('active');
+                activeReportCard.style.opacity = '0.5';
+                activeReportCard.style.pointerEvents = 'none';
+                approvalCard.style.display = 'none';
+                return;
+            } else {
+                deferralAlert.classList.remove('active');
+                activeReportCard.style.opacity = '1';
+                activeReportCard.style.pointerEvents = 'auto';
+            }
+
+            if (currentApprovalStep === 100) {
+                financeAlert.classList.add('active');
+            } else {
+                financeAlert.classList.remove('active');
+            }
+
+            if (currentApprovalStep === -1) {
+                approvalCard.style.display = 'none'; 
+            } else {
+                approvalCard.style.display = 'block'; 
+            }
+
+            if (currentApprovalStep === -1) {
+                reportStatusPill.className = 'status-pill pill-draft';
+                reportStatusPill.innerText = 'DRAFT';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit to Supervisor 1';
+                submitBtn.style.display = 'inline-flex';
+                formControls.forEach(c => c.disabled = false);
+            } 
+            else if (currentApprovalStep === 99) {
+                reportStatusPill.className = 'status-pill pill-returned';
+                reportStatusPill.innerText = 'RETURNED';
+                submitBtn.disabled = false;
+                
+                const chainData = currentProgramme === 'masters' ? mastersChain : phdChain;
+                const returnNode = chainData.find(n => n.id === returnedFromStep);
+                submitBtn.innerHTML = `<i class="fas fa-sync-alt"></i> Update & Resubmit to ${returnNode ? returnNode.label : 'Approver'}`;
+                
+                submitBtn.style.display = 'inline-flex';
+                formControls.forEach(c => c.disabled = false);
+            }
+            else if (currentApprovalStep === 5) {
+                reportStatusPill.className = 'status-pill pill-approved';
+                reportStatusPill.innerText = 'CLEARED BY FINANCE';
+                submitBtn.style.display = 'none';
+                formControls.forEach(c => c.disabled = true);
+            }
+            else {
+                reportStatusPill.className = 'status-pill pill-pending';
+                reportStatusPill.innerText = 'IN REVIEW';
+                submitBtn.disabled = true;
+                
+                const chainData = currentProgramme === 'masters' ? mastersChain : phdChain;
+                const currentNode = chainData.find(n => n.id === currentApprovalStep);
+                submitBtn.innerHTML = `<i class="fas fa-hourglass-half"></i> Awaiting ${currentNode ? currentNode.label : 'System'}`;
+                
+                submitBtn.style.display = 'inline-flex';
+                formControls.forEach(c => c.disabled = true); 
+            }
+            
+            renderChain();
+            renderCommentsLog();
+        }
+
+        // --- User Actions ---
+        document.getElementById('reportForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            if (currentApprovalStep === 99 && returnedFromStep !== null) {
+                commentsLog.push({
+                    initials: "EM",
+                    author: "Enos Mulongo (Student)",
+                    action: "Resubmitted",
+                    time: "Just now",
+                    text: "I have updated the form based on the feedback provided. Please review."
+                });
+                currentApprovalStep = returnedFromStep;
+                returnedFromStep = null; 
+            } else {
+                currentApprovalStep = 0; 
+            }
+            
+            updateFormUI();
+        });
+
+        // --- Hackathon Demo Actions ---
+        
+        function changeQuarter(delta) {
+            currentQuarter += delta;
+            resetDemo(); // Changing quarters should reset the form state
+        }
+
+        function toggleProgramme() {
+            currentProgramme = currentProgramme === 'masters' ? 'phd' : 'masters';
+            document.getElementById('demoProgBadge').innerText = currentProgramme === 'masters' ? 'Masters' : 'PhD';
+            document.getElementById('sidebarProgTag').innerText = currentProgramme === 'masters' ? 'Masters Student' : 'PhD Candidate';
+            currentQuarter = 1; // Reset to Q1 when switching programs
+            resetDemo(); 
+        }
+
+        function toggleDeferral() {
+            isDeferred = !isDeferred;
+            document.getElementById('demoDefBadge').innerText = isDeferred ? 'Deferred' : 'Active';
+            updateFormUI();
+        }
+
+        function simulateNextApproval() {
+            if (currentApprovalStep === -1 || currentApprovalStep === 99 || currentApprovalStep === 100) return;
+            
+            const chainData = currentProgramme === 'masters' ? mastersChain : phdChain;
+            const currentIndex = chainData.findIndex(n => n.id === currentApprovalStep);
+            const currentNode = chainData[currentIndex];
+            
+            if (currentNode.id !== 4) {
+                commentsLog.push({
+                    initials: currentNode.role.substring(0,2).toUpperCase(),
+                    author: currentNode.label,
+                    action: "Approved",
+                    time: "Just now",
+                    text: `Reviewed the submission. Progress is satisfactory and aligns with the expected timeline.`
+                });
+            } else {
+                commentsLog.push({
+                    initials: "ERP",
+                    author: "Finance Module (System)",
+                    action: "Approved",
+                    time: "Just now",
+                    text: "Automated Check: Fee balance cleared. No outstanding arrears."
+                });
+            }
+            
+            if (currentIndex < chainData.length - 1) {
+                currentApprovalStep = chainData[currentIndex + 1].id;
+            } else {
+                currentApprovalStep = 5; 
+            }
+            updateFormUI();
+        }
+
+        function simulateReturn() {
+            if (currentApprovalStep >= 0 && currentApprovalStep <= 3) {
+                const chainData = currentProgramme === 'masters' ? mastersChain : phdChain;
+                const currentNode = chainData.find(n => n.id === currentApprovalStep);
+                
+                commentsLog.push({
+                    initials: currentNode.role.substring(0,2).toUpperCase(),
+                    author: currentNode.label,
+                    action: "Returned",
+                    time: "Just now",
+                    text: "The 'Challenges Encountered' section is missing detail. Please explicitly state the issues faced during data collection before I sign off."
+                });
+                
+                returnedFromStep = currentApprovalStep;
+                currentApprovalStep = 99; 
+                
+                updateFormUI();
+            }
+        }
+
+        function simulateFinanceError() {
+            if (currentApprovalStep === 4) {
+                commentsLog.push({
+                    initials: "ERP",
+                    author: "Finance Module (System)",
+                    action: "Returned",
+                    time: "Just now",
+                    text: "Automated Error: Outstanding fee balance detected on student account. Clearance denied."
+                });
+                currentApprovalStep = 100;
+                updateFormUI();
+            } else {
+                alert("Demo Note: The report must reach the 'ERP Finance' step in the chain before you can trigger an ERP rejection.");
+            }
+        }
+
+        function resetDemo() {
+            currentApprovalStep = -1;
+            returnedFromStep = null;
+            commentsLog = [];
+            formControls.forEach(c => c.value = ''); 
+            updateFormUI();
+        }
+
+        // --- Init ---
+        updateFormUI();
+    </script>
+</body>
+</html>
