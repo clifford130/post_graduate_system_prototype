@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            const response = await fetch("https://post-graduate-system-prototype.onrender.com/api/user/login", {
+            const response = await fetch("http://localhost:5000/api/user/login", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
