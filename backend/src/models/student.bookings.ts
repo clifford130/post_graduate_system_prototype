@@ -10,9 +10,9 @@ interface Bookings {
   venue: string;
   status: string;
   createdAt?: Date;
-  cancelledAt: Date;
-  cancellationReason: string;
-  cancelledBy: mongoose.Schema.Types.ObjectId;
+  cancelledAt: Date | null;
+  cancellationReason: string | null;
+  cancelledBy: mongoose.Schema.Types.ObjectId | null;
 }
 let BookingSchema = new mongoose.Schema<Bookings>(
   {
