@@ -212,7 +212,7 @@ function updateKPICards() {
       const list = document.querySelector('.pipeline-layout .card:last-child .card-body');
       if (!list) return;
       
-      const upcoming = bookings.filter(b => b.status === 'pending' || b.status === 'approved').slice(0, 5);
+      const upcoming = bookings.filter(b => ['pending', 'approved', 'confirmed'].includes(b.status)).slice(0, 5);
       if (upcoming.length === 0) {
           list.innerHTML = '<p style="padding:20px;text-align:center;color:var(--text-3);">No upcoming presentations scheduled.</p>';
           return;
@@ -221,12 +221,25 @@ function updateKPICards() {
       list.innerHTML = upcoming.map(b => {
         const student = students.find(s => s.id === b.owner.toUpperCase());
         const dispName = student ? student.name : b.owner;
+        const isPending = b.status === 'pending';
+        const statusTone = (b.status === 'approved' || b.status === 'confirmed') ? 'ok' : 'pend';
+        const topicHtml = b.additionalNotes
+          ? `<div style="font-size:12px;color:var(--text-2);margin-top:6px;">Topic: ${b.additionalNotes}</div>`
+          : '';
+        const actionsHtml = isPending
+          ? `<div class="btn-gap" style="margin-top:10px;">
+                <button class="btn btn-success btn-sm" onclick="reviewBooking('${b._id}', 'approve')">Approve</button>
+                <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="reviewBooking('${b._id}', 'reject')">Reject</button>
+             </div>`
+          : '';
         return `
           <div class="pres-item">
             <div class="pres-date">${b.preferredDate} · ${b.preferredTime}</div>
             <div class="pres-student">${dispName}</div>
             <div class="pres-meta"><span>${b.presentationType}</span><span>${b.venue}</span></div>
-            <div class="pres-panel"><div class="panel-dot ${b.status==='approved'?'ok':'pend'}"></div><span class="panel-label">Status: ${b.status.toUpperCase()}</span></div>
+            ${topicHtml}
+            <div class="pres-panel"><div class="panel-dot ${statusTone}"></div><span class="panel-label">Status: ${b.status.toUpperCase()}</span></div>
+            ${actionsHtml}
           </div>
         `;
       }).join('');
@@ -245,7 +258,9 @@ function updateKPICards() {
           const mon = d.toLocaleString('default', {month:'short'});
           const filled = s.presenters.length;
           const statusCls = s.status === 'Open' ? 'active' : (s.status === 'Full' ? 'resumed' : 'deferred');
-          const statusLab = s.status === 'Open' ? 'Open' : (s.status === 'Full' ? `${filled}/${s.maxPresenters} Filled` : 'Closed');
+          const statusLab = s.status === 'Open'
+            ? `${filled}/${s.maxPresenters} Booked`
+            : (s.status === 'Full' ? `${filled}/${s.maxPresenters} Filled` : 'Closed');
           
           return `
             <div class="slot-item">
@@ -469,6 +484,7 @@ function updateKPICards() {
     try {
         const res = await fetch(`${API_URL}/slots/admin/create`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 date, startTime: start, endTime: end, level, venue, department: dept, maxPresenters: max
@@ -480,7 +496,7 @@ function updateKPICards() {
 
   async function toggleSlotStatus(id) {
       try {
-          const res = await fetch(`${API_URL}/slots/${id}/status`, { method: 'PATCH' });
+          const res = await fetch(`${API_URL}/slots/${id}/status`, { method: 'PATCH', credentials: 'include' });
           if (res.ok) { fetchCalendarSlots(); }
       } catch (err) { console.error(err); }
   }
@@ -488,9 +504,37 @@ function updateKPICards() {
   async function deleteSlot(id) {
     if (confirm('Permanently delete this seminar slot?')) {
         try {
-            const res = await fetch(`${API_URL}/slots/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/slots/${id}`, { method: 'DELETE', credentials: 'include' });
             if (res.ok) { fetchCalendarSlots(); }
         } catch (err) { console.error(err); }
+    }
+  }
+
+  async function reviewBooking(id, action) {
+    const isApprove = action === 'approve';
+    let reason = '';
+
+    if (!isApprove) {
+        reason = prompt('Reason for rejecting this booking:', 'Rejected by admin') || '';
+        if (!reason.trim()) return;
+    }
+
+    if (!confirm(`Are you sure you want to ${isApprove ? 'approve' : 'reject'} this booking request?`)) return;
+
+    try {
+        const res = await fetch(`${API_URL}/presentations/admin/${id}/review`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, reason })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Failed to review booking');
+        alert(isApprove ? '✅ Booking approved.' : '✅ Booking rejected.');
+        fetchPresentations();
+        fetchCalendarSlots();
+    } catch (err) {
+        alert(`❌ ${err.message || 'Error reviewing booking.'}`);
     }
   }
 

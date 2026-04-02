@@ -39,6 +39,27 @@ window.StudentApi = {
   getSession() {
     return studentRequest("/is-logged");
   },
+  getSlots(department = "") {
+    const query = department
+      ? `?department=${encodeURIComponent(department)}`
+      : "";
+    return studentRequest(`/slots/all${query}`);
+  },
+  getBookings() {
+    return studentRequest("/presentations/my-bookings");
+  },
+  requestPresentation(payload) {
+    return studentRequest("/presentations/request", {
+      method: "POST",
+      body: payload,
+    });
+  },
+  cancelBooking(bookingId, payload = {}) {
+    return studentRequest(`/presentations/${bookingId}/cancel`, {
+      method: "PUT",
+      body: payload,
+    });
+  },
   submitDeferralRequest(payload) {
     return studentRequest("/students/me/deferral-request", {
       method: "POST",

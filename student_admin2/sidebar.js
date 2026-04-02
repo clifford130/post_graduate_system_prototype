@@ -7,6 +7,8 @@
   const sidebarPage = document.body.dataset.sidebarPage || "";
   const sidebarTag = document.body.dataset.sidebarTag || "Student";
   const sidebarTagId = document.body.dataset.sidebarTagId || "";
+  const defaultUserName = "Student";
+  const defaultInitials = "ST";
 
   const navItems = [
     { section: "DASHBOARD", icon: "fa-user", label: "My Profile", href: "profile.html", key: "profile" },
@@ -42,14 +44,51 @@
       </div>
       <div class="nav-section">${navHtml}</div>
       <div class="user-bottom">
-        <div class="user-avatar-small">EM</div>
+        <div class="user-avatar-small" id="sidebarUserAvatar">${defaultInitials}</div>
         <div class="user-info">
-          <p>Enos Mulongo</p>
+          <p id="sidebarUserName">${defaultUserName}</p>
           <span${tagAttr}>${sidebarTag}</span>
         </div>
       </div>
     </div>
   `;
+
+  function toInitials(fullName) {
+    const parts = String(fullName || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2);
+
+    if (!parts.length) return defaultInitials;
+    return parts.map((part) => part.charAt(0).toUpperCase()).join("");
+  }
+
+  async function populateLoggedInStudent() {
+    try {
+      const response = await fetch(`${API_BASE}/is-logged`, {
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const user = data?.user;
+
+      if (!user || user.role !== "student") return;
+
+      const nameEl = document.getElementById("sidebarUserName");
+      const avatarEl = document.getElementById("sidebarUserAvatar");
+
+      if (nameEl) nameEl.textContent = user.fullName || defaultUserName;
+      if (avatarEl) avatarEl.textContent = toInitials(user.fullName);
+    } catch (error) {
+      console.error("Failed to populate sidebar user:", error);
+    }
+  }
 
   window.showSidebarNotice = function showSidebarNotice(message) {
     alert(message);
@@ -87,4 +126,6 @@
       }
     });
   });
+
+  populateLoggedInStudent();
 })();

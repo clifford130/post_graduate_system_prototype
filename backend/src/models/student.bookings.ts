@@ -2,6 +2,7 @@ import mongoose, { Model } from "mongoose";
 interface Bookings {
   owner: string;
   ownerId: string;
+  slotId?: mongoose.Schema.Types.ObjectId | string | null;
   additionalNotes?: string;
   preferredDate: string;
   preferredTime: string;
@@ -17,6 +18,11 @@ let BookingSchema = new mongoose.Schema<Bookings>(
   {
     owner: String,
     ownerId: String,
+    slotId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SeminarSlot",
+      default: null,
+    },
     additionalNotes: {
       type: String,
       required: false,

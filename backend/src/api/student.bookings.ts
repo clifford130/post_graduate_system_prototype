@@ -1,9 +1,48 @@
 import { Router, type Request, type Response } from "express";
 import jwt from "jsonwebtoken";
-import { handleIsLogged } from "../auth/is_logged.js";
 import { bookingsModel } from "../models/student.bookings.js";
+import { SeminarSlotModel } from "../models/seminar.slot.js";
 import { UserModel } from "../models/user.model.js";
 export let studentBookings = Router();
+
+const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed"];
+
+async function syncSlotAvailability(slotId?: string | null) {
+  if (!slotId) return null;
+
+  const slot = await SeminarSlotModel.findById(slotId);
+  if (!slot) return null;
+
+  if (slot.status !== "Closed") {
+    slot.status = slot.presenters.length >= slot.maxPresenters ? "Full" : "Open";
+    await slot.save();
+  }
+
+  return slot;
+}
+
+async function releaseSlotPresenter(slotId: string | null | undefined, studentId: string) {
+  if (!slotId) return;
+
+  const slot = await SeminarSlotModel.findById(slotId);
+  if (!slot) return;
+
+  const updatedPresenters = slot.presenters.filter(
+    (presenter) => presenter.toString() !== studentId,
+  );
+
+  if (updatedPresenters.length === slot.presenters.length) {
+    return;
+  }
+
+  slot.presenters = updatedPresenters as any;
+
+  if (slot.status !== "Closed") {
+    slot.status = updatedPresenters.length >= slot.maxPresenters ? "Full" : "Open";
+  }
+
+  await slot.save();
+}
 
 studentBookings.post(
   "/presentations/request",
@@ -19,13 +58,14 @@ studentBookings.post(
       return;
     }
     let {
+      slotId,
       additionalNotes,
       preferredDate,
       preferredTime,
       presentationType,
       venue,
     } = req.body;
-    if (!preferredDate || !preferredTime || !presentationType || !venue) {
+    if (!slotId && (!preferredDate || !preferredTime || !presentationType || !venue)) {
       res.status(400).json({ message: "Invalid inputs" });
       return;
     }
@@ -38,26 +78,81 @@ studentBookings.post(
           return;
         }
         try {
-          // Check if there is already a pending booking
-          const pendingBooking = await bookingsModel.findOne({
+          const activeBooking = await bookingsModel.findOne({
             ownerId: load.id,
-            status: "pending",
+            status: { $in: ACTIVE_BOOKING_STATUSES },
           });
 
-          if (pendingBooking) {
+          if (activeBooking) {
             res.status(400).json({
               success: false,
               message:
-                "You already have a pending booking. Please wait for approval or complete the current booking.",
-              existingBooking: pendingBooking,
+                "You already have an active booking. Please complete or cancel it before requesting another slot.",
+              existingBooking: activeBooking,
             });
             return;
           }
 
-          // Create new booking
+          let slot = null;
+
+          if (slotId) {
+            slot = await SeminarSlotModel.findById(slotId);
+
+            if (!slot) {
+              res.status(404).json({
+                success: false,
+                message: "Selected slot was not found",
+              });
+              return;
+            }
+
+            await syncSlotAvailability(slot._id.toString());
+            slot = await SeminarSlotModel.findById(slotId);
+
+            if (!slot) {
+              res.status(404).json({
+                success: false,
+                message: "Selected slot was not found",
+              });
+              return;
+            }
+
+            if (slot.status === "Closed") {
+              res.status(400).json({
+                success: false,
+                message: "This booking window is closed",
+              });
+              return;
+            }
+
+            if (slot.presenters.some((presenter) => presenter.toString() === load.id)) {
+              res.status(400).json({
+                success: false,
+                message: "You have already been assigned to this slot",
+              });
+              return;
+            }
+
+            if (slot.presenters.length >= slot.maxPresenters) {
+              slot.status = "Full";
+              await slot.save();
+              res.status(400).json({
+                success: false,
+                message: "This slot has reached its student capacity",
+              });
+              return;
+            }
+
+            preferredDate = slot.date;
+            preferredTime = `${slot.startTime} - ${slot.endTime}`;
+            presentationType = `${slot.level} Seminar`;
+            venue = slot.venue;
+          }
+
           const newBooking = await bookingsModel.create({
             owner: load.userNumber,
             ownerId: load.id,
+            slotId: slot ? slot._id.toString() : null,
             additionalNotes: additionalNotes,
             preferredDate: preferredDate,
             preferredTime: preferredTime,
@@ -66,10 +161,17 @@ studentBookings.post(
             status: "pending",
           });
 
+          if (slot) {
+            slot.presenters.push(load.id);
+            slot.status = slot.presenters.length >= slot.maxPresenters ? "Full" : "Open";
+            await slot.save();
+          }
+
           res.status(200).json({
             success: true,
             message: "Booking request submitted successfully",
             booking: newBooking,
+            slot,
           });
         } catch (error) {
           res.status(500).json({ success: false, message: "Server error" });
@@ -330,6 +432,7 @@ studentBookings.put(
             req.body.reason || "Cancelled by student";
 
           await booking.save();
+          await releaseSlotPresenter(booking.slotId?.toString(), load.id);
 
           res.status(200).json({
             success: true,
@@ -367,6 +470,106 @@ studentBookings.get(
     } catch (error) {
       res.status(500).json({ success: false, message: "Server error" });
     }
+  },
+);
+
+studentBookings.put(
+  "/presentations/admin/:bookingId/review",
+  async (req: Request, res: Response) => {
+    const accessToken = req.cookies?.userToken;
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!accessToken || !jwtSecret) {
+      res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+      return;
+    }
+
+    jwt.verify(
+      accessToken,
+      jwtSecret as string,
+      async (err: any, load: any) => {
+        if (err) {
+          res.status(401).json({
+            success: false,
+            message: "Invalid or expired token",
+          });
+          return;
+        }
+
+        try {
+          const reviewer = await UserModel.findById(load.id).select("role");
+          if (!reviewer || (reviewer.role !== "admin" && reviewer.role !== "chair")) {
+            res.status(403).json({
+              success: false,
+              message: "Admin access required",
+            });
+            return;
+          }
+
+          const { bookingId } = req.params;
+          const { action, reason } = req.body || {};
+
+          if (!["approve", "reject"].includes(action)) {
+            res.status(400).json({
+              success: false,
+              message: "Invalid review action",
+            });
+            return;
+          }
+
+          const booking = await bookingsModel.findById(bookingId);
+
+          if (!booking) {
+            res.status(404).json({
+              success: false,
+              message: "Booking not found",
+            });
+            return;
+          }
+
+          if (booking.status !== "pending") {
+            res.status(400).json({
+              success: false,
+              message: `Only pending bookings can be reviewed. Current status: ${booking.status}`,
+            });
+            return;
+          }
+
+          if (action === "approve") {
+            booking.status = "confirmed";
+            booking.cancellationReason = null;
+            booking.cancelledAt = null;
+            booking.cancelledBy = null;
+          } else {
+            booking.status = "rejected";
+            booking.cancellationReason = reason || "Rejected by admin";
+            booking.cancelledAt = new Date();
+            booking.cancelledBy = load.id;
+            await releaseSlotPresenter(booking.slotId?.toString(), booking.ownerId);
+          }
+
+          await booking.save();
+
+          res.status(200).json({
+            success: true,
+            message:
+              action === "approve"
+                ? "Booking approved successfully"
+                : "Booking rejected successfully",
+            booking,
+          });
+        } catch (error) {
+          console.error("Error reviewing booking:", error);
+          res.status(500).json({
+            success: false,
+            message: "Server error. Please try again later.",
+          });
+        }
+      },
+    );
   },
 );
 
@@ -432,6 +635,7 @@ studentBookings.put(
           booking.cancelledBy = load.id;
 
           await booking.save();
+          await releaseSlotPresenter(booking.slotId?.toString(), booking.ownerId);
 
           res.status(200).json({
             success: true,

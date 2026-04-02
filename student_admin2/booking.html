@@ -617,23 +617,14 @@
           <div class="info-content">
             <h4>University Seminar Scheduling Rules</h4>
             <p>
-              The system automatically allocates booking slots based on your
-              registered department and current pipeline stage. Bookings must be
-              made <strong>at least 7 days in advance</strong>.
+              Seminar slots published by the admin are shown here based on your
+              department. A slot remains bookable until it is filled or the
+              admin closes the window.
             </p>
             <ul>
-              <li>
-                <strong>1st Thursday of the month:</strong> CJM Departmental
-                Seminars
-              </li>
-              <li>
-                <strong>2nd Thursday of the month:</strong> IHRS Departmental
-                Seminars
-              </li>
-              <li>
-                <strong>3rd Thursday of the month:</strong> School-Level
-                Seminars (Cross-Departmental)
-              </li>
+              <li><strong>Open:</strong> Students can submit a booking request.</li>
+              <li><strong>Full:</strong> The slot has reached the admin-set student capacity.</li>
+              <li><strong>Window Closed:</strong> The admin has closed the slot.</li>
             </ul>
           </div>
         </div>
@@ -643,8 +634,9 @@
             <div class="card-title">
               <h3>Smart Booking Engine</h3>
               <p>
-                Select an available slot below. Slots within the 7-day
-                restricted window are greyed out.
+                Select an open slot below. Closed slots show as
+                <strong>Window Closed</strong> and full slots stop accepting new
+                students.
               </p>
             </div>
           </div>
@@ -683,10 +675,12 @@
 
                 <div class="form-row">
                   <span class="form-label">Research Topic</span>
-                  <span class="form-val"
-                    >Urban Luo Youth Environmental Knowledge Multimedia
-                    Campaign</span
-                  >
+                  <textarea
+                    id="researchTopicInput"
+                    class="form-input-text"
+                    rows="3"
+                    placeholder="Enter your research topic"
+                  ></textarea>
                 </div>
 
                 <div class="form-row">
@@ -759,8 +753,7 @@
             <div class="card-title">
               <h3>My Bookings & History</h3>
               <p>
-                Track pending requests and past presentations. Retractions are
-                available until 7 days prior.
+                Track your pending requests and previous seminar bookings.
               </p>
             </div>
           </div>
@@ -773,27 +766,13 @@
                 <th>Status & Actions</th>
               </tr>
             </thead>
-            <tbody id="historyTableBody">
-              <tr>
-                <td>
-                  <strong>Nov 6, 2025</strong><br /><span
-                    style="font-size: 12px; color: var(--text-muted)"
-                    >09:00 AM</span
-                  >
-                </td>
-                <td>Stage 1: Concept Note (Dept)</td>
-                <td>Boardroom A</td>
-                <td>
-                  <span class="status-pill pill-approved">COMPLETED</span>
-                </td>
-              </tr>
-            </tbody>
+            <tbody id="historyTableBody"></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <div class="demo-tools">
+    <div class="demo-tools" style="display: none">
       <h4><i class="fas fa-cogs"></i> Context Controls</h4>
 
       <button class="demo-btn" onclick="toggleDept()">
@@ -839,306 +818,7 @@
 
     <script src="auth-guard.js"></script>
     <script src="sidebar.js"></script>
-    <script>
-      // --- State Variables ---
-      let currentDept = "CJM";
-      let currentLevel = "dept";
-      let currentDegree = "Masters";
-      let selectedSlotId = null;
-      let isBooked = false;
-
-      // Mock database of pre-assigned supervisors
-      const assignedSupervisors = {
-        Masters: ["Prof. James Odhiambo"],
-        PhD: [
-          "Prof. James Odhiambo",
-          "Dr. Sarah Kemboi",
-          "Dr. Michael Onyango",
-        ],
-      };
-
-      // Update display date in header
-      document.getElementById("currentDateDisplay").innerText = new Date()
-        .toISOString()
-        .split("T")[0];
-
-      // Mock Data (April & May 2026)
-      const slotData = {
-        CJM_dept: [
-          {
-            id: "s1",
-            dateStr: "Thursday, April 2, 2026",
-            time: "09:00 AM - 01:00 PM",
-            type: "CJM Departmental Seminar",
-            capacity: "3 Slots Left",
-          },
-          {
-            id: "s2",
-            dateStr: "Thursday, May 7, 2026",
-            time: "09:00 AM - 01:00 PM",
-            type: "CJM Departmental Seminar",
-            capacity: "5 Slots Left",
-          },
-        ],
-        IHRS_dept: [
-          {
-            id: "s3",
-            dateStr: "Thursday, April 9, 2026",
-            time: "09:00 AM - 01:00 PM",
-            type: "IHRS Departmental Seminar",
-            capacity: "2 Slots Left",
-          },
-          {
-            id: "s4",
-            dateStr: "Thursday, May 14, 2026",
-            time: "09:00 AM - 01:00 PM",
-            type: "IHRS Departmental Seminar",
-            capacity: "4 Slots Left",
-          },
-        ],
-        School_school: [
-          {
-            id: "s5",
-            dateStr: "Thursday, April 16, 2026",
-            time: "10:00 AM - 03:00 PM",
-            type: "School-Level Joint Seminar",
-            capacity: "1 Slot Left",
-          },
-          {
-            id: "s6",
-            dateStr: "Thursday, May 21, 2026",
-            time: "10:00 AM - 03:00 PM",
-            type: "School-Level Joint Seminar",
-            capacity: "6 Slots Left",
-          },
-        ],
-      };
-
-      const formTypeMap = {
-        dept: "Stage 3: Departmental Proposal",
-        school: "Stage 4: School Proposal",
-      };
-
-      // --- Core Utility: 7-Day Checking Logic ---
-      const isAtLeastOneWeekAway = (dateString) => {
-        const targetDate = new Date(dateString);
-        const currentDate = new Date(); // Using actual dynamic system date
-        currentDate.setHours(0, 0, 0, 0);
-        targetDate.setHours(0, 0, 0, 0);
-
-        const diffTime = targetDate.getTime() - currentDate.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays >= 7;
-      };
-
-      // --- UI Rendering ---
-      function renderSlots() {
-        const container = document.getElementById("slotsContainer");
-        const dataKey =
-          currentLevel === "school" ? `School_school` : `${currentDept}_dept`;
-        const slots = slotData[dataKey];
-
-        let html = "";
-        slots.forEach((slot) => {
-          const isSelected = selectedSlotId === slot.id ? "selected" : "";
-          const isEligible = isAtLeastOneWeekAway(slot.dateStr);
-
-          // Add disabled class and badge if less than 7 days away
-          if (!isEligible) {
-            html += `
-                        <div class="slot-card disabled">
-                            <span class="slot-tag-closed">Window Closed</span>
-                            <div class="slot-date">${slot.dateStr}</div>
-                            <div class="slot-type">${slot.type}</div>
-                            <div class="slot-meta">
-                                <span><i class="fas fa-lock"></i> Locked (< 7 Days)</span>
-                            </div>
-                        </div>
-                    `;
-          } else {
-            html += `
-                        <div class="slot-card ${isSelected}" onclick="selectSlot('${slot.id}', '${slot.dateStr}')">
-                            <div class="slot-date">${slot.dateStr}</div>
-                            <div class="slot-type">${slot.type}</div>
-                            <div class="slot-meta">
-                                <span><i class="fas fa-clock"></i> ${slot.time}</span>
-                                <span class="capacity"><i class="fas fa-users"></i> ${slot.capacity}</span>
-                            </div>
-                        </div>
-                    `;
-          }
-        });
-        container.innerHTML = html;
-
-        document.getElementById("formTypeDisplay").innerText =
-          formTypeMap[currentLevel];
-        document.getElementById("notificationTarget").innerText =
-          currentLevel === "school"
-            ? "PG Dean (School Level)"
-            : `Head of ${currentDept} Department`;
-      }
-
-      function renderSupervisors() {
-        const container = document.getElementById("supervisorInputsContainer");
-        const supervisors = assignedSupervisors[currentDegree];
-
-        document.getElementById("supervisorCountLabel").innerText =
-          `(${currentDegree}: System Auto-filled)`;
-
-        let html = "";
-        supervisors.forEach((name) => {
-          html += `<input type="text" class="form-input-text supervisor-input" value="${name}" readonly style="background-color: #f1f2f6; color: #7f8c8d; cursor: not-allowed; border-color: #dfe4ea; font-weight: 500; margin-bottom: 8px;">`;
-        });
-        container.innerHTML = html;
-      }
-
-      // --- User Actions ---
-      window.selectSlot = function (id, dateString) {
-        if (isBooked) return;
-        selectedSlotId = id;
-        document.getElementById("formDateDisplay").innerText = dateString;
-
-        const btn = document.getElementById("confirmBookingBtn");
-        btn.disabled = false;
-        renderSlots();
-      };
-
-      window.submitBooking = function () {
-        isBooked = true;
-        const dateStr = document.getElementById("formDateDisplay").innerText;
-        const typeStr = formTypeMap[currentLevel];
-
-        document.getElementById("requestForm").style.display = "none";
-        document.getElementById("successOverlay").classList.add("active");
-
-        document.getElementById("slotsContainer").style.opacity = "0.6";
-        document.getElementById("slotsContainer").style.pointerEvents = "none";
-
-        // Calculate if the retraction window is open based on the 7-day rule
-        const canRetract = isAtLeastOneWeekAway(dateStr);
-        let actionHtml = `<span class="status-pill pill-pending" id="historyStatusPill">PENDING HOD</span>`;
-        if (canRetract) {
-          actionHtml += `<button class="btn-danger" onclick="retractBooking(this, '${dateStr}')">Retract</button>`;
-        }
-
-        // Add to History Table
-        const tbody = document.getElementById("historyTableBody");
-        const newRow = document.createElement("tr");
-        newRow.id = "pendingRow";
-        newRow.innerHTML = `
-                <td><strong>${dateStr.split(",")[1].trim()}</strong><br><span style="font-size:12px; color:var(--text-muted);">TBD</span></td>
-                <td>${typeStr}</td>
-                <td><span style="color:var(--text-muted); font-style:italic;">Awaiting Assignment</span></td>
-                <td>${actionHtml}</td>
-            `;
-        tbody.insertBefore(newRow, tbody.firstChild);
-        document.getElementById("demoApproveBtn").disabled = false;
-      };
-
-      // --- Retraction Workflow ---
-      window.retractBooking = function (btnElement, dateStr) {
-        // Final server-side style check just in case the date has naturally rolled over
-        if (!isAtLeastOneWeekAway(dateStr)) {
-          alert("Cannot retract: The 7-day cancellation window has closed.");
-          btnElement.remove();
-          return;
-        }
-
-        if (
-          confirm(
-            "Are you sure you want to retract this booking request? This will free the slot for other students.",
-          )
-        ) {
-          const row = btnElement.closest("tr");
-          const statusCell = row.cells[3];
-
-          statusCell.innerHTML = `<span class="status-pill pill-retracted">RETRACTED</span>`;
-
-          // Allow user to book a new slot
-          resetDemo();
-        }
-      };
-
-      // --- Demo Tools Actions ---
-      function toggleDegree() {
-        if (isBooked)
-          return alert("Reset the demo before changing degree levels.");
-        currentDegree = currentDegree === "Masters" ? "PhD" : "Masters";
-        document.getElementById("demoDegreeBadge").innerText = currentDegree;
-        renderSupervisors(); // Re-render the form inputs dynamically
-      }
-
-      function toggleDept() {
-        if (isBooked)
-          return alert("Reset the demo before changing departments.");
-        currentDept = currentDept === "CJM" ? "IHRS" : "CJM";
-        document.getElementById("demoDeptBadge").innerText = currentDept;
-        document.getElementById("sidebarDeptTag").innerText =
-          `${currentDept} Department`;
-
-        if (currentLevel === "dept") {
-          selectedSlotId = null;
-          document.getElementById("formDateDisplay").innerText =
-            "Select a slot...";
-          document.getElementById("confirmBookingBtn").disabled = true;
-          renderSlots();
-        }
-      }
-
-      function toggleLevel() {
-        if (isBooked)
-          return alert("Reset the demo before changing pipeline levels.");
-        currentLevel = currentLevel === "dept" ? "school" : "dept";
-        document.getElementById("demoLevelBadge").innerText =
-          currentLevel === "dept" ? "Dept" : "School";
-
-        selectedSlotId = null;
-        document.getElementById("formDateDisplay").innerText =
-          "Select a slot...";
-        document.getElementById("confirmBookingBtn").disabled = true;
-        renderSlots();
-      }
-
-      function simulateHoDApproval() {
-        const row = document.getElementById("pendingRow");
-        if (row) {
-          row.cells[2].innerHTML = "<strong>Main Boardroom</strong>";
-          const cellHTML = `<span class="status-pill pill-approved">CONFIRMED</span>`;
-          row.cells[3].innerHTML = cellHTML; // Overwrites the retract button so it can no longer be cancelled
-
-          document.getElementById("demoApproveBtn").disabled = true;
-          document.getElementById("demoApproveBtn").innerHTML =
-            '<i class="fas fa-check"></i> HoD Approved';
-        }
-      }
-
-      function resetDemo() {
-        isBooked = false;
-        selectedSlotId = null;
-
-        document.getElementById("requestForm").style.display = "block";
-        document.getElementById("successOverlay").classList.remove("active");
-        document.getElementById("slotsContainer").style.opacity = "1";
-        document.getElementById("slotsContainer").style.pointerEvents = "auto";
-
-        document.getElementById("formDateDisplay").innerText =
-          "Select a slot...";
-        document.getElementById("confirmBookingBtn").disabled = true;
-
-        const row = document.getElementById("pendingRow");
-        if (row && row.querySelector(".pill-pending")) row.remove(); // Only remove if still pending
-
-        const appBtn = document.getElementById("demoApproveBtn");
-        appBtn.disabled = true;
-        appBtn.innerHTML =
-          '<i class="fas fa-check-double"></i> Simulate: HoD Approves Slot';
-
-        renderSlots();
-      }
-
-      // Initialize
-      renderSlots();
-      renderSupervisors();
-    </script>
+    <script src="api.js"></script>
+    <script src="booking.js"></script>
   </body>
 </html>
