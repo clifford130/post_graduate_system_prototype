@@ -741,7 +741,7 @@
           <form id="deferralForm">
             <div class="form-group">
               <label>Reason for Deferral</label>
-              <select class="form-control" required>
+              <select class="form-control" id="deferralReason" required>
                 <option value="">Select a reason...</option>
                 <option value="health">Health</option>
                 <option value="financial">Financial</option>
@@ -751,7 +751,12 @@
             </div>
             <div class="form-group">
               <label>Planned Resumption Semester/Date</label>
-              <input type="month" class="form-control" required />
+              <input
+                type="month"
+                class="form-control"
+                id="deferralResumptionDate"
+                required
+              />
             </div>
             <div class="modal-actions">
               <button
@@ -794,7 +799,12 @@
             </p>
             <div class="form-group">
               <label>Resumption Date</label>
-              <input type="date" class="form-control" required />
+              <input
+                type="date"
+                class="form-control"
+                id="resumptionDate"
+                required
+              />
             </div>
             <div class="modal-actions">
               <button
@@ -825,19 +835,21 @@
       <div class="demo-divider"></div>
 
       <button class="demo-btn" onclick="simulateAdminApproval('DEFERRED')">
-        Simulate: Dean Approves Deferral
+        Simulate: Supervisor Approves Deferral
       </button>
       <button class="demo-btn" onclick="simulateAdminApproval('ACTIVE')">
-        Simulate: Dean Approves Resumption
+        Simulate: Supervisor Approves Resumption
       </button>
       <button class="demo-btn" onclick="resetState()">
         Reset Status to Active
       </button>
     </div>
 
+    <script src="../assets/js/prototype-store.js"></script>
     <script src="sidebar.js"></script>
     <script>
       // --- Core UI Variables ---
+      const prototypeStore = window.PGPrototypeStore;
       const appBody = document.body;
       const mainStatusPill = document.getElementById("mainStatusPill");
       const gridStatusPill = document.getElementById("gridStatusPill");
@@ -850,6 +862,13 @@
       const bannerProgDisplay = document.getElementById("bannerProgDisplay");
       const toggleProgrammeBtn = document.getElementById("toggleProgrammeBtn");
 
+      function getLatestRequest() {
+        const state = prototypeStore.loadState();
+        return state.deferrals
+          .filter((item) => item.studentId === state.student.id)
+          .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
+      }
+
       function toggleProgramme() {
         if (currentProgramme === "masters") {
           // Switch to PhD
@@ -859,6 +878,7 @@
           bannerProgDisplay.innerHTML =
             '<i class="fas fa-graduation-cap"></i> phd';
           toggleProgrammeBtn.innerText = "Switch to Masters Profile";
+          prototypeStore.setStudentProgramme("phd");
         } else {
           // Switch to Masters
           currentProgramme = "masters";
@@ -867,13 +887,27 @@
           bannerProgDisplay.innerHTML =
             '<i class="fas fa-graduation-cap"></i> masters';
           toggleProgrammeBtn.innerText = "Switch to PhD Profile";
+          prototypeStore.setStudentProgramme("masters");
         }
+        renderUI();
       }
 
       // --- System State Machine ---
       let systemState = "ACTIVE";
 
       function renderUI() {
+        const student = prototypeStore.getStudent();
+        const latestRequest = getLatestRequest();
+
+        systemState = "ACTIVE";
+        if (student.status === "Deferred") {
+          systemState = "DEFERRED";
+        } else if (latestRequest?.status === "pending") {
+          systemState = "PENDING_DEFERRAL";
+        } else if (latestRequest?.status === "pending_resumption") {
+          systemState = "PENDING_RESUMPTION";
+        }
+
         appBody.className = "";
         actionBtn.className = "btn-action";
         actionBtn.disabled = false;
@@ -921,8 +955,12 @@
         .getElementById("deferralForm")
         .addEventListener("submit", (e) => {
           e.preventDefault();
+          prototypeStore.submitDeferral({
+            reason: document.getElementById("deferralReason").value,
+            plannedResumption: document.getElementById("deferralResumptionDate")
+              .value,
+          });
           closeModal("deferralModal");
-          systemState = "PENDING_DEFERRAL";
           renderUI();
         });
 
@@ -930,19 +968,51 @@
         .getElementById("resumptionForm")
         .addEventListener("submit", (e) => {
           e.preventDefault();
+          prototypeStore.submitResumption({
+            resumptionDate: document.getElementById("resumptionDate").value,
+          });
           closeModal("resumptionModal");
-          systemState = "PENDING_RESUMPTION";
           renderUI();
         });
 
       // --- Hackathon Demo Functions ---
       function simulateAdminApproval(targetState) {
-        systemState = targetState;
+        const latestRequest = getLatestRequest();
+        if (!latestRequest) {
+          alert("No pending request found.");
+          return;
+        }
+
+        if (targetState === "DEFERRED" && latestRequest.status === "pending") {
+          prototypeStore.reviewDeferral(
+            latestRequest.id,
+            "approve",
+            prototypeStore.getStudentSupervisors()[0],
+          );
+        }
+
+        if (
+          targetState === "ACTIVE" &&
+          latestRequest.status === "pending_resumption"
+        ) {
+          prototypeStore.reviewDeferral(
+            latestRequest.id,
+            "approve",
+            prototypeStore.getStudentSupervisors()[0],
+          );
+        }
+
         renderUI();
       }
 
       function resetState() {
-        systemState = "ACTIVE";
+        prototypeStore.reset();
+        currentProgramme = "masters";
+        sup3Container.style.display = "none";
+        progDisplay.innerText = "Masters";
+        bannerProgDisplay.innerHTML =
+          '<i class="fas fa-graduation-cap"></i> masters';
+        toggleProgrammeBtn.innerText = "Switch to PhD Profile";
         renderUI();
       }
 
