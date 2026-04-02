@@ -45,4 +45,10 @@ window.StudentApi = {
       body: payload,
     });
   },
+  submitResumptionRequest() {
+    return studentRequest("/students/me/resumption-request", {
+      method: "POST",
+      body: {},
+    });
+  },
 };

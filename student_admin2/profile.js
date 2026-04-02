@@ -38,6 +38,7 @@
   });
 
   function renderStatus(student) {
+    const requestType = student.deferralRequest?.type || "";
     const requestStatus = student.deferralRequest?.status || "";
     const isDeferred = student.status === "Deferred";
     const isPending = requestStatus === "pending";
@@ -51,16 +52,19 @@
       appBody.classList.add("state-deferred");
       mainStatusPill.textContent = "DEFERRED";
       gridStatusPill.textContent = "DEFERRED";
-      actionBtn.classList.add("btn-disabled");
-      actionBtn.disabled = true;
-      actionBtn.innerHTML = '<i class="fas fa-pause-circle"></i> Actions Paused';
+      actionBtn.classList.add("btn-green");
+      actionBtn.disabled = false;
+      actionBtn.innerHTML = "Return to Studies";
+      actionBtn.onclick = submitResumptionRequest;
       return;
     }
 
     if (isPending) {
       appBody.classList.add("state-pending");
-      mainStatusPill.textContent = "DEFERRAL PENDING";
-      gridStatusPill.textContent = "DEFERRAL PENDING";
+      const pendingLabel =
+        requestType === "resumption" ? "RESUMPTION PENDING" : "DEFERRAL PENDING";
+      mainStatusPill.textContent = pendingLabel;
+      gridStatusPill.textContent = pendingLabel;
       actionBtn.classList.add("btn-disabled");
       actionBtn.disabled = true;
       actionBtn.innerHTML = '<i class="fas fa-hourglass-half"></i> Pending Director Review';
@@ -121,6 +125,19 @@
     renderStatus(student);
   }
 
+  async function submitResumptionRequest() {
+    try {
+      actionBtn.disabled = true;
+      actionBtn.innerHTML = '<i class="fas fa-hourglass-half"></i> Submitting...';
+      await api.submitResumptionRequest();
+      await loadProfile();
+    } catch (error) {
+      alert(error.message || "Failed to submit resumption request");
+      actionBtn.disabled = false;
+      actionBtn.innerHTML = "Return to Studies";
+    }
+  }
+
   async function loadProfile() {
     try {
       const session = await api.getSession();
@@ -151,10 +168,15 @@
     }
   });
 
-  document.getElementById("resumptionForm")?.addEventListener("submit", (event) => {
+  document.getElementById("resumptionForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    alert("Resumption workflow is not part of this change yet.");
-    closeModal("resumptionModal");
+    try {
+      await api.submitResumptionRequest();
+      closeModal("resumptionModal");
+      await loadProfile();
+    } catch (error) {
+      alert(error.message || "Failed to submit resumption request");
+    }
   });
 
   loadProfile();

@@ -21,6 +21,7 @@ function toneForRequest(status) {
 
 function requestRow(student) {
   const request = student.deferralRequest || {};
+  const typeLabel = request.type === "resumption" ? "Resumption" : "Deferral";
   return `
     <tr class="border-b border-slate-100 hover:bg-slate-50">
       <td class="px-4 py-3">
@@ -32,7 +33,8 @@ function requestRow(student) {
         <div class="text-xs text-slate-500">${escapeHtml((student.department || "—").toUpperCase())}</div>
       </td>
       <td class="px-4 py-3">
-        <div class="text-sm text-slate-800">${escapeHtml(request.reason || "—")}</div>
+        <div class="text-sm font-semibold text-slate-800">${escapeHtml(typeLabel)}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(request.reason || "—")}</div>
       </td>
       <td class="px-4 py-3">
         <div class="text-sm text-slate-800">${escapeHtml(request.plannedResumption || "—")}</div>
@@ -47,10 +49,10 @@ function requestRow(student) {
       <td class="px-4 py-3">
         <div class="flex flex-wrap gap-2">
           <button data-deferral-action="approve" data-id="${student._id}" class="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition">
-            Approve
+            ${request.type === "resumption" ? "Approve Resume" : "Approve"}
           </button>
           <button data-deferral-action="reject" data-id="${student._id}" class="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition">
-            Reject
+            ${request.type === "resumption" ? "Reject Resume" : "Reject"}
           </button>
         </div>
       </td>
@@ -58,13 +60,47 @@ function requestRow(student) {
   `;
 }
 
-function mountTable(rows) {
+function deferredStudentRow(student) {
+  return `
+    <tr class="border-b border-slate-100 hover:bg-slate-50">
+      <td class="px-4 py-3">
+        <div class="font-semibold text-slate-900">${escapeHtml(student.fullName || "—")}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(student.userNumber || "—")}</div>
+      </td>
+      <td class="px-4 py-3">
+        <div class="text-sm text-slate-800">${escapeHtml((student.programme || "—").toUpperCase())}</div>
+        <div class="text-xs text-slate-500">${escapeHtml((student.department || "—").toUpperCase())}</div>
+      </td>
+      <td class="px-4 py-3">
+        <div class="text-sm text-slate-800">${escapeHtml(student.deferralInfo?.reason || "—")}</div>
+      </td>
+      <td class="px-4 py-3">
+        <div class="text-sm text-slate-800">${escapeHtml(student.deferralInfo?.plannedResumption || "—")}</div>
+      </td>
+      <td class="px-4 py-3">
+        <div class="text-sm text-slate-800">${escapeHtml(student.stage || "—")}</div>
+        <div class="text-xs text-slate-500">${formatDate(student.deferralInfo?.date)}</div>
+      </td>
+      <td class="px-4 py-3">
+        ${badge({ label: student.status || "Deferred", tone: "yellow" })}
+      </td>
+      <td class="px-4 py-3">
+        <button data-resume-student="1" data-id="${student._id}" class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 transition">
+          Resume Student
+        </button>
+      </td>
+    </tr>
+  `;
+}
+
+function mountTable(rows, deferredStudents) {
   setPageContent(`
+    <div class="space-y-6">
     <div class="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
       <div class="flex items-center justify-between gap-4 px-6 py-5 border-b border-slate-200">
         <div>
           <div class="text-lg font-semibold text-slate-900">Pending Deferral Requests</div>
-          <div class="text-sm text-slate-500">Review student deferral applications and approve or reject them.</div>
+          <div class="text-sm text-slate-500">Review student deferral and resumption applications.</div>
         </div>
         <div class="text-sm font-semibold text-slate-600">${rows.length} pending</div>
       </div>
@@ -86,6 +122,34 @@ function mountTable(rows) {
           </tbody>
         </table>
       </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
+      <div class="flex items-center justify-between gap-4 px-6 py-5 border-b border-slate-200">
+        <div>
+          <div class="text-lg font-semibold text-slate-900">Deferred Students</div>
+          <div class="text-sm text-slate-500">Resume a student directly back to studies when appropriate.</div>
+        </div>
+        <div class="text-sm font-semibold text-slate-600">${deferredStudents.length} deferred</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left">
+          <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
+            <tr>
+              <th class="px-4 py-3">Student</th>
+              <th class="px-4 py-3">Programme</th>
+              <th class="px-4 py-3">Reason</th>
+              <th class="px-4 py-3">Planned Resumption</th>
+              <th class="px-4 py-3">Stage / Deferred</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3">Action</th>
+            </tr>
+          </thead>
+          <tbody id="deferredStudentsTbody">
+            ${deferredStudents.length ? deferredStudents.map(deferredStudentRow).join("") : `<tr><td colspan="7" class="px-4 py-8 text-center text-sm text-slate-500">No students are currently deferred.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
     </div>
   `);
 }
@@ -131,18 +195,19 @@ async function load() {
   try {
     const response = await api.getDeferralRequests();
     const requests = response?.requests || [];
+    const deferredStudents = response?.deferredStudents || [];
 
-    if (!requests.length) {
+    if (!requests.length && !deferredStudents.length) {
       setPageContent(
         mountEmptyState({
-          title: "No pending deferral requests",
-          message: "New student deferral applications will appear here for review.",
+          title: "No deferral activity",
+          message: "Pending requests and deferred students will appear here.",
         }),
       );
       return;
     }
 
-    mountTable(requests);
+    mountTable(requests, deferredStudents);
     wireActions();
   } catch (error) {
     console.error(error);
@@ -181,6 +246,29 @@ function wireActions() {
     } catch (error) {
       console.error(error);
       toast(error.message || "Failed to review request", { tone: "red" });
+    }
+  });
+
+  document.getElementById("deferredStudentsTbody")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-resume-student]");
+    if (!button) return;
+
+    const studentId = button.dataset.id;
+    const confirm = await confirmModal({
+      title: "Resume student",
+      message: "Are you sure you want to resume this student back to studies?",
+      confirmText: "Resume Student",
+      tone: "blue",
+    });
+    if (!confirm) return;
+
+    try {
+      await api.resumeStudent(studentId);
+      toast("Student resumed successfully", { tone: "green" });
+      await load();
+    } catch (error) {
+      console.error(error);
+      toast(error.message || "Failed to resume student", { tone: "red" });
     }
   });
 }

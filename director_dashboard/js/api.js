@@ -65,6 +65,11 @@ export const api = {
       body: { action, comment },
     });
   },
+  async resumeStudent(id) {
+    return request(`/students/${encodeURIComponent(id)}/resume`, {
+      method: "POST",
+    });
+  },
 
   // Director actions (API-ready)
   async updateStudentStage(id, { stage, mode, reason } = {}) {

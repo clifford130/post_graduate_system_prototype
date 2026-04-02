@@ -211,6 +211,7 @@ DirectorRouter.post(
       }
 
       student.deferralRequest = {
+        type: "deferral",
         status: "pending",
         submittedAt: new Date(),
         reason,
@@ -235,14 +236,62 @@ DirectorRouter.get(
   "/deferral-requests",
   async (req: Request, res: Response) => {
     try {
-      const requests = await UserModel.find({
-        role: "student",
-        "deferralRequest.status": "pending",
-      }).select("fullName userNumber programme department stage status deferralRequest deferralInfo");
+      const [requests, deferredStudents] = await Promise.all([
+        UserModel.find({
+          role: "student",
+          "deferralRequest.status": "pending",
+        }).select("fullName userNumber programme department stage status deferralRequest deferralInfo"),
+        UserModel.find({
+          role: "student",
+          status: "Deferred",
+        }).select("fullName userNumber programme department stage status deferralRequest deferralInfo"),
+      ]);
 
-      return res.json({ success: true, requests });
+      return res.json({ success: true, requests, deferredStudents });
     } catch (error) {
       return res.status(500).json({ message: "Error fetching deferral requests", error });
+    }
+  },
+);
+
+DirectorRouter.post(
+  "/students/me/resumption-request",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+
+      const student = await UserModel.findById(decoded.id);
+      if (!student || student.role !== "student") {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      if (student.status !== "Deferred") {
+        return res.status(400).json({ message: "Only deferred students can request resumption" });
+      }
+
+      if (student.deferralRequest?.status === "pending") {
+        return res.status(400).json({ message: "There is already a pending request" });
+      }
+
+      student.deferralRequest = {
+        type: "resumption",
+        status: "pending",
+        submittedAt: new Date(),
+        reason: "Resumption request",
+        plannedResumption: student.deferralInfo?.plannedResumption || "",
+        reviewComment: "",
+        reviewedBy: "",
+      };
+
+      await student.save();
+      return res.status(201).json({
+        success: true,
+        message: "Resumption request submitted",
+        student,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error submitting resumption request", error });
     }
   },
 );
@@ -276,13 +325,21 @@ DirectorRouter.post(
       student.deferralRequest.reviewedBy = decoded.id;
 
       if (action === "approve") {
-        student.status = "Deferred";
-        student.deferralInfo = {
-          date: new Date(),
-          reason: student.deferralRequest.reason || "Administrative",
-          plannedResumption: student.deferralRequest.plannedResumption || "",
-          stageAtDeferral: student.stage || "Coursework",
-        };
+        if (student.deferralRequest.type === "resumption") {
+          student.status = "Resumed";
+          student.deferralInfo = {
+            ...(student.deferralInfo || {}),
+            actualResumption: new Date(),
+          };
+        } else {
+          student.status = "Deferred";
+          student.deferralInfo = {
+            date: new Date(),
+            reason: student.deferralRequest.reason || "Administrative",
+            plannedResumption: student.deferralRequest.plannedResumption || "",
+            stageAtDeferral: student.stage || "Coursework",
+          };
+        }
       }
 
       await student.save();
@@ -293,6 +350,45 @@ DirectorRouter.post(
       });
     } catch (error) {
       return res.status(500).json({ message: "Error reviewing deferral request", error });
+    }
+  },
+);
+
+DirectorRouter.post(
+  "/students/:id/resume",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+      if (!["director", "admin"].includes(decoded.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const student = await UserModel.findById(req.params.id);
+      if (!student) {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      student.status = "Resumed";
+      student.deferralInfo = {
+        ...(student.deferralInfo || {}),
+        actualResumption: new Date(),
+      };
+
+      if (student.deferralRequest?.status === "pending" && student.deferralRequest.type === "resumption") {
+        student.deferralRequest.status = "approved";
+        student.deferralRequest.reviewedAt = new Date();
+        student.deferralRequest.reviewedBy = decoded.id;
+      }
+
+      await student.save();
+      return res.json({
+        success: true,
+        message: "Student resumed successfully",
+        student,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error resuming student", error });
     }
   },
 );

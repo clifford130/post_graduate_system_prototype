@@ -22,6 +22,7 @@ export interface IUser {
     stageAtDeferral?: string;
   };
   deferralRequest?: {
+    type?: "deferral" | "resumption";
     status?: "pending" | "approved" | "rejected";
     submittedAt?: Date;
     reviewedAt?: Date;
@@ -149,6 +150,11 @@ const UserSchema = new Schema<IUser>({
     stageAtDeferral: String,
   },
   deferralRequest: {
+    type: {
+      type: String,
+      enum: ["deferral", "resumption"],
+      default: null,
+    },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
