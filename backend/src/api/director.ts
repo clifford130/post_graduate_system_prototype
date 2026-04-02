@@ -4,8 +4,31 @@ import { SupervisorAssignmentModel } from "../models/supervisor-action.model.js"
 import { SystemSettingsModel } from "../models/system-settings.model.js";
 import { ReportModel } from "../models/report.model.js";
 import { bookingsModel } from "../models/student.bookings.js";
+import jwt from "jsonwebtoken";
 
 export const DirectorRouter = Router();
+
+const getAuthUser = (req: Request, res: Response): Promise<any | null> => {
+  return new Promise((resolve) => {
+    const token = req.cookies?.userToken;
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!token || !jwtSecret) {
+      res.status(401).json({ message: "Unauthorized access" });
+      resolve(null);
+      return;
+    }
+
+    jwt.verify(token, jwtSecret, (err: any, decoded: any) => {
+      if (err) {
+        res.status(401).json({ message: "Invalid or expired token" });
+        resolve(null);
+        return;
+      }
+      resolve(decoded);
+    });
+  });
+};
 
 // 1. GET /dashboard/stats
 DirectorRouter.get("/dashboard/stats", async (req: Request, res: Response) => {
@@ -156,6 +179,120 @@ DirectorRouter.post(
       res.json({ message: "Status updated", student: updated });
     } catch (error) {
       res.status(500).json({ message: "Error updating status", error });
+    }
+  },
+);
+
+DirectorRouter.post(
+  "/students/me/deferral-request",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+
+      const { reason, plannedResumption } = req.body;
+      if (!reason || !plannedResumption) {
+        return res.status(400).json({
+          message: "Reason and planned resumption are required",
+        });
+      }
+
+      const student = await UserModel.findById(decoded.id);
+      if (!student || student.role !== "student") {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      if (student.status === "Deferred") {
+        return res.status(400).json({ message: "Student is already deferred" });
+      }
+
+      if (student.deferralRequest?.status === "pending") {
+        return res.status(400).json({ message: "There is already a pending deferral request" });
+      }
+
+      student.deferralRequest = {
+        status: "pending",
+        submittedAt: new Date(),
+        reason,
+        plannedResumption,
+        reviewComment: "",
+        reviewedBy: "",
+      };
+
+      await student.save();
+      return res.status(201).json({
+        success: true,
+        message: "Deferral request submitted",
+        student,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error submitting deferral request", error });
+    }
+  },
+);
+
+DirectorRouter.get(
+  "/deferral-requests",
+  async (req: Request, res: Response) => {
+    try {
+      const requests = await UserModel.find({
+        role: "student",
+        "deferralRequest.status": "pending",
+      }).select("fullName userNumber programme department stage status deferralRequest deferralInfo");
+
+      return res.json({ success: true, requests });
+    } catch (error) {
+      return res.status(500).json({ message: "Error fetching deferral requests", error });
+    }
+  },
+);
+
+DirectorRouter.post(
+  "/students/:id/deferral-review",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+      if (!["director", "admin"].includes(decoded.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { action, comment } = req.body;
+      if (!["approve", "reject"].includes(action)) {
+        return res.status(400).json({ message: "Action must be approve or reject" });
+      }
+
+      const student = await UserModel.findById(req.params.id);
+      if (!student) {
+        return res.status(404).json({ message: "Student not found" });
+      }
+      if (!student.deferralRequest || student.deferralRequest.status !== "pending") {
+        return res.status(400).json({ message: "No pending deferral request found" });
+      }
+
+      student.deferralRequest.status = action === "approve" ? "approved" : "rejected";
+      student.deferralRequest.reviewedAt = new Date();
+      student.deferralRequest.reviewComment = comment || "";
+      student.deferralRequest.reviewedBy = decoded.id;
+
+      if (action === "approve") {
+        student.status = "Deferred";
+        student.deferralInfo = {
+          date: new Date(),
+          reason: student.deferralRequest.reason || "Administrative",
+          plannedResumption: student.deferralRequest.plannedResumption || "",
+          stageAtDeferral: student.stage || "Coursework",
+        };
+      }
+
+      await student.save();
+      return res.json({
+        success: true,
+        message: `Deferral request ${action}d`,
+        student,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error reviewing deferral request", error });
     }
   },
 );

@@ -1,4 +1,6 @@
 (() => {
+  const API_BASE = "http://localhost:5000/api";
+  const LOGIN_URL = "../login/login.html";
   const sidebarRoot = document.getElementById("appSidebar");
   if (!sidebarRoot) return;
 
@@ -53,8 +55,26 @@
     alert(message);
   };
 
+  async function logoutStudent() {
+    try {
+      await fetch(`${API_BASE}/user/login/logout`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      localStorage.removeItem("postgraduate_user");
+      localStorage.removeItem("auth_token");
+      window.location.replace(LOGIN_URL);
+    }
+  }
+
   sidebarRoot.querySelectorAll("[data-sidebar-action]").forEach((link) => {
-    link.addEventListener("click", () => {
+    link.addEventListener("click", async () => {
       const action = link.dataset.sidebarAction;
 
       if (action === "finance") {
@@ -63,7 +83,7 @@
       }
 
       if (action === "logout") {
-        window.showSidebarNotice("Logout action is not connected yet.");
+        await logoutStudent();
       }
     });
   });

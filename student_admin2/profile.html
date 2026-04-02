@@ -633,10 +633,10 @@
           <div class="banner-left">
             <div class="banner-avatar">E</div>
             <div class="banner-details">
-              <h2>Enos Mulongo</h2>
+              <h2 id="studentNameHeading">Enos Mulongo</h2>
               <div class="banner-meta">
-                <span><i class="fas fa-id-card"></i> Reg: MIT/011/2022</span>
-                <span><i class="fas fa-university"></i> cmj</span>
+                <span id="studentRegMeta"><i class="fas fa-id-card"></i> Reg: MIT/011/2022</span>
+                <span id="studentDeptMeta"><i class="fas fa-university"></i> cmj</span>
                 <span id="bannerProgDisplay"
                   ><i class="fas fa-graduation-cap"></i> masters</span
                 >
@@ -665,11 +665,11 @@
           <div class="info-grid">
             <div class="info-item">
               <label>Full Name</label>
-              <div class="val-container editable">Enos Mulongo</div>
+              <div class="val-container editable" id="studentNameValue">Enos Mulongo</div>
             </div>
             <div class="info-item">
               <label>Registration No.</label>
-              <div class="val-container editable">MIT/011/2022</div>
+              <div class="val-container editable" id="studentRegValue">MIT/011/2022</div>
             </div>
             <div class="info-item">
               <label>Programme</label>
@@ -681,7 +681,7 @@
             </div>
             <div class="info-item">
               <label>School</label>
-              <div class="val-container editable">cmj</div>
+              <div class="val-container editable" id="studentDepartmentValue">cmj</div>
             </div>
             <div class="info-item">
               <label>Year of Study</label>
@@ -689,16 +689,16 @@
             </div>
             <div class="info-item">
               <label>Supervisor 1</label>
-              <div class="val-container editable">Prof. James Odhiambo</div>
+              <div class="val-container editable" id="supervisor1Value">Prof. James Odhiambo</div>
             </div>
             <div class="info-item">
               <label>Supervisor 2</label>
-              <div class="val-container editable">Dr. Sarah Kemboi</div>
+              <div class="val-container editable" id="supervisor2Value">Dr. Sarah Kemboi</div>
             </div>
 
             <div class="info-item" id="sup3Container">
               <label>Supervisor 3</label>
-              <div class="val-container editable">Pending Allocation</div>
+              <div class="val-container editable" id="supervisor3Value">Pending Allocation</div>
             </div>
 
             <div class="info-item">
@@ -821,7 +821,7 @@
       </div>
     </div>
 
-    <div class="demo-tools">
+    <div class="demo-tools" id="demoTools">
       <h4><i class="fas fa-cogs"></i> Demo Controls</h4>
 
       <button
@@ -845,224 +845,9 @@
       </button>
     </div>
 
-    <script src="../assets/js/prototype-store.js"></script>
+    <script src="auth-guard.js"></script>
     <script src="sidebar.js"></script>
-    <script>
-      // --- Core UI Variables ---
-      const prototypeStore = window.PGPrototypeStore;
-      const appBody = document.body;
-      const mainStatusPill = document.getElementById("mainStatusPill");
-      const gridStatusPill = document.getElementById("gridStatusPill");
-      const actionBtn = document.getElementById("mainActionBtn");
-
-      // --- Programme Toggle Logic (Masters vs PhD) ---
-      let currentProgramme = "masters";
-      const sup3Container = document.getElementById("sup3Container");
-      const progDisplay = document.getElementById("progDisplay");
-      const bannerProgDisplay = document.getElementById("bannerProgDisplay");
-      const toggleProgrammeBtn = document.getElementById("toggleProgrammeBtn");
-
-      function getLatestRequest() {
-        const state = prototypeStore.loadState();
-        return state.deferrals
-          .filter((item) => item.studentId === state.student.id)
-          .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
-      }
-
-      function toggleProgramme() {
-        if (currentProgramme === "masters") {
-          // Switch to PhD
-          currentProgramme = "phd";
-          sup3Container.style.display = "block";
-          progDisplay.innerText = "PhD";
-          bannerProgDisplay.innerHTML =
-            '<i class="fas fa-graduation-cap"></i> phd';
-          toggleProgrammeBtn.innerText = "Switch to Masters Profile";
-          prototypeStore.setStudentProgramme("phd");
-        } else {
-          // Switch to Masters
-          currentProgramme = "masters";
-          sup3Container.style.display = "none";
-          progDisplay.innerText = "Masters";
-          bannerProgDisplay.innerHTML =
-            '<i class="fas fa-graduation-cap"></i> masters';
-          toggleProgrammeBtn.innerText = "Switch to PhD Profile";
-          prototypeStore.setStudentProgramme("masters");
-        }
-        renderUI();
-      }
-
-      // --- System State Machine ---
-      let systemState = "ACTIVE";
-
-      function renderUI() {
-        const student = prototypeStore.getStudent();
-        const latestRequest = getLatestRequest();
-
-        systemState = "ACTIVE";
-        if (student.status === "Deferred") {
-          systemState = "DEFERRED";
-        } else if (latestRequest?.status === "pending") {
-          systemState = "PENDING_DEFERRAL";
-        } else if (latestRequest?.status === "pending_resumption") {
-          systemState = "PENDING_RESUMPTION";
-        }
-
-        appBody.className = "";
-        actionBtn.className = "btn-action";
-        actionBtn.disabled = false;
-        actionBtn.onclick = null;
-
-        if (systemState === "ACTIVE") {
-          appBody.classList.add("state-active");
-          mainStatusPill.innerText = "ACTIVE";
-          gridStatusPill.innerText = "ACTIVE";
-
-          actionBtn.classList.add("btn-red");
-          actionBtn.innerHTML = "Request Deferral";
-          actionBtn.onclick = () => openModal("deferralModal");
-        } else if (systemState === "PENDING_DEFERRAL") {
-          appBody.classList.add("state-pending");
-          mainStatusPill.innerText = "DEFERRAL PENDING";
-          gridStatusPill.innerText = "DEFERRAL PENDING";
-
-          actionBtn.classList.add("btn-disabled");
-          actionBtn.disabled = true;
-          actionBtn.innerHTML =
-            '<i class="fas fa-hourglass-half"></i> Pending Approval';
-        } else if (systemState === "DEFERRED") {
-          appBody.classList.add("state-deferred");
-          mainStatusPill.innerText = "DEFERRED";
-          gridStatusPill.innerText = "DEFERRED";
-
-          actionBtn.classList.add("btn-green");
-          actionBtn.innerHTML = "Request Resumption";
-          actionBtn.onclick = () => openModal("resumptionModal");
-        } else if (systemState === "PENDING_RESUMPTION") {
-          appBody.classList.add("state-pending");
-          mainStatusPill.innerText = "RESUMPTION PENDING";
-          gridStatusPill.innerText = "RESUMPTION PENDING";
-
-          actionBtn.classList.add("btn-disabled");
-          actionBtn.disabled = true;
-          actionBtn.innerHTML =
-            '<i class="fas fa-hourglass-half"></i> Pending Approval';
-        }
-      }
-
-      // --- Form Submission Handlers ---
-      document
-        .getElementById("deferralForm")
-        .addEventListener("submit", (e) => {
-          e.preventDefault();
-          prototypeStore.submitDeferral({
-            reason: document.getElementById("deferralReason").value,
-            plannedResumption: document.getElementById("deferralResumptionDate")
-              .value,
-          });
-          closeModal("deferralModal");
-          renderUI();
-        });
-
-      document
-        .getElementById("resumptionForm")
-        .addEventListener("submit", (e) => {
-          e.preventDefault();
-          prototypeStore.submitResumption({
-            resumptionDate: document.getElementById("resumptionDate").value,
-          });
-          closeModal("resumptionModal");
-          renderUI();
-        });
-
-      // --- Hackathon Demo Functions ---
-      function simulateAdminApproval(targetState) {
-        const latestRequest = getLatestRequest();
-        if (!latestRequest) {
-          alert("No pending request found.");
-          return;
-        }
-
-        if (targetState === "DEFERRED" && latestRequest.status === "pending") {
-          prototypeStore.reviewDeferral(
-            latestRequest.id,
-            "approve",
-            prototypeStore.getStudentSupervisors()[0],
-          );
-        }
-
-        if (
-          targetState === "ACTIVE" &&
-          latestRequest.status === "pending_resumption"
-        ) {
-          prototypeStore.reviewDeferral(
-            latestRequest.id,
-            "approve",
-            prototypeStore.getStudentSupervisors()[0],
-          );
-        }
-
-        renderUI();
-      }
-
-      function resetState() {
-        prototypeStore.reset();
-        currentProgramme = "masters";
-        sup3Container.style.display = "none";
-        progDisplay.innerText = "Masters";
-        bannerProgDisplay.innerHTML =
-          '<i class="fas fa-graduation-cap"></i> masters';
-        toggleProgrammeBtn.innerText = "Switch to PhD Profile";
-        renderUI();
-      }
-
-      // --- Modal Utility Functions ---
-      function openModal(modalId) {
-        document.getElementById(modalId).classList.add("active");
-      }
-
-      function closeModal(modalId) {
-        document.getElementById(modalId).classList.remove("active");
-        const form = document.querySelector(`#${modalId} form`);
-        if (form) form.reset();
-      }
-
-      document.querySelectorAll(".modal-overlay").forEach((overlay) => {
-        overlay.addEventListener("click", (e) => {
-          if (e.target === overlay) {
-            closeModal(overlay.id);
-          }
-        });
-      });
-
-      // --- Inline Profile Editing Logic ---
-      const editBtn = document.getElementById("editBtn");
-      const editableFields = document.querySelectorAll(".editable");
-      let isEditing = false;
-
-      editBtn.addEventListener("click", () => {
-        isEditing = !isEditing;
-
-        if (isEditing) {
-          editBtn.innerHTML =
-            '<i class="fas fa-save" style="color:#2ECC71;"></i> <span>Save</span>';
-          editableFields.forEach((field) => {
-            const currentValue = field.innerText;
-            field.innerHTML = `<input type="text" value="${currentValue === "-" ? "" : currentValue}">`;
-          });
-        } else {
-          editBtn.innerHTML =
-            '<i class="fas fa-pencil-alt"></i> <span>Edit</span>';
-          editableFields.forEach((field) => {
-            const input = field.querySelector("input");
-            const newValue = input.value.trim() === "" ? "-" : input.value;
-            field.innerHTML = newValue;
-          });
-        }
-      });
-
-      // Initialize App State on Page Load
-      renderUI();
-    </script>
+    <script src="api.js"></script>
+    <script src="profile.js"></script>
   </body>
 </html>

@@ -14,7 +14,7 @@ export const STAGES = [
   "Graduation Clearance",
 ];
 document.addEventListener("DOMContentLoaded", async () => {
-  let response = await fetch("https://post-graduate-system-prototype.onrender.com/api/islogged", {
+  let response = await fetch("http://localhost:5000/api/islogged", {
     method: "POST",
     credentials: "include"
   })
@@ -28,7 +28,7 @@ export async function handleLogout() {
     const confirm = window.confirm("Are you sure you want to logout?");
     if (!confirm) return;
     
-    await fetch("https://post-graduate-system-prototype.onrender.com/api/user/login/logout", { 
+    await fetch("http://localhost:5000/api/user/login/logout", { 
       method: "POST", 
       credentials: "include" 
     });
@@ -235,6 +235,7 @@ export async function initShell() {
     { key: "dashboard", label: "Dashboard", href: "./dashboard.html" },
     // { key: "pipeline", label: "Pipeline", href: "./pipeline.html" },
     { key: "students", label: "Students", href: "./students.html" },
+    { key: "deferrals", label: "Deferrals", href: "./deferrals.html" },
     { key: "supervisors", label: "Supervisors", href: "./supervisors.html" },
     // { key: "departments", label: "Departments", href: "./departments.html" },
     { key: "reports", label: "Quarterly Reports", href: "./reports.html" },
@@ -404,7 +405,7 @@ export async function initShell() {
     const raw = localStorage.getItem("postgraduate_user");
     const u = raw ? JSON.parse(raw) : null;
     if (u && u.id && !u.fullName) {
-      const res = await fetch(`https://post-graduate-system-prototype.onrender.com/api/students/${encodeURIComponent(u.id)}`);
+      const res = await fetch(`http://localhost:5000/api/students/${encodeURIComponent(u.id)}`);
       if (res.ok) {
         const student = await res.json();
         if (student && (student.fullName || student.userNumber)) {

@@ -56,6 +56,15 @@ export const api = {
   async getStudentDetails(id) {
     return request(`/students/${encodeURIComponent(id)}`);
   },
+  async getDeferralRequests() {
+    return request("/deferral-requests");
+  },
+  async reviewDeferralRequest(id, { action, comment } = {}) {
+    return request(`/students/${encodeURIComponent(id)}/deferral-review`, {
+      method: "POST",
+      body: { action, comment },
+    });
+  },
 
   // Director actions (API-ready)
   async updateStudentStage(id, { stage, mode, reason } = {}) {
