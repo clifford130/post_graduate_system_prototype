@@ -52,6 +52,10 @@ export interface IUser {
     status: string; // "pending", "approved", "returned"
     comment?: string;
     submittedAt?: Date;
+    progressSummary?: string;
+    objectivesAchieved?: string;
+    challengesAndMitigation?: string;
+    nextQuarterPlan?: string;
     approvals: {
       sup1: string;
       sup2: string;
@@ -59,6 +63,13 @@ export interface IUser {
       dean: string;
       finance: string;
     };
+    reviewTrail?: Array<{
+      role: string;
+      actor: string;
+      action: string;
+      comment?: string;
+      at?: Date;
+    }>;
     deadline?: Date;
   }>;
   automation?: {
@@ -188,6 +199,10 @@ const UserSchema = new Schema<IUser>({
     status: { type: String, default: "pending" },
     comment: String,
     submittedAt: { type: Date, default: Date.now },
+    progressSummary: { type: String, default: "" },
+    objectivesAchieved: { type: String, default: "" },
+    challengesAndMitigation: { type: String, default: "" },
+    nextQuarterPlan: { type: String, default: "" },
     approvals: {
       sup1: { type: String, default: "pending" },
       sup2: { type: String, default: "pending" },
@@ -195,6 +210,13 @@ const UserSchema = new Schema<IUser>({
       dean: { type: String, default: "pending" },
       finance: { type: String, default: "pending" },
     },
+    reviewTrail: [{
+      role: String,
+      actor: String,
+      action: String,
+      comment: String,
+      at: { type: Date, default: Date.now },
+    }],
     deadline: Date,
   }],
   automation: {

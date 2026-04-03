@@ -3,6 +3,14 @@ import { UserModel } from "../models/user.model.js";
 
 export const SupervisorRouter = Router();
 
+function requiredSupervisorRoles(student: any) {
+  const roles = ["sup1", "sup2"];
+  if (String(student?.programme || "").toLowerCase() === "phd" && student?.supervisors?.sup3) {
+    roles.push("sup3");
+  }
+  return roles;
+}
+
 // 1. Fetch assigned students
 // GET /supervisor/:id/students
 SupervisorRouter.get("/supervisor/:id/students", async (req: Request, res: Response) => {
@@ -193,18 +201,51 @@ SupervisorRouter.post("/students/:id/qreports/:reportId/approve", async (req: Re
     const reportIndex = student.quarterlyReports?.findIndex(r => r.id === reportId);
     if (reportIndex === undefined || reportIndex === -1) return res.status(404).json({ message: "Report not found" });
 
-    const update: any = {};
-    update[`quarterlyReports.${reportIndex}.approvals.${role}`] = action === "approved" ? "approved" : "returned";
-    if (comment) update[`quarterlyReports.${reportIndex}.comment`] = comment;
+    const report = student.quarterlyReports?.[reportIndex];
+    const supervisorSlot = student.supervisors?.sup1 === supervisorId
+      ? "sup1"
+      : student.supervisors?.sup2 === supervisorId
+        ? "sup2"
+        : student.supervisors?.sup3 === supervisorId
+          ? "sup3"
+          : null;
 
-    // Check if all supervisors approved to mark report as overall "approved"
-    // Simplified: if this role is sup1 and action is approved
-    if (role === "sup1" && action === "approved") {
-      update[`quarterlyReports.${reportIndex}.status`] = "approved";
+    if (!supervisorSlot || supervisorSlot !== role) {
+      return res.status(403).json({ message: "Supervisor is not assigned to this report slot" });
     }
 
-    const updatedStudent = await UserModel.findByIdAndUpdate(id, { $set: update }, { new: true });
-    res.json({ message: `Report ${action} by ${role}`, student: updatedStudent });
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+
+    report.approvals[role as keyof typeof report.approvals] = action === "approved" ? "approved" : "returned";
+    report.comment = comment || "";
+    report.reviewTrail = [
+      ...(report.reviewTrail || []),
+      {
+        role,
+        actor: supervisorSlot.toUpperCase(),
+        action,
+        comment: comment || "",
+        at: new Date(),
+      },
+    ];
+
+    if (action === "returned") {
+      report.status = "returned";
+      report.approvals.dean = "pending";
+    } else {
+      const requiredRoles = requiredSupervisorRoles(student);
+      const allSupervisorsApproved = requiredRoles.every(
+        (requiredRole) =>
+          report.approvals[requiredRole as keyof typeof report.approvals] === "approved",
+      );
+      report.status = allSupervisorsApproved ? "pending_dean" : "pending";
+    }
+
+    student.markModified("quarterlyReports");
+    await student.save();
+    res.json({ message: `Report ${action} by ${role}`, student });
   } catch (error) {
     res.status(500).json({ message: "Error approving quarterly report", error });
   }

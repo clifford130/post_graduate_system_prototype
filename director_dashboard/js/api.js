@@ -65,6 +65,12 @@ export const api = {
       body: { action, comment },
     });
   },
+  async reviewQuarterlyReport(studentId, reportId, { action, comment } = {}) {
+    return request(`/students/${encodeURIComponent(studentId)}/qreports/${encodeURIComponent(reportId)}/dean-review`, {
+      method: "POST",
+      body: { action, comment },
+    });
+  },
   async resumeStudent(id) {
     return request(`/students/${encodeURIComponent(id)}/resume`, {
       method: "POST",

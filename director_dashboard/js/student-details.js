@@ -135,7 +135,20 @@ function approvalChain(chain) {
   `;
 }
 
-function reportsSection(reports = []) {
+function qReportApprovalChain(report = {}, programme = "masters") {
+  const approvals = report?.approvals || {};
+  const steps = [
+    { name: "Sup1", status: approvals.sup1 || "pending" },
+    { name: "Sup2", status: approvals.sup2 || "pending" },
+  ];
+  if (String(programme || "").toLowerCase() === "phd") {
+    steps.push({ name: "Sup3", status: approvals.sup3 || "pending" });
+  }
+  steps.push({ name: "Dean", status: approvals.dean || "pending" });
+  return steps;
+}
+
+function reportsSection(reports = [], programme = "masters") {
   const arr = Array.isArray(reports) ? reports : [];
   return `
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
@@ -149,10 +162,11 @@ function reportsSection(reports = []) {
 
       <div class="mt-4 space-y-3">
         ${arr.length ? arr.map((r) => {
-          const title = r?.title || r?.period || `Report ${r?.id || ""}`.trim() || "Quarterly report";
+          const title = r?.title || r?.period || `Q${r?.quarter || "?"} ${r?.year || ""}`.trim() || `Report ${r?.id || ""}`.trim() || "Quarterly report";
           const status = r?.status || "Pending";
           const s = String(status).toLowerCase();
           const tone = s.includes("approved") ? "green" : s.includes("missing") ? "red" : s.includes("returned") || s.includes("rejected") ? "red" : "yellow";
+          const awaitingDean = (r?.approvals?.dean || "pending") === "pending" && qReportApprovalChain(r, programme).filter((step) => step.name !== "Dean").every((step) => step.status === "approved");
           return `
             <div class="rounded-2xl border border-slate-200 p-4">
               <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -164,9 +178,15 @@ function reportsSection(reports = []) {
                   <div class="mt-1 text-xs text-slate-600">Submitted: ${escapeHtml(formatDate(r?.submittedAt || r?.date))}</div>
                 </div>
                 <div class="shrink-0">
-                  ${approvalChain(r?.approvalChain)}
+                  ${approvalChain(qReportApprovalChain(r, programme))}
                 </div>
               </div>
+              ${awaitingDean ? `
+                <div class="mt-3 flex gap-2">
+                  <button data-report-act="approved" data-report-id="${escapeHtml(r?.id || "")}" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Approve as Dean</button>
+                  <button data-report-act="returned" data-report-id="${escapeHtml(r?.id || "")}" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">Return</button>
+                </div>
+              ` : ""}
             </div>
           `;
         }).join("") : `<div class="text-sm text-slate-600">No quarterly reports returned by the API.</div>`}
@@ -593,7 +613,7 @@ async function load() {
         ${timeline(currentStage)}
         ${supervisorsSection(s?.supervisors || s?.supervision || [])}
         ${documentsSection(s?.documents || s?.requirements || {})}
-        ${reportsSection(s?.quarterlyReports || s?.reports || [])}
+        ${reportsSection(s?.quarterlyReports || s?.reports || [], s?.programme || s?.program || "masters")}
         ${correctionsSection(s?.corrections || {})}
         ${finalStagesSection(s?.finalStages || s?.thesisDefense || {})}
       </div>
@@ -609,6 +629,27 @@ async function load() {
         const studentName =
           s?.name || s?.fullName || `${s?.firstName || ""} ${s?.lastName || ""}`.trim() || "Student";
         directorActionsModal({ studentId, studentName, currentStage });
+      });
+      root.addEventListener("click", async (e) => {
+        const b = e.target?.closest?.("button[data-report-id]");
+        if (!b) return;
+        const action = b.dataset.reportAct;
+        const reportId = b.dataset.reportId;
+        if (!action || !reportId) return;
+
+        try {
+          const comment = action === "returned"
+            ? (window.prompt("Reason for returning this quarterly report:") || "").trim()
+            : "";
+          if (action === "returned" && !comment) return;
+          await api.reviewQuarterlyReport(id, reportId, { action, comment });
+          toast(action === "approved" ? "Quarterly report approved" : "Quarterly report returned", {
+            tone: action === "approved" ? "green" : "yellow",
+          });
+          load();
+        } catch (err) {
+          toast(err?.message || "Failed to review quarterly report", { tone: "red" });
+        }
       });
     }
   } catch (e) {

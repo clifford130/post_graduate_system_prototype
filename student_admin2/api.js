@@ -39,6 +39,15 @@ window.StudentApi = {
   getSession() {
     return studentRequest("/is-logged");
   },
+  getQuarterlyReports() {
+    return studentRequest("/students/me/qreports");
+  },
+  submitQuarterlyReport(payload) {
+    return studentRequest("/students/me/qreports", {
+      method: "POST",
+      body: payload,
+    });
+  },
   getSlots(department = "") {
     const query = department
       ? `?department=${encodeURIComponent(department)}`

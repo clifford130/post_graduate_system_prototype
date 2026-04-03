@@ -5,6 +5,7 @@ import { SystemSettingsModel } from "../models/system-settings.model.js";
 import { ReportModel } from "../models/report.model.js";
 import { bookingsModel } from "../models/student.bookings.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 export const DirectorRouter = Router();
 
@@ -29,6 +30,30 @@ const getAuthUser = (req: Request, res: Response): Promise<any | null> => {
     });
   });
 };
+
+function requiredSupervisorRoles(student: any) {
+  const roles = ["sup1", "sup2"];
+  if (String(student?.programme || "").toLowerCase() === "phd" && student?.supervisors?.sup3) {
+    roles.push("sup3");
+  }
+  return roles;
+}
+
+function nextQuarterForStudent(student: any) {
+  const reports = Array.isArray(student?.quarterlyReports) ? student.quarterlyReports : [];
+  if (!reports.length) return 1;
+
+  const highestQuarter = reports.reduce((max: number, report: any) => {
+    return Math.max(max, Number(report?.quarter || 0));
+  }, 0);
+
+  const latestForHighest = reports.find((report: any) => Number(report?.quarter || 0) === highestQuarter);
+  if (latestForHighest && latestForHighest.status !== "approved") {
+    return highestQuarter;
+  }
+
+  return highestQuarter + 1;
+}
 
 // 1. GET /dashboard/stats
 DirectorRouter.get("/dashboard/stats", async (req: Request, res: Response) => {
@@ -233,6 +258,156 @@ DirectorRouter.post(
 );
 
 DirectorRouter.get(
+  "/students/me/qreports",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+
+      const student = await UserModel.findById(decoded.id).select(
+        "role programme status quarterlyReports supervisors",
+      );
+      if (!student || student.role !== "student") {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      const reports = [...(student.quarterlyReports || [])].sort((a, b) => {
+        if ((b.year || 0) !== (a.year || 0)) return (b.year || 0) - (a.year || 0);
+        return (b.quarter || 0) - (a.quarter || 0);
+      });
+
+      return res.json({
+        success: true,
+        reports,
+        nextQuarter: nextQuarterForStudent(student),
+        programme: student.programme,
+        status: student.status,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error fetching quarterly reports", error });
+    }
+  },
+);
+
+DirectorRouter.post(
+  "/students/me/qreports",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+
+      const student = await UserModel.findById(decoded.id);
+      if (!student || student.role !== "student") {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      if (student.status === "Deferred") {
+        return res.status(403).json({
+          message: "Quarterly reporting is paused while the student is deferred",
+        });
+      }
+
+      const {
+        quarter,
+        year,
+        progressSummary,
+        objectivesAchieved,
+        challengesAndMitigation,
+        nextQuarterPlan,
+      } = req.body || {};
+
+      if (!progressSummary || !objectivesAchieved || !challengesAndMitigation || !nextQuarterPlan) {
+        return res.status(400).json({ message: "All quarterly report fields are required" });
+      }
+
+      const reportQuarter = Number(quarter) || nextQuarterForStudent(student);
+      const reportYear = Number(year) || new Date().getFullYear();
+      const existingIndex = student.quarterlyReports?.findIndex(
+        (report) => report.quarter === reportQuarter && report.year === reportYear,
+      ) ?? -1;
+      const roles = requiredSupervisorRoles(student);
+
+      if (existingIndex >= 0) {
+        const existingReport = student.quarterlyReports?.[existingIndex];
+        if (existingReport?.status && existingReport.status !== "returned") {
+          return res.status(400).json({
+            message: `A report for Q${reportQuarter} ${reportYear} already exists`,
+          });
+        }
+
+        if (student.quarterlyReports && existingReport) {
+          existingReport.status = "pending";
+          existingReport.comment = "";
+          existingReport.submittedAt = new Date();
+          existingReport.progressSummary = progressSummary;
+          existingReport.objectivesAchieved = objectivesAchieved;
+          existingReport.challengesAndMitigation = challengesAndMitigation;
+          existingReport.nextQuarterPlan = nextQuarterPlan;
+          existingReport.approvals = {
+            sup1: roles.includes("sup1") ? "pending" : "approved",
+            sup2: roles.includes("sup2") ? "pending" : "approved",
+            sup3: roles.includes("sup3") ? "pending" : "approved",
+            dean: "pending",
+            finance: "pending",
+          };
+          existingReport.reviewTrail = [
+            ...(existingReport.reviewTrail || []),
+            {
+              role: "student",
+              actor: student.fullName,
+              action: "resubmitted",
+              comment: "Quarterly report resubmitted",
+              at: new Date(),
+            },
+          ];
+        }
+      } else {
+        student.quarterlyReports = student.quarterlyReports || [];
+        student.quarterlyReports.push({
+          id: new mongoose.Types.ObjectId().toString(),
+          quarter: reportQuarter,
+          year: reportYear,
+          status: "pending",
+          comment: "",
+          submittedAt: new Date(),
+          progressSummary,
+          objectivesAchieved,
+          challengesAndMitigation,
+          nextQuarterPlan,
+          approvals: {
+            sup1: roles.includes("sup1") ? "pending" : "approved",
+            sup2: roles.includes("sup2") ? "pending" : "approved",
+            sup3: roles.includes("sup3") ? "pending" : "approved",
+            dean: "pending",
+            finance: "pending",
+          },
+          reviewTrail: [
+            {
+              role: "student",
+              actor: student.fullName,
+              action: "submitted",
+              comment: "Quarterly report submitted",
+              at: new Date(),
+            },
+          ],
+        });
+      }
+
+      student.markModified("quarterlyReports");
+      await student.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Quarterly report submitted successfully",
+        reports: student.quarterlyReports,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error submitting quarterly report", error });
+    }
+  },
+);
+
+DirectorRouter.get(
   "/deferral-requests",
   async (req: Request, res: Response) => {
     try {
@@ -350,6 +525,65 @@ DirectorRouter.post(
       });
     } catch (error) {
       return res.status(500).json({ message: "Error reviewing deferral request", error });
+    }
+  },
+);
+
+DirectorRouter.post(
+  "/students/:id/qreports/:reportId/dean-review",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+      if (!["director", "admin"].includes(decoded.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { action, comment } = req.body || {};
+      if (!["approved", "returned"].includes(action)) {
+        return res.status(400).json({ message: "Action must be approved or returned" });
+      }
+
+      const student = await UserModel.findById(req.params.id);
+      if (!student) {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      const report = student.quarterlyReports?.find((entry) => entry.id === req.params.reportId);
+      if (!report) {
+        return res.status(404).json({ message: "Quarterly report not found" });
+      }
+
+      const roles = requiredSupervisorRoles(student);
+      const supervisorsCleared = roles.every((role) => report.approvals?.[role as keyof typeof report.approvals] === "approved");
+      if (!supervisorsCleared) {
+        return res.status(400).json({ message: "All supervisor approvals must be completed first" });
+      }
+
+      report.approvals.dean = action;
+      report.status = action === "approved" ? "approved" : "returned";
+      report.comment = comment || "";
+      report.reviewTrail = [
+        ...(report.reviewTrail || []),
+        {
+          role: "dean",
+          actor: "PG Dean",
+          action,
+          comment: comment || "",
+          at: new Date(),
+        },
+      ];
+
+      student.markModified("quarterlyReports");
+      await student.save();
+
+      return res.json({
+        success: true,
+        message: `Quarterly report ${action}`,
+        student,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error reviewing quarterly report", error });
     }
   },
 );
