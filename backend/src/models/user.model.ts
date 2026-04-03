@@ -91,6 +91,14 @@ export interface IUser {
     sup2?: string;
     sup3?: string;
   };
+  complianceUploads?: Array<{
+    id: string;
+    type: string;
+    title: string;
+    url?: string;
+    note?: string;
+    submittedAt?: Date;
+  }>;
 }
 
 //  Schema
@@ -238,6 +246,14 @@ const UserSchema = new Schema<IUser>({
     sup2: { type: String, default: "pending" },
     sup3: { type: String, default: "pending" },
   },
+  complianceUploads: [{
+    id: String,
+    type: String,
+    title: String,
+    url: String,
+    note: String,
+    submittedAt: { type: Date, default: Date.now },
+  }],
 }, { timestamps: true });
 
 //  Model

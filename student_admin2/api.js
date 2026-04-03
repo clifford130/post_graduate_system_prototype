@@ -69,6 +69,15 @@ window.StudentApi = {
       body: payload,
     });
   },
+  getComplianceUploads() {
+    return studentRequest("/students/me/compliance");
+  },
+  submitComplianceUpload(payload) {
+    return studentRequest("/students/me/compliance", {
+      method: "POST",
+      body: payload,
+    });
+  },
   submitDeferralRequest(payload) {
     return studentRequest("/students/me/deferral-request", {
       method: "POST",

@@ -88,6 +88,10 @@ function renderStudentDetail(student, supervisorId) {
                <div style="display:flex; flex-direction:column; gap:8px;">${renderCorrections(student.corrections)}</div>
                <button class="btn btn-outline btn-sm mt-4 w-full btn-run-ai">⚡ Re-run AI Correction Scan</button>
             </div>
+            <div class="card">
+               <div class="card-title">NACOSTI & Compliance Uploads</div>
+               <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">${renderComplianceUploads(student.complianceUploads)}</div>
+            </div>
             <div class="card" style="background:var(--navy); color:white;">
                <div class="card-title" style="color:var(--accent);">Full Gate Sign-Off</div>
                <p class="text-[10px] mt-2 opacity-80 leading-relaxed">Executing sign-off confirms that all institutional prerequisites for the current milestone have been met by the candidate.</p>
@@ -148,6 +152,24 @@ function renderCorrections(corrections = []) {
        <div style="font-size:0.8rem; font-weight:500; color:var(--grey-700);">${escapeHtml(c.text)}</div>
     </div>
   `).join('');
+}
+
+function renderComplianceUploads(uploads = []) {
+  if (!uploads.length) return `<div class="p-8 text-center text-muted font-bold text-xs uppercase">No NACOSTI or compliance uploads submitted</div>`;
+  return uploads
+    .slice()
+    .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0))
+    .map(upload => `
+      <div class="flex-between" style="padding:12px 16px; border:1px solid var(--grey-100); border-radius:var(--radius-sm); background:white; align-items:flex-start; gap:12px;">
+         <div>
+            <div class="text-sm font-bold text-navy">${escapeHtml(upload.type || "Compliance Document")}</div>
+            <div class="text-xs font-medium text-muted mt-1">${escapeHtml(upload.title || "-")}</div>
+            <div class="text-[10px] font-bold text-muted uppercase mt-2">${upload.submittedAt ? new Date(upload.submittedAt).toLocaleString() : "-"}</div>
+         </div>
+         ${upload.url ? `<a class="btn btn-outline btn-sm" href="${escapeHtml(upload.url)}" target="_blank" rel="noopener">Open</a>` : `<span class="badge badge-pending">No Link</span>`}
+      </div>
+    `)
+    .join('');
 }
 
 function setupDetailEvents(student) {

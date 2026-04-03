@@ -6,8 +6,39 @@ import { ReportModel } from "../models/report.model.js";
 import { bookingsModel } from "../models/student.bookings.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { readFile } from "fs/promises";
+import { StorageClient } from "@supabase/storage-js";
 
 export const DirectorRouter = Router();
+
+const complianceStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const uploadDir = path.join(process.cwd(), "uploads", "compliance");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `compliance-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const complianceUpload = multer({
+  storage: complianceStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === "application/pdf") {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("Only PDF files are allowed"));
+  },
+});
 
 const getAuthUser = (req: Request, res: Response): Promise<any | null> => {
   return new Promise((resolve) => {
@@ -30,6 +61,25 @@ const getAuthUser = (req: Request, res: Response): Promise<any | null> => {
     });
   });
 };
+
+function buildSupabaseStorageClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL;
+
+  if (!serviceKey || !supabaseUrl) {
+    throw new Error("Missing Supabase credentials");
+  }
+
+  const baseUrl = supabaseUrl.startsWith("http")
+    ? supabaseUrl.replace(/\/+$/, "")
+    : `https://${supabaseUrl}.supabase.co`;
+
+  const storageUrl = `${baseUrl}/storage/v1`;
+  return new StorageClient(storageUrl, {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+  });
+}
 
 function requiredSupervisorRoles(student: any) {
   const roles = ["sup1", "sup2"];
@@ -525,6 +575,166 @@ DirectorRouter.post(
       });
     } catch (error) {
       return res.status(500).json({ message: "Error reviewing deferral request", error });
+    }
+  },
+);
+
+DirectorRouter.get(
+  "/students/me/compliance",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+
+      const student = await UserModel.findById(decoded.id).select("role complianceUploads status department programme fullName userNumber");
+      if (!student || student.role !== "student") {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      return res.json({
+        success: true,
+        uploads: student.complianceUploads || [],
+        status: student.status,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error fetching compliance uploads", error });
+    }
+  },
+);
+
+DirectorRouter.post(
+  "/students/me/compliance",
+  complianceUpload.single("documentFile"),
+  async (req: Request, res: Response) => {
+    let localFilePath: string | null = null;
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+
+      const student = await UserModel.findById(decoded.id);
+      if (!student || student.role !== "student") {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      const { type, note } = req.body || {};
+      if (!type) {
+        return res.status(400).json({ message: "Document type is required" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Please upload a PDF document" });
+      }
+
+      let storageClient: StorageClient;
+      try {
+        storageClient = buildSupabaseStorageClient();
+      } catch (configError) {
+        if (req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(500).json({ message: configError instanceof Error ? configError.message : "Missing Supabase credentials" });
+      }
+
+      localFilePath = req.file.path;
+
+      const safeOriginalName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const objectKey = `compliance/${student._id}/${Date.now()}-${safeOriginalName}`;
+      const fileBuffer = await readFile(localFilePath);
+
+      const { error: uploadError } = await storageClient
+        .from("campusHub_PDF")
+        .upload(objectKey, fileBuffer, {
+          contentType: req.file.mimetype || "application/pdf",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        if (localFilePath && fs.existsSync(localFilePath)) {
+          fs.unlinkSync(localFilePath);
+        }
+        return res.status(500).json({
+          message: "Failed to upload compliance document",
+          error: uploadError.message,
+        });
+      }
+
+      try {
+        if (localFilePath && fs.existsSync(localFilePath)) {
+          fs.unlinkSync(localFilePath);
+        }
+      } catch (cleanupError) {
+        console.error("Failed to delete local compliance upload:", cleanupError);
+      }
+
+      const { data } = storageClient
+        .from("campusHub_PDF")
+        .getPublicUrl(objectKey);
+
+      const entry = {
+        id: new mongoose.Types.ObjectId().toString(),
+        type,
+        title: req.file.originalname,
+        url: data.publicUrl,
+        note,
+        submittedAt: new Date(),
+      };
+
+      student.complianceUploads = student.complianceUploads || [];
+      student.complianceUploads.push(entry);
+      student.markModified("complianceUploads");
+      await student.save();
+
+      return res.status(201).json({ success: true, upload: entry, uploads: student.complianceUploads });
+    } catch (error) {
+      if (localFilePath && fs.existsSync(localFilePath)) {
+        try {
+          fs.unlinkSync(localFilePath);
+        } catch (cleanupError) {
+          console.error("Error cleaning up compliance file:", cleanupError);
+        }
+      }
+
+      if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ message: "File too large. Maximum size is 5MB." });
+      }
+
+      if (error instanceof Error && error.message === "Only PDF files are allowed") {
+        return res.status(400).json({ message: error.message });
+      }
+
+      return res.status(500).json({ message: "Error submitting compliance document", error });
+    }
+  },
+);
+
+DirectorRouter.get(
+  "/compliance/uploads",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+      if (!["director", "admin"].includes(decoded.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const uploads = await UserModel.aggregate([
+        { $match: { role: "student" } },
+        { $unwind: { path: "$complianceUploads", preserveNullAndEmptyArrays: false } },
+        {
+          $project: {
+            studentName: "$fullName",
+            studentNumber: "$userNumber",
+            department: "$department",
+            programme: "$programme",
+            upload: "$complianceUploads",
+          },
+        },
+        { $sort: { "upload.submittedAt": -1 } },
+      ]);
+
+      return res.json({ success: true, uploads });
+    } catch (error) {
+      return res.status(500).json({ message: "Error fetching compliance uploads", error });
     }
   },
 );

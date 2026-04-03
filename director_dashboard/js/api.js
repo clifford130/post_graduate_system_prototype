@@ -71,6 +71,9 @@ export const api = {
       body: { action, comment },
     });
   },
+  async getComplianceUploads() {
+    return request("/compliance/uploads");
+  },
   async resumeStudent(id) {
     return request(`/students/${encodeURIComponent(id)}/resume`, {
       method: "POST",

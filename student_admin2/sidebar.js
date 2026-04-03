@@ -96,6 +96,7 @@
 
   async function logoutStudent() {
     try {
+      window.StudentPageLoader?.show?.();
       await fetch(`${API_BASE}/user/login/logout`, {
         method: "POST",
         credentials: "include",
@@ -111,6 +112,15 @@
       window.location.replace(LOGIN_URL);
     }
   }
+
+  sidebarRoot.querySelectorAll('a[href]').forEach((link) => {
+    const href = link.getAttribute("href");
+    if (!href || href === "javascript:void(0)") return;
+
+    link.addEventListener("click", () => {
+      window.StudentPageLoader?.show?.();
+    });
+  });
 
   sidebarRoot.querySelectorAll("[data-sidebar-action]").forEach((link) => {
     link.addEventListener("click", async () => {
