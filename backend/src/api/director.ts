@@ -339,6 +339,77 @@ DirectorRouter.get(
   },
 );
 
+DirectorRouter.get(
+  "/qreports/board",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+      if (!["director", "admin"].includes(decoded.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { status, q } = req.query;
+      const students = await UserModel.find({
+        role: "student",
+        quarterlyReports: { $exists: true, $ne: [] },
+      }).select("fullName userNumber programme department quarterlyReports");
+
+      let reports = students.flatMap((student) =>
+        (student.quarterlyReports || []).map((report) => ({
+          studentId: String(student._id),
+          studentName: student.fullName,
+          studentNumber: student.userNumber,
+          programme: student.programme,
+          department: student.department,
+          report,
+        })),
+      );
+
+      if (status) {
+        const statusText = String(status).toLowerCase();
+        reports = reports.filter((entry) =>
+          String(entry.report?.status || "").toLowerCase().includes(statusText),
+        );
+      }
+
+      if (q) {
+        const queryText = String(q).toLowerCase();
+        reports = reports.filter((entry) =>
+          [
+            entry.studentName,
+            entry.studentNumber,
+            entry.programme,
+            entry.department,
+            entry.report?.progressSummary,
+            entry.report?.objectivesAchieved,
+            entry.report?.challengesAndMitigation,
+            entry.report?.nextQuarterPlan,
+            `Q${entry.report?.quarter || ""} ${entry.report?.year || ""}`,
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(queryText),
+        );
+      }
+
+      reports.sort((a, b) => {
+        if ((b.report?.year || 0) !== (a.report?.year || 0)) {
+          return (b.report?.year || 0) - (a.report?.year || 0);
+        }
+        if ((b.report?.quarter || 0) !== (a.report?.quarter || 0)) {
+          return (b.report?.quarter || 0) - (a.report?.quarter || 0);
+        }
+        return String(a.studentName || "").localeCompare(String(b.studentName || ""));
+      });
+
+      return res.json({ success: true, reports });
+    } catch (error) {
+      return res.status(500).json({ message: "Error fetching quarterly reports board", error });
+    }
+  },
+);
+
 DirectorRouter.post(
   "/students/me/qreports",
   async (req: Request, res: Response) => {

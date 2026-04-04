@@ -1,8 +1,30 @@
 import { Router, type Request, type Response } from "express";
 import { UserModel } from "../models/user.model.js";
 import { PanelEventModel } from "../models/panel.model.js";
+import mongoose from "mongoose";
 
 export const SupervisorRouter = Router();
+
+async function resolveSupervisorIdentifiers(rawSupervisorId: string) {
+  const identifiers = new Set<string>();
+  if (rawSupervisorId) identifiers.add(rawSupervisorId);
+
+  if (mongoose.Types.ObjectId.isValid(rawSupervisorId)) {
+    const user = await UserModel.findById(rawSupervisorId).select("fullName userNumber");
+    if (user?.fullName) identifiers.add(user.fullName);
+    if (user?.userNumber) identifiers.add(user.userNumber);
+    identifiers.add(String(rawSupervisorId));
+  }
+
+  return Array.from(identifiers).filter(Boolean);
+}
+
+function resolveSupervisorSlot(student: any, identifiers: string[]) {
+  if (identifiers.includes(String(student?.supervisors?.sup1 || ""))) return "sup1";
+  if (identifiers.includes(String(student?.supervisors?.sup2 || ""))) return "sup2";
+  if (identifiers.includes(String(student?.supervisors?.sup3 || ""))) return "sup3";
+  return null;
+}
 
 function requiredSupervisorRoles(student: any) {
   const roles = ["sup1", "sup2"];
@@ -16,20 +38,14 @@ function requiredSupervisorRoles(student: any) {
 // GET /supervisor/:id/students
 SupervisorRouter.get("/supervisor/:id/students", async (req: Request, res: Response) => {
   try {
-    let supervisorId = req.params.id;
-
-    // Smart ID Resolution: If it's a valid ObjectId, find the user's fullName
-    if (mongoose.Types.ObjectId.isValid(supervisorId)) {
-      const user = await UserModel.findById(supervisorId);
-      if (user) supervisorId = user.fullName;
-    }
+    const identifiers = await resolveSupervisorIdentifiers(String(req.params.id || ""));
 
     // Find students where this supervisor is sup1, sup2, or sup3
     const students = await UserModel.find({
       $or: [
-        { "supervisors.sup1": supervisorId },
-        { "supervisors.sup2": supervisorId },
-        { "supervisors.sup3": supervisorId }
+        { "supervisors.sup1": { $in: identifiers } },
+        { "supervisors.sup2": { $in: identifiers } },
+        { "supervisors.sup3": { $in: identifiers } }
       ],
       role: "student"
     } as any);
@@ -180,22 +196,89 @@ SupervisorRouter.get("/students/:id/qreports", async (req: Request, res: Respons
   }
 });
 
-// 6. Analytics: Workload & Bottlenecks
-SupervisorRouter.get("/supervisor/:id/analytics", async (req: Request, res: Response) => {
+SupervisorRouter.get("/supervisor/:id/qreports", async (req: Request, res: Response) => {
   try {
-    let supervisorId = req.params.id;
-
-    // Smart ID Resolution: If it's a valid ObjectId, find the user's fullName
-    if (mongoose.Types.ObjectId.isValid(supervisorId)) {
-      const user = await UserModel.findById(supervisorId);
-      if (user) supervisorId = user.fullName;
-    }
+    const identifiers = await resolveSupervisorIdentifiers(String(req.params.id || ""));
+    const { status, q } = req.query;
 
     const students = await UserModel.find({
       $or: [
-        { "supervisors.sup1": supervisorId },
-        { "supervisors.sup2": supervisorId },
-        { "supervisors.sup3": supervisorId }
+        { "supervisors.sup1": { $in: identifiers } },
+        { "supervisors.sup2": { $in: identifiers } },
+        { "supervisors.sup3": { $in: identifiers } },
+      ],
+      role: "student",
+      quarterlyReports: { $exists: true, $ne: [] },
+    } as any).select("fullName userNumber programme department supervisors quarterlyReports");
+
+    let reports = students.flatMap((student) => {
+      const supervisorRole = resolveSupervisorSlot(student, identifiers) || "sup1";
+
+      return (student.quarterlyReports || []).map((report) => ({
+        studentId: String(student._id),
+        studentName: student.fullName,
+        studentNumber: student.userNumber,
+        programme: student.programme,
+        department: student.department,
+        supervisorRole,
+        canReview: report.approvals?.[supervisorRole as keyof typeof report.approvals] === "pending",
+        report,
+      }));
+    });
+
+    if (status) {
+      const statusText = String(status).toLowerCase();
+      reports = reports.filter((entry) =>
+        String(entry.report?.status || "").toLowerCase().includes(statusText),
+      );
+    }
+
+    if (q) {
+      const queryText = String(q).toLowerCase();
+      reports = reports.filter((entry) =>
+        [
+          entry.studentName,
+          entry.studentNumber,
+          entry.programme,
+          entry.department,
+          entry.report?.progressSummary,
+          entry.report?.objectivesAchieved,
+          entry.report?.challengesAndMitigation,
+          entry.report?.nextQuarterPlan,
+          `Q${entry.report?.quarter || ""} ${entry.report?.year || ""}`,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(queryText),
+      );
+    }
+
+    reports.sort((a, b) => {
+      if ((b.report?.year || 0) !== (a.report?.year || 0)) {
+        return (b.report?.year || 0) - (a.report?.year || 0);
+      }
+      if ((b.report?.quarter || 0) !== (a.report?.quarter || 0)) {
+        return (b.report?.quarter || 0) - (a.report?.quarter || 0);
+      }
+      return String(a.studentName || "").localeCompare(String(b.studentName || ""));
+    });
+
+    res.json({ success: true, reports });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching supervisor quarterly reports", error });
+  }
+});
+
+// 6. Analytics: Workload & Bottlenecks
+SupervisorRouter.get("/supervisor/:id/analytics", async (req: Request, res: Response) => {
+  try {
+    const identifiers = await resolveSupervisorIdentifiers(String(req.params.id || ""));
+
+    const students = await UserModel.find({
+      $or: [
+        { "supervisors.sup1": { $in: identifiers } },
+        { "supervisors.sup2": { $in: identifiers } },
+        { "supervisors.sup3": { $in: identifiers } }
       ],
       role: "student"
     } as any);
@@ -208,7 +291,7 @@ SupervisorRouter.get("/supervisor/:id/analytics", async (req: Request, res: Resp
       }, {}),
       bottlenecks: students.filter(s => s.atRisk).length,
       pendingAssignments: students.filter(s => {
-        const slot = s.supervisors?.sup1 === supervisorId ? "sup1" : (s.supervisors?.sup2 === supervisorId ? "sup2" : "sup3");
+        const slot = resolveSupervisorSlot(s, identifiers) || "sup1";
         return s.assignmentStatus?.[slot as keyof typeof s.assignmentStatus] === "pending";
       }).length,
       pendingQReports: students.filter(s => s.quarterlyReports?.some(r => r.status === "pending")).length
@@ -224,6 +307,7 @@ SupervisorRouter.post("/students/:id/qreports/:reportId/approve", async (req: Re
   try {
     const { id, reportId } = req.params;
     const { supervisorId, role, action, comment } = req.body; // role: sup1, sup2, sup3, dean, finance
+    const identifiers = await resolveSupervisorIdentifiers(String(supervisorId || ""));
 
     const student = await UserModel.findById(id);
     if (!student) return res.status(404).json({ message: "Student not found" });
@@ -232,13 +316,7 @@ SupervisorRouter.post("/students/:id/qreports/:reportId/approve", async (req: Re
     if (reportIndex === undefined || reportIndex === -1) return res.status(404).json({ message: "Report not found" });
 
     const report = student.quarterlyReports?.[reportIndex];
-    const supervisorSlot = student.supervisors?.sup1 === supervisorId
-      ? "sup1"
-      : student.supervisors?.sup2 === supervisorId
-        ? "sup2"
-        : student.supervisors?.sup3 === supervisorId
-          ? "sup3"
-          : null;
+    const supervisorSlot = resolveSupervisorSlot(student, identifiers);
 
     if (!supervisorSlot || supervisorSlot !== role) {
       return res.status(403).json({ message: "Supervisor is not assigned to this report slot" });
@@ -337,4 +415,3 @@ SupervisorRouter.post("/students/:id/automation/suggest", async (req: Request, r
     res.status(500).json({ message: "Error running automation check", error });
   }
 });
-import mongoose from "mongoose";

@@ -63,6 +63,13 @@ export const api = {
   async getReports(studentId) {
     return request(`/students/${encodeURIComponent(studentId)}/qreports`);
   },
+  async getQuarterlyReportsBoard(supervisorId, { status, q } = {}) {
+    const query = new URLSearchParams();
+    if (status) query.set("status", status);
+    if (q) query.set("q", q);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request(`/supervisor/${encodeURIComponent(supervisorId)}/qreports${suffix}`);
+  },
 
   // Analytics & Automation
   async getAnalytics(supervisorId) {

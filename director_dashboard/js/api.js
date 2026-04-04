@@ -71,6 +71,11 @@ export const api = {
       body: { action, comment },
     });
   },
+  async getQuarterlyReportsBoard({ status, q } = {}) {
+    return request("/qreports/board", {
+      query: { status, q },
+    });
+  },
   async getComplianceUploads() {
     return request("/compliance/uploads");
   },

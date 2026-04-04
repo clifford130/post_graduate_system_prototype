@@ -82,13 +82,15 @@ export function getSupervisorSession() {
   return { 
     id: user._id || user.id, 
     name: user.fullName || "Dr. Supervisor",
-    fullName: user.fullName || "Dr. Supervisor" 
+    fullName: user.fullName || "Dr. Supervisor",
+    userNumber: user.userNumber || ""
   };
 }
 
 import { initDashboard } from './dashboard.js';
 import { initStudentDetails } from './student-details.js';
 import { initNotifications } from './notifications.js';
+import { initQuarterlyReportsBoard } from './qreports.js';
 // SPA Switcher
 export function navigateTo(target, btn = null, extraId = null) {
     // Close mobile nav on switch
@@ -106,6 +108,7 @@ export function navigateTo(target, btn = null, extraId = null) {
         'student-detail': { title: "Student Detail View", sub: "Deep Oversight & Sign-Off Hub" },
         notifications: { title: "Alerts Center", sub: "Smart alerts from RU PG State Machine" },
         presentations: { title: "Presentations Dashboard", sub: "Upcoming calendar and participation logic" },
+        qreports: { title: "Quarterly Reports", sub: "Supervisor review board for submitted student quarterly reports" },
         approvals: { title: "Progress Approvals", sub: "Institutional gatekeeper oversight hub" },
         settings: { title: "Profile Management", sub: "Supervisor security and personal records" }
     };
@@ -121,6 +124,7 @@ export function navigateTo(target, btn = null, extraId = null) {
     if (target === "dashboard") initDashboard();
     else if (target === "student-detail") initStudentDetails(extraId);
     else if (target === "notifications") initNotifications();
+    else if (target === "qreports") initQuarterlyReportsBoard();
     else if (target === "presentations") {
         import('./presentations.js').then(m => m.initPresentations());
     }
