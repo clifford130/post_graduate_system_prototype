@@ -11,6 +11,29 @@ function statusBadge(status) {
   return `<span class="badge ${cls}">${escapeHtml(status || "-")}</span>`;
 }
 
+function reportDetails(report) {
+  return `
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-muted">Progress Summary</div>
+        <div class="text-xs font-medium text-grey-700 mt-1">${escapeHtml(report.progressSummary || "-")}</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-muted">Objectives Achieved</div>
+        <div class="text-xs font-medium text-grey-700 mt-1">${escapeHtml(report.objectivesAchieved || "-")}</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-muted">Challenges and Mitigation</div>
+        <div class="text-xs font-medium text-grey-700 mt-1">${escapeHtml(report.challengesAndMitigation || "-")}</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-muted">Next Quarter Plan</div>
+        <div class="text-xs font-medium text-grey-700 mt-1">${escapeHtml(report.nextQuarterPlan || "-")}</div>
+      </div>
+    </div>
+  `;
+}
+
 function renderBoard(reports) {
   const root = qs("#section-qreports");
   if (!root) return;
@@ -40,7 +63,7 @@ function renderBoard(reports) {
             <tr style="background:var(--grey-50);">
               <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Student</th>
               <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Quarter</th>
-              <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Summary</th>
+              <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Report Details</th>
               <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">My Slot</th>
               <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Status</th>
               <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Actions</th>
@@ -74,10 +97,7 @@ function rowHtml(entry) {
         <div class="text-sm font-bold text-navy">Q${escapeHtml(String(report.quarter || "-"))} ${escapeHtml(String(report.year || "-"))}</div>
         <div class="text-[10px] font-bold text-muted uppercase mt-1">${report.submittedAt ? new Date(report.submittedAt).toLocaleDateString() : "-"}</div>
       </td>
-      <td class="p-4">
-        <div class="text-xs font-medium text-grey-700">${escapeHtml(report.progressSummary || "-")}</div>
-        <div class="text-[10px] text-muted mt-2">${escapeHtml(report.nextQuarterPlan || "-")}</div>
-      </td>
+      <td class="p-4">${reportDetails(report)}</td>
       <td class="p-4">
         <div class="text-xs font-bold uppercase text-blue">${escapeHtml(entry.supervisorRole || "-")}</div>
         <div class="text-[10px] text-muted mt-1">${escapeHtml(report.approvals?.[entry.supervisorRole] || "-")}</div>

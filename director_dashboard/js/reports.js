@@ -58,7 +58,7 @@ function boardHtml() {
             <tr>
               <th class="px-4 py-3 font-semibold">Student</th>
               <th class="px-4 py-3 font-semibold">Quarter</th>
-              <th class="px-4 py-3 font-semibold">Summary</th>
+              <th class="px-4 py-3 font-semibold">Report Details</th>
               <th class="px-4 py-3 font-semibold">Approvals</th>
               <th class="px-4 py-3 font-semibold">Status</th>
               <th class="px-4 py-3 font-semibold">Actions</th>
@@ -109,6 +109,29 @@ function canDirectorReview(report) {
   return sup1Approved && sup2Approved && deanPending;
 }
 
+function reportDetails(report) {
+  return `
+    <div class="space-y-3">
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Progress Summary</div>
+        <div class="mt-1 text-xs text-slate-700">${escapeHtml(report.progressSummary || "-")}</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Objectives Achieved</div>
+        <div class="mt-1 text-xs text-slate-700">${escapeHtml(report.objectivesAchieved || "-")}</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Challenges and Mitigation</div>
+        <div class="mt-1 text-xs text-slate-700">${escapeHtml(report.challengesAndMitigation || "-")}</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Next Quarter Plan</div>
+        <div class="mt-1 text-xs text-slate-700">${escapeHtml(report.nextQuarterPlan || "-")}</div>
+      </div>
+    </div>
+  `;
+}
+
 function rowHtml(entry) {
   const report = entry.report || {};
   const canReview = canDirectorReview(report);
@@ -124,10 +147,7 @@ function rowHtml(entry) {
         <div class="font-medium text-slate-900">Q${escapeHtml(String(report.quarter || "-"))} ${escapeHtml(String(report.year || "-"))}</div>
         <div class="mt-1 text-xs text-slate-500">${formatDate(report.submittedAt)}</div>
       </td>
-      <td class="px-4 py-4">
-        <div class="font-medium text-slate-900">${escapeHtml(report.progressSummary || "-")}</div>
-        <div class="mt-2 text-xs text-slate-500">${escapeHtml(report.nextQuarterPlan || "-")}</div>
-      </td>
+      <td class="px-4 py-4">${reportDetails(report)}</td>
       <td class="px-4 py-4">${approvalChain(report)}</td>
       <td class="px-4 py-4">${badge({ label: report.status || "-", tone: toneForStatus(report.status) })}</td>
       <td class="px-4 py-4">
