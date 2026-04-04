@@ -40,6 +40,9 @@
   <button class="nav-item" onclick="navigate('scheduling', this)">
     <span class="nav-icon">📅</span> Scheduling
   </button>
+  <button class="nav-item" onclick="navigate('panels', this)">
+    <span class="nav-icon">🏁</span> Panel Results
+  </button>
 
   <div class="nav-section-label" style="margin-top:8px;">Administration</div>
   <button class="nav-item" onclick="navigate('finance', this)">
@@ -398,6 +401,23 @@
             <button class="btn btn-primary" onclick="bookPresentation()">📅 Request Booking</button>
           </div>
         </div>
+    </section>
+
+    <section id="section-panels" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Panel Evaluation History</div>
+            <div class="card-sub">Independent assessments and final board verdicts</div>
+          </div>
+        </div>
+        <div id="panel-results-container">
+          <div style="text-align: center; padding: 40px; color: var(--grey-500);">
+            <div style="font-size: 40px; margin-bottom: 16px;">🏁</div>
+            <p>No panel evaluations have been recorded for your current research stage.</p>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="section-finance" class="section">

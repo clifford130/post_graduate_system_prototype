@@ -11,6 +11,10 @@ export async function initStudentDetails(studentId) {
     const detail = students.find(s => s._id === studentId);
 
     if (!detail) throw new Error("Student not found or not assigned to you");
+    
+    // Fetch Panel Data for formal corrections
+    const panels = await api.getStudentPanels(studentId);
+    detail.panels = panels || [];
 
     renderStudentDetail(detail, session.id);
   } catch (err) {
@@ -80,13 +84,12 @@ function renderStudentDetail(student, supervisorId) {
          </div>
          <div style="display:flex; flex-direction:column; gap:20px;">
             <div class="card">
-               <div class="card-title">AI Assessment Checklist</div>
-               <div class="alert alert-info py-3 mb-4 mt-4" style="font-size:0.75rem;">
-                  <span class="alert-icon">🤖</span>
-                  <div>Candidate has completed <strong>${student.corrections?.filter(c => c.completed).length || 0} / ${student.corrections?.length || 0}</strong> corrections.</div>
+               <div class="card-title">Panel Corrections Checklist</div>
+               <div class="alert alert-warn py-3 mb-4 mt-4" style="font-size:0.75rem;">
+                  <span class="alert-icon">⚖️</span>
+                  <div>Track and approve formal panel corrections from presentations.</div>
                </div>
-               <div style="display:flex; flex-direction:column; gap:8px;">${renderCorrections(student.corrections)}</div>
-               <button class="btn btn-outline btn-sm mt-4 w-full btn-run-ai">⚡ Re-run AI Correction Scan</button>
+               <div style="display:flex; flex-direction:column; gap:8px;">${renderPanelCorrections(student.panels)}</div>
             </div>
             <div class="card">
                <div class="card-title">NACOSTI & Compliance Uploads</div>
@@ -144,12 +147,28 @@ function renderReports(reports = []) {
   `).join('');
 }
 
-function renderCorrections(corrections = []) {
-  if (!corrections.length) return `<div class="p-8 text-center text-muted font-bold text-xs uppercase">No corrections found</div>`;
-  return corrections.map(c => `
-    <div class="flex-row" style="padding:10px; background:var(--grey-100); border-radius:var(--radius-sm); align-items:flex-start;">
-       <div style="font-size:0.9rem; margin-top:2px;">${c.completed ? '✅' : '⏳'}</div>
-       <div style="font-size:0.8rem; font-weight:500; color:var(--grey-700);">${escapeHtml(c.text)}</div>
+function renderPanelCorrections(panels = []) {
+  const allCorrections = panels.flatMap(p => (p.corrections || []).map(c => ({ ...c, panelId: p._id, stage: p.stage })));
+  if (!allCorrections.length) return `<div class="p-8 text-center text-muted font-bold text-xs uppercase italic">No formal panel corrections recorded</div>`;
+  
+  return allCorrections.map(c => `
+    <div class="flex-between" style="padding:10px 14px; background:white; border:1px solid #f1f5f9; border-radius:var(--radius-sm); align-items:center;">
+       <div style="flex:1; margin-right:12px;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+             <span class="text-[9px] font-bold text-muted uppercase tracking-tighter">${c.stage}</span>
+             <span class="badge ${c.category === 'critical' ? 'badge-deferred' : 'badge-pending'}" style="font-size:0.55rem; padding:1px 6px;">${c.category}</span>
+          </div>
+          <div style="font-size:0.75rem; font-weight:500; color:var(--grey-700);">${escapeHtml(c.description)}</div>
+       </div>
+       <div style="text-align:right;">
+          ${c.status === 'fixed' ? `
+             <button class="btn btn-primary btn-xs btn-approve-correction" data-panel-id="${c.panelId}" data-id="${c._id}">Approve Fix</button>
+          ` : `
+             <span class="text-[9px] font-bold ${c.status === 'approved' ? 'text-green-500' : 'text-slate-400'} uppercase">
+                ${c.status}
+             </span>
+          `}
+       </div>
     </div>
   `).join('');
 }
@@ -175,13 +194,14 @@ function renderComplianceUploads(uploads = []) {
 function setupDetailEvents(student) {
   qsa(".btn-action-center").forEach(btn => { btn.onclick = () => openActionCenter(student); });
 
-  qs(".btn-run-ai")?.addEventListener("click", async () => {
-     toast("AI Engine: Scanning Research Draft...", { tone: "blue" });
-     try {
-        await api.triggerAutoCheck(student._id);
-        toast("Scan Complete: Conditions Updated", { tone: "green" });
-        initStudentDetails(student._id);
-     } catch(e) { toast("Error: " + e.message, { tone: "red" }); }
+  qsa(".btn-approve-correction").forEach(btn => {
+     btn.onclick = async () => {
+        try {
+           await api.approvePanelCorrection(btn.dataset.panelId, btn.dataset.id);
+           toast("Correction Officially Approved", { tone: "green" });
+           initStudentDetails(student._id);
+        } catch(e) { toast("Error: " + e.message, { tone: "red" }); }
+     };
   });
 
   qsa(".btn-review-report").forEach(btn => { btn.onclick = () => openReportApprovalModal(student, btn.dataset.id); });

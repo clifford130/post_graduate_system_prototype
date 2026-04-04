@@ -209,6 +209,35 @@ export const api = {
       body: { reason },
     });
   },
+  
+  // Panels
+  async getPanels() {
+    return request("/panels");
+  },
+  async createPanel(payload) {
+    return request("/panels", {
+      method: "POST",
+      body: payload
+    });
+  },
+  async getPanelResults(panelId) {
+    return request(`/panels/${encodeURIComponent(panelId)}/results`);
+  },
+  async getEligiblePanelists() {
+    return request("/users/eligible-panelists");
+  },
+  async reassignPanelist(panelId, payload) {
+    return request(`/panels/${encodeURIComponent(panelId)}/reassign`, {
+      method: "POST",
+      body: payload
+    });
+  },
+  async revokePanelist(panelId, memberId) {
+    return request(`/panels/${encodeURIComponent(panelId)}/revoke`, {
+      method: "POST",
+      body: { memberId }
+    });
+  },
 };
 
 export { API_BASE };

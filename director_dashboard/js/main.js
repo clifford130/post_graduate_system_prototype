@@ -242,6 +242,7 @@ export async function initShell() {
     { key: "compliance", label: "Fieldwork / NACOSTI", href: "./compliance.html" },
     { key: "thesis", label: "Thesis & Defense", href: "./thesis.html" },
     { key: "graduation", label: "Graduation", href: "./graduation.html" },
+    { key: "panels", label: "Panel Management", href: "./panels.html" },
     { key: "analytics", label: "Analytics", href: "./analytics.html" },
     { key: "settings", label: "Settings", href: "./settings.html" },
   ];

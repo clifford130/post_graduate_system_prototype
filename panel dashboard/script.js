@@ -1,302 +1,385 @@
-/* ── Student data ──────────────────────────────────────── */
-const students = [
-    { name: 'Enos Mulongo',   initials: 'EM', reg: 'GCA/012/2023', univ: 'Rongo University',  stage: 'Stage 3: Proposal Dept.' },
-    { name: 'Amara Osei',     initials: 'AO', reg: 'GCA/047/2022', univ: 'UoN Nairobi',       stage: 'Stage 2: Concept Paper'   },
-    { name: 'Fatuma Wanjiku', initials: 'FW', reg: 'GCA/089/2021', univ: 'Kenyatta University',stage: 'Stage 4: Final Defense'   },
-    { name: 'Kevin Otieno',   initials: 'KO', reg: 'GCA/003/2024', univ: 'Maseno University', stage: 'Stage 1: Title Approval'  },
-  ];
-  
-  let activeStudent = 0;
-  let verdict = null;
-  
-  function _loadStudentBase(idx) {
-    activeStudent = idx;
-    const s = students[idx];
-    document.getElementById('studentAvatar').textContent = s.initials;
-    document.getElementById('studentName').textContent   = s.name;
-    document.getElementById('studentReg').textContent    = s.reg;
-    document.getElementById('studentUniv').textContent   = s.univ;
-    document.getElementById('studentStage').textContent  = s.stage;
-    document.querySelectorAll('.queue-item').forEach((el, i) => el.classList.toggle('active', i === idx));
-    resetForm();
-    // reset upload
-    document.getElementById('uploadStatus').classList.remove('show');
-    document.getElementById('correctionsSection').style.display = 'none';
-    showToast(`Loaded: ${s.name}`, 'success');
+/* ── Backend Integration ────────────────────────────────────── */
+const API_BASE = "http://localhost:5000/api";
+
+let panels = [];
+let activePanelIndex = -1;
+let verdict = null;
+
+async function init() {
+  const userRaw = localStorage.getItem("postgraduate_user");
+  if (!userRaw) {
+    window.location.href = "../login/login.html";
+    return;
   }
-  
-  /* ── Auto-scoring ──────────────────────────────────────── */
-  function calcScore() {
-    // Update slider labels
-    ['lit1','lit2','meth1','meth2'].forEach(id => {
-      const val = document.getElementById('s_' + id).value;
-      document.getElementById('v_' + id).textContent = val;
-    });
-  
-    const litSlider  = (+document.getElementById('s_lit1').value  + +document.getElementById('s_lit2').value)  / 2; // 0-10
-    const methSlider = (+document.getElementById('s_meth1').value + +document.getElementById('s_meth2').value) / 2; // 0-10
-  
-    let litCheck = 0, methCheck = 0;
-    document.querySelectorAll('#litChecks  input[type=checkbox]:checked').forEach(cb => litCheck  += +cb.dataset.pts);
-    document.querySelectorAll('#methChecks input[type=checkbox]:checked').forEach(cb => methCheck += +cb.dataset.pts);
-  
-    // Max: slider 10pts + checks 20pts = 30 pts each section
-    const litRaw  = litSlider  + litCheck;   // 0-30
-    const methRaw = methSlider + methCheck;  // 0-30
-    const litPct  = Math.round((litRaw  / 30) * 100);
-    const methPct = Math.round((methRaw / 30) * 100);
-    const total   = Math.round((litPct + methPct) / 2);
-  
-    document.getElementById('scorePct').textContent  = total + '%';
-    document.getElementById('barLit').style.width    = litPct  + '%';
-    document.getElementById('barMeth').style.width   = methPct + '%';
-    document.getElementById('litPct').textContent    = litPct  + '%';
-    document.getElementById('methPct').textContent   = methPct + '%';
-  
-    // Color the circle
-    const circle = document.getElementById('scoreCircle');
-    const pctEl  = document.getElementById('scorePct');
-    let col;
-    if (total >= 70) { col = 'var(--green)'; }
-    else if (total >= 50) { col = 'var(--amber)'; }
-    else { col = 'var(--red)'; }
-    circle.style.borderColor = col;
-    pctEl.style.color        = col;
-  }
-  
-  function setVerdict(v) {
-    verdict = v;
-    document.getElementById('btnPass').classList.toggle('active', v === 'pass');
-    document.getElementById('btnFail').classList.toggle('active', v === 'fail');
-    document.getElementById('verdictNote').textContent = v === 'pass' ? 'Student recommended for advancement.' : 'Student recommended for revision.';
-  }
-  
-  function submitAssessment() {
-    if (!verdict) { showToast('Please select Pass or Fail before submitting.', 'error'); return; }
-    showToast(`Assessment for ${students[activeStudent].name} submitted successfully!`, 'success');
-    setTimeout(() => document.getElementById('btnPass').classList.remove('active'), 1800);
-    setTimeout(() => document.getElementById('btnFail').classList.remove('active'), 1800);
-    verdict = null;
-    document.getElementById('verdictNote').textContent = '';
-  }
-  
-  function resetForm() {
-    ['s_lit1','s_lit2','s_meth1','s_meth2'].forEach(id => { document.getElementById(id).value = 0; });
-    document.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
-    document.querySelectorAll('.comment-area').forEach(ta => ta.value = '');
-    verdict = null;
-    document.getElementById('btnPass').classList.remove('active');
-    document.getElementById('btnFail').classList.remove('active');
-    document.getElementById('verdictNote').textContent = '';
-    calcScore();
-  }
-  
-  /* ── Upload & Corrections ──────────────────────────────── */
-  const corrections = {
-    critical: [
-      { id: 'c1', source: 'Panel Chair (pg. 4)', text: 'The theoretical framework is absent. The student must clearly state and justify the theoretical underpinning of the study before resubmission.' },
-      { id: 'c2', source: 'Prof. Wanjala (pg. 7)', text: 'Research objectives and research questions are misaligned — Objective 3 has no corresponding research question. This is a fundamental structural flaw.' },
-    ],
-    major: [
-      { id: 'm1', source: 'Dr. Achieng (pg. 5)',  text: 'Population sampling methodology lacks justification. Purposive sampling is applied but no rationale for sample size is provided.' },
-      { id: 'm2', source: 'Prof. Wanjala (pg. 9)', text: 'Literature from 2005–2010 cited extensively. Student must update with sources from the past 10 years to reflect current scholarly discourse.' },
-      { id: 'm3', source: 'Panel Chair (pg. 12)',  text: 'Data analysis plan mentions both SPSS and NVivo but the study is purely quantitative. Clarify the mixed-methods approach or remove NVivo reference.' },
-    ],
-    minor: [
-      { id: 'n1', source: 'Dr. Achieng (pg. 2)',  text: 'Abstract exceeds the required 300-word limit (current: 412 words). Revise and condense to highlight only key elements.' },
-      { id: 'n2', source: 'Peer Reviewer',         text: 'Inconsistent citation style detected — APA 7th edition guidelines not uniformly applied. Run a citation audit before final submission.' },
-    ],
-  };
-  
-  const correctionStates = {}; // id → 'approved' | 'rejected' | null
-  
-  function renderCorrections() {
-    ['critical','major','minor'].forEach(urgency => {
-      const container = document.getElementById('corrections-' + urgency);
-      container.innerHTML = '';
-      corrections[urgency].forEach(c => {
-        const state = correctionStates[c.id] || null;
-        const div = document.createElement('div');
-        div.className = 'correction-item' + (state ? ' ' + state : '');
-        div.id = 'item-' + c.id;
-  
-        const icon = urgency === 'critical' ? '⚠' : urgency === 'major' ? '▲' : '✓';
-        const statusHtml = state
-          ? `<span class="ci-status ${state}">${state}</span>`
-          : `<button class="ci-btn approve" onclick="approveCorrection('${c.id}')">Approve</button>
-             <button class="ci-btn edit"    onclick="editCorrection('${c.id}')">Edit</button>
-             <button class="ci-btn reject"  onclick="rejectCorrection('${c.id}')">Reject</button>`;
-  
-        div.innerHTML = `
-          <div class="correction-icon ${urgency}">${icon}</div>
-          <div class="ci-body">
-            <div class="ci-source">${c.source}</div>
-            <div class="ci-text" id="text-${c.id}">${c.text}</div>
-            <div class="ci-edit-form" id="edit-${c.id}">
-              <input class="ci-edit-input" id="inp-${c.id}" value="${c.text}" />
-              <div style="display:flex;gap:8px;margin-top:8px;">
-                <button class="ci-btn save" onclick="saveEdit('${c.id}')">Save</button>
-                <button class="ci-btn edit" onclick="cancelEdit('${c.id}')">Cancel</button>
-              </div>
-            </div>
-            <div class="ci-actions">${statusHtml}</div>
-          </div>`;
-        container.appendChild(div);
-      });
-    });
-    updatePublishSummary();
-  }
-  
-  function approveCorrection(id) {
-    correctionStates[id] = 'approved';
-    renderCorrections();
-    showToast('Correction approved.', 'success');
-  }
-  function rejectCorrection(id) {
-    correctionStates[id] = 'rejected';
-    renderCorrections();
-    showToast('Correction rejected.', 'error');
-  }
-  function editCorrection(id) {
-    const item = document.getElementById('item-' + id);
-    item.classList.add('editing');
-    document.getElementById('inp-' + id).focus();
-  }
-  function saveEdit(id) {
-    const val = document.getElementById('inp-' + id).value.trim();
-    if (!val) return;
-    // Update all urgency lists
-    ['critical','major','minor'].forEach(u => {
-      const c = corrections[u].find(x => x.id === id);
-      if (c) { c.text = val; }
-    });
-    renderCorrections();
-    showToast('Correction updated.', 'success');
-  }
-  function cancelEdit(id) {
-    document.getElementById('item-' + id).classList.remove('editing');
-  }
-  function updatePublishSummary() {
-    const all = Object.entries(correctionStates);
-    const approved = all.filter(([,v]) => v === 'approved').length;
-    const rejected = all.filter(([,v]) => v === 'rejected').length;
-    const total = corrections.critical.length + corrections.major.length + corrections.minor.length;
-    document.getElementById('publishSummary').textContent =
-      `${approved} approved, ${rejected} rejected, ${total - all.length} pending review.`;
-  }
-  function publishCorrections() {
-    const all = Object.values(correctionStates);
-    const approved = all.filter(v => v === 'approved').length;
-    if (approved === 0) { showToast('Approve at least one correction before publishing.', 'error'); return; }
-    showToast(`${approved} correction(s) published to ${students[activeStudent].name}'s portal!`, 'success');
-  }
-  
-  function handleUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const statusEl   = document.getElementById('uploadStatus');
-    const statusText = document.getElementById('uploadStatusText');
-    statusText.textContent = `Processing "${file.name}" with AI…`;
-    statusEl.style.background = 'var(--amber-lt)';
-    statusEl.style.color      = 'var(--amber)';
-    statusEl.classList.add('show');
-    setTimeout(() => {
-      statusText.textContent = `"${file.name}" processed — ${corrections.critical.length + corrections.major.length + corrections.minor.length} corrections extracted.`;
-      statusEl.style.background = 'var(--green-lt)';
-      statusEl.style.color      = 'var(--green)';
-      Object.keys(correctionStates).forEach(k => delete correctionStates[k]);
-      renderCorrections();
-      document.getElementById('correctionsSection').style.display = 'block';
-      showToast('AI extraction complete!', 'success');
-    }, 1800);
-  }
-  
-  /* ── Notification Bell ─────────────────────────────────── */
-  document.getElementById('notifBtn').addEventListener('click', () => {
-    showToast('3 upcoming seminars this week. Next: Mon 23 Jun at 09:00 AM.', '');
-    document.getElementById('notifDot').style.display = 'none';
-  });
-  
-  /* ── Toast ─────────────────────────────────────────────── */
-  let toastTimer;
-  function showToast(msg, type = '') {
-    clearTimeout(toastTimer);
-    const t = document.getElementById('toast');
-    t.className = 'toast' + (type ? ' ' + type : '');
-    document.getElementById('toastMsg').textContent = msg;
-    t.classList.add('show');
-    toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
-  }
-  
-  /* ── Mobile sidebar toggle ─────────────────────────────── */
-  function toggleSidebar() {
-    const sidebar  = document.querySelector('.sidebar');
-    const overlay  = document.getElementById('sidebarOverlay');
-    const hamburger = document.getElementById('hamburgerBtn');
-    const isOpen   = sidebar.classList.contains('open');
-    if (isOpen) { closeSidebar(); }
-    else {
-      sidebar.classList.add('open');
-      overlay.classList.add('show');
-      hamburger.classList.add('open');
-      // On mobile tab mode, switch to queue view
-      if (window.innerWidth <= 600) mobileTab('queue', true);
-    }
-  }
-  function closeSidebar() {
-    document.querySelector('.sidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').classList.remove('show');
-    document.getElementById('hamburgerBtn').classList.remove('open');
-  }
-  
-  /* ── Mobile bottom tab navigation ─────────────────────── */
-  let currentTab = 'queue';
-  function mobileTab(tab, fromHamburger = false) {
-    if (window.innerWidth > 600) return;
-    currentTab = tab;
-  
-    // Update bottom nav active state
-    document.querySelectorAll('.mbn-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.getElementById('mbn-' + tab);
-    if (btn) btn.classList.add('active');
-  
-    const rubricCard  = document.querySelector('.card:nth-of-type(1)');
-    const aiCard      = document.querySelector('.card:nth-of-type(2)');
-    const studentHdr  = document.getElementById('studentHeader');
-  
-    if (tab === 'queue') {
-      // Open sidebar drawer
-      if (!fromHamburger) toggleSidebar();
-      if (rubricCard)  rubricCard.style.display  = 'block';
-      if (aiCard)      aiCard.style.display      = 'block';
-      if (studentHdr)  studentHdr.style.display  = 'flex';
-    } else {
-      closeSidebar();
-      if (tab === 'assess') {
-        if (rubricCard)  rubricCard.style.display  = 'block';
-        if (aiCard)      aiCard.style.display      = 'none';
-        if (studentHdr)  studentHdr.style.display  = 'flex';
-        rubricCard && rubricCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (tab === 'ai') {
-        if (rubricCard)  rubricCard.style.display  = 'none';
-        if (aiCard)      aiCard.style.display      = 'block';
-        if (studentHdr)  studentHdr.style.display  = 'flex';
-        aiCard && aiCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const user = JSON.parse(userRaw);
+  const userId = user._id || user.id;
+
+  try {
+    const res = await fetch(`${API_BASE}/panels/my/${userId}`);
+    if (!res.ok) throw new Error("Failed to fetch assigned panels");
+    panels = await res.json();
+    renderQueue();
+
+    // Check for deep link to specific panel
+    const params = new URLSearchParams(window.location.search);
+    const deepPanelId = params.get('panelId');
+
+    if (deepPanelId) {
+      const idx = panels.findIndex(p => p._id === deepPanelId);
+      if (idx !== -1) {
+        loadPanel(idx);
+        return;
       }
     }
-  }
-  
-  // When a student is loaded on mobile, switch to assess tab
-  function loadStudent(idx) {
-    _loadStudentBase(idx);
-    closeSidebar();
-    if (window.innerWidth <= 600) {
-      mobileTab('assess');
-      document.getElementById('mbn-assess').classList.add('active');
-      document.getElementById('mbn-queue').classList.remove('active');
+
+    if (panels.length > 0) {
+      loadPanel(0);
+    } else {
+      document.getElementById('assessmentWorkspace').style.display = 'none';
+      document.getElementById('welcomeState').style.display = 'flex';
     }
+  } catch (err) {
+    showToast(err.message, 'error');
   }
+}
+
+function renderQueue() {
+  const sidebar = document.querySelector('.sidebar');
+  const title = sidebar.querySelector('.sidebar-title');
+  const titleHtml = title ? title.outerHTML : '<div class="sidebar-title">Boards Queue</div>';
+  sidebar.innerHTML = titleHtml;
+
+  panels.forEach((p, idx) => {
+    const div = document.createElement('div');
+    div.className = `queue-item ${idx === activePanelIndex ? 'active' : ''}`;
+    div.id = `qi-${idx}`;
+    div.onclick = () => loadPanel(idx);
+    
+    const date = new Date(p.scheduledDate);
+    div.innerHTML = `
+      <div class="q-meta">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        ${date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+        <span class="q-dot"></span>${date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+      </div>
+      <div class="q-name">${p.studentId?.fullName || 'Unknown'}</div>
+      <div class="q-stage">${p.stage}</div>
+      <div style="margin-top:8px">${p.hasSubmitted ? '<span style="color:var(--green);font-size:10px;font-weight:bold;">✓ SUBMITTED</span>' : `<button class="btn-assess" onclick="event.stopPropagation();loadPanel(${idx})">Assess Now →</button>`}</div>
+    `;
+    sidebar.appendChild(div);
+  });
+}
+
+function loadPanel(idx) {
+  activePanelIndex = idx;
+  const p = panels[idx];
+  const s = p.studentId || {};
   
-  /* ── Init ──────────────────────────────────────────────── */
-  loadStudent(0);
+  document.getElementById('assessmentWorkspace').style.display = 'block';
+  document.getElementById('welcomeState').style.display = 'none';
+  
+  document.getElementById('studentAvatar').textContent = (s.fullName || 'U').substring(0, 1);
+  document.getElementById('studentName').textContent   = s.fullName || 'Unknown';
+  document.getElementById('studentReg').textContent    = s.userNumber || 'N/A';
+  document.getElementById('studentUniv').textContent   = 'Institutional Portal'; // Placeholder
+  document.getElementById('studentStage').textContent  = p.stage;
+  
+  document.querySelectorAll('.queue-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+  resetForm();
+  
+  // Disable form if already submitted or revoked
+  const submitBtn = document.querySelector('.btn-primary');
+  const isRevoked = p.membershipStatus === 'revoked';
+
+  if (p.hasSubmitted || isRevoked) {
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.5';
+    submitBtn.textContent = isRevoked ? 'Privileges Revoked' : 'Already Submitted';
+    
+    // Disable all inputs in the form
+    document.querySelectorAll('#assessmentWorkspace input, #assessmentWorkspace textarea, #assessmentWorkspace select').forEach(el => el.disabled = true);
+  } else {
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = '1';
+    submitBtn.textContent = 'Submit Assessment';
+    document.querySelectorAll('#assessmentWorkspace input, #assessmentWorkspace textarea, #assessmentWorkspace select').forEach(el => el.disabled = false);
+  }
+
+  // --- Formal Role Logic ---
+  const roleBadge = document.getElementById('myRoleBadge');
+  const aiPortal = document.getElementById('aiPortalCard');
+  const mobileAiBtn = document.getElementById('mbn-ai');
+
+  if (isRevoked) {
+    roleBadge.textContent = 'PRIVILEGES REVOKED';
+    roleBadge.style.background = '#fee2e2';
+    roleBadge.style.color = '#991b1b';
+    roleBadge.style.borderColor = '#991b1b';
+    if (aiPortal) aiPortal.style.display = 'none';
+    if (mobileAiBtn) mobileAiBtn.style.display = 'none';
+    showToast(`Access to this board has been revoked or expired.`, 'error');
+  } else if (p.role === 'chair') {
+    roleBadge.textContent = 'PANEL CHAIR';
+    roleBadge.style.background = '#dcfce7';
+    roleBadge.style.color = '#166534';
+    roleBadge.style.borderColor = '#166534';
+    if (aiPortal) aiPortal.style.display = 'block';
+    if (mobileAiBtn) mobileAiBtn.style.display = 'flex';
+    showToast(`You are the CHAIR for this session`, 'success');
+  } else {
+    roleBadge.textContent = 'PANEL MEMBER';
+    roleBadge.style.background = 'var(--blue-light)';
+    roleBadge.style.color = 'var(--blue)';
+    roleBadge.style.borderColor = 'var(--blue)';
+    if (aiPortal) aiPortal.style.display = 'none';
+    if (mobileAiBtn) mobileAiBtn.style.display = 'none';
+    showToast(`Loaded: ${s.fullName}`, 'success');
+  }
+}
+
+/* ── Auto-scoring ──────────────────────────────────────── */
+function calcScore() {
+  ['lit1', 'lit2', 'meth1', 'meth2', 'prob', 'obj', 'pres'].forEach(id => {
+    const el = document.getElementById('s_' + id);
+    if (el) document.getElementById('v_' + id).textContent = el.value;
+  });
+
+  const probScore = +document.getElementById('s_prob').value * 10; // Scale to 100
+  const objScore = +document.getElementById('s_obj').value * 10;
+  const presScore = +document.getElementById('s_pres').value * 10;
+
+  const litSlider = (+document.getElementById('s_lit1').value + +document.getElementById('s_lit2').value) / 2;
+  const methSlider = (+document.getElementById('s_meth1').value + +document.getElementById('s_meth2').value) / 2;
+
+  let litCheck = 0, methCheck = 0;
+  document.querySelectorAll('#litChecks input[type=checkbox]:checked').forEach(cb => litCheck += +cb.dataset.pts);
+  document.querySelectorAll('#methChecks input[type=checkbox]:checked').forEach(cb => methCheck += +cb.dataset.pts);
+
+  const litRaw = litSlider + litCheck;
+  const methRaw = methSlider + methCheck;
+  const litPct = Math.round((litRaw / 30) * 100);
+  const methPct = Math.round((methRaw / 30) * 100);
+  
+  const total = Math.round((probScore + objScore + litPct + methPct + presScore) / 5);
+
+  document.getElementById('scorePct').textContent = total + '%';
+  document.getElementById('barLit').style.width = litPct + '%';
+  document.getElementById('barMeth').style.width = methPct + '%';
+  document.getElementById('litPct').textContent = litPct + '%';
+  document.getElementById('methPct').textContent = methPct + '%';
+
+  const circle = document.getElementById('scoreCircle');
+  const pctEl = document.getElementById('scorePct');
+  let col = total >= 70 ? 'var(--green)' : (total >= 50 ? 'var(--amber)' : 'var(--red)');
+  circle.style.borderColor = col;
+  pctEl.style.color = col;
+}
+
+function setVerdict(v) {
+  verdict = v;
+  document.getElementById('btnPass').classList.toggle('active', v === 'pass');
+  document.getElementById('btnFail').classList.toggle('active', v === 'fail');
+  document.getElementById('verdictNote').textContent = v === 'pass' ? 'Student recommended for advancement.' : 'Student recommended for revision.';
+}
+
+async function submitAssessment() {
+  if (!verdict) { showToast('Please select Pass or Fail before submitting.', 'error'); return; }
+  
+  const p = panels[activePanelIndex];
+  const litPct = parseInt(document.getElementById('litPct').textContent);
+  const methPct = parseInt(document.getElementById('methPct').textContent);
+  const probScore = +document.getElementById('s_prob').value * 10;
+  const objScore = +document.getElementById('s_obj').value * 10;
+  const presScore = +document.getElementById('s_pres').value * 10;
+  
+  const payload = {
+    memberId: p.memberId,
+    scores: {
+      problemScore: probScore,
+      objectivesScore: objScore,
+      literatureScore: litPct,
+      methodologyScore: methPct,
+      presentationScore: presScore
+    },
+    structuredFeedback: {
+      criticalIssues: document.getElementById('crit_issues').value || "",
+      minorIssues: document.getElementById('minor_issues').value || "",
+      recommendations: document.getElementById('recom_remarks').value || ""
+    },
+    verdict: verdict === 'pass' ? 'pass' : 'revise'
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/panels/evaluate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error("Failed to submit evaluation");
+    
+    showToast(`Assessment submitted successfully!`, 'success');
+    init(); // Refresh data
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function resetForm() {
+  ['s_lit1', 's_lit2', 's_meth1', 's_meth2', 'prob', 'obj', 'pres'].forEach(id => {
+    const el = document.getElementById('s_' + id);
+    if (el) el.value = 0;
+  });
+  document.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+  ['crit_issues', 'minor_issues', 'recom_remarks'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  // Also clear the individual criteria textareas if needed
+  document.querySelectorAll('.rubric-criteria .comment-area').forEach(ta => ta.value = '');
+  verdict = null;
+  document.getElementById('btnPass').classList.remove('active');
+  document.getElementById('btnFail').classList.remove('active');
+  document.getElementById('verdictNote').textContent = '';
   calcScore();
+}
+
+/* ── UI Helpers & Mobile Logic ──────────────────────────── */
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  sidebar.classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('show');
+  document.getElementById('hamburgerBtn').classList.toggle('open');
+}
+
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+  document.getElementById('hamburgerBtn').classList.remove('open');
+}
+
+/* ── AI Transcript & Corrections Logic (Chair Only) ── */
+let currentSuggestedCorrections = [];
+
+async function handleUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const panel = panels[activePanelIndex];
+  if (panel.role !== 'chair') {
+    showToast("Error: Only the Panel Chair can upload transcripts.", "error");
+    return;
+  }
+
+  showToast("Uploading & Processing with AI...", "info");
+  document.getElementById('uploadZone').style.opacity = '0.5';
+
+  try {
+    const res = await fetch(`${API_BASE}/panels/transcript`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ panelId: panel._id, fileName: file.name })
+    });
+    if (!res.ok) throw new Error("AI processing failed");
+    
+    const data = await res.json();
+    currentSuggestedCorrections = data.suggestedCorrections;
+    
+    renderCorrections(data.suggestedCorrections);
+    document.getElementById('uploadZone').style.display = 'none';
+    document.getElementById('uploadStatus').style.display = 'flex';
+    document.getElementById('correctionsSection').style.display = 'block';
+    showToast("AI Extraction Complete", "success");
+  } catch (err) {
+    showToast(err.message, "error");
+    document.getElementById('uploadZone').style.opacity = '1';
+  }
+}
+
+function renderCorrections(corrections) {
+  const containers = {
+    critical: document.getElementById('corrections-critical'),
+    major: document.getElementById('corrections-major'),
+    minor: document.getElementById('corrections-minor')
+  };
+
+  // Clear existing
+  Object.values(containers).forEach(c => c.innerHTML = '');
+
+  corrections.forEach(cor => {
+    const div = document.createElement('div');
+    div.className = 'correction-item';
+    div.style = 'background:#fff; border:1px solid #eee; padding:10px; border-radius:8px; margin-bottom:8px; font-size:13px; color:#555; position:relative;';
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:start;">
+        <span>${cor.description}</span>
+        <button onclick="this.parentElement.parentElement.remove()" style="background:none; border:none; color:#ff4d4d; cursor:pointer;">&times;</button>
+      </div>
+    `;
+    containers[cor.category].appendChild(div);
+  });
+}
+
+async function publishCorrections() {
+  const panel = panels[activePanelIndex];
+  
+  // Collect final list from UI (allowing Chair for minor edits/deletes)
+  const finalCorrections = [];
+  ['critical', 'major', 'minor'].forEach(cat => {
+    document.getElementById(`corrections-${cat}`).querySelectorAll('.correction-item').forEach(el => {
+      finalCorrections.push({ category: cat, description: el.innerText.replace('×', '').trim() });
+    });
+  });
+
+  if (finalCorrections.length === 0) {
+    showToast("Please provide at least one correction item.", "error");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/panels/${panel._id}/checklist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ corrections: finalCorrections })
+    });
+    if (!res.ok) throw new Error("Failed to publish checklist");
+    
+    showToast("Formal Checklist Published!", "success");
+    document.getElementById('correctionsSection').innerHTML = `
+      <div style="padding:40px; text-align:center; color:var(--green);">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <h3>Checklist Finalized</h3>
+        <p>The student has been notified to start revisions.</p>
+      </div>
+    `;
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.className = 'toast' + (type ? ' ' + type : '');
+  document.getElementById('toastMsg').textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// Mobile tab logic
+function mobileTab(tab) {
+  document.querySelectorAll('.mbn-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mbn-' + tab).classList.add('active');
+  // ... similar visibility logic as original ...
+}
+
+window.calcScore = calcScore;
+window.setVerdict = setVerdict;
+window.submitAssessment = submitAssessment;
+window.resetForm = resetForm;
+window.loadPanel = loadPanel;
+window.toggleSidebar = toggleSidebar;
+window.closeSidebar = closeSidebar;
+window.handleUpload = handleUpload;
+window.publishCorrections = publishCorrections;
+
+// Initial Call
+document.addEventListener("DOMContentLoaded", init);

@@ -73,13 +73,17 @@ export function getSupervisorSession() {
   const session = localStorage.getItem("postgraduate_user");
   // Simulated session for hackathon demo fallback
   if (!session) {
-    const mock = { id: "Dr. Supervisor", name: "Dr. Supervisor" };
+    const mock = { id: "65f1a2b3c4d5e6f7a8b9c0d1", name: "Dr. Supervisor", fullName: "Dr. Supervisor" };
     localStorage.setItem("supervisor_session", JSON.stringify(mock));
     return mock;
   }
   const user = JSON.parse(session);
-  // The backend uses supervisor.fullName to link students, so we map id to fullName
-  return { id: user.fullName || "Dr. Supervisor", name: user.fullName || "Dr. Supervisor" };
+  // We need BOTH the real _id for panel assignments and the fullName for student linkage
+  return { 
+    id: user._id || user.id, 
+    name: user.fullName || "Dr. Supervisor",
+    fullName: user.fullName || "Dr. Supervisor" 
+  };
 }
 
 import { initDashboard } from './dashboard.js';
@@ -117,6 +121,9 @@ export function navigateTo(target, btn = null, extraId = null) {
     if (target === "dashboard") initDashboard();
     else if (target === "student-detail") initStudentDetails(extraId);
     else if (target === "notifications") initNotifications();
+    else if (target === "presentations") {
+        import('./presentations.js').then(m => m.initPresentations());
+    }
     else {
         qs("#generic-title").textContent = config.title;
         qs("#generic-icon").textContent = target === "settings" ? "⚙️" : (target === "presentations" ? "📅" : "🛡️");

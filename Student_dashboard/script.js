@@ -1187,6 +1187,204 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // ===== PANEL RESULTS HANDLER =====
+    class PanelResultsHandler {
+      constructor() {
+        this.apiBaseUrl = 'http://localhost:5000/api';
+        this.loadPanelResults();
+      }
+
+      async loadPanelResults() {
+        try {
+          const userData = this.getUserData();
+          if (!userData) return;
+
+          const response = await fetch(`${this.apiBaseUrl}/panels/student/${userData.id}`);
+          if (!response.ok) return;
+
+          const panels = await response.json();
+          this.renderPanelResults(panels);
+        } catch (error) {
+          console.error('Error loading panel results:', error);
+        }
+      }
+
+      async renderPanelResults(panels) {
+        const container = document.getElementById('panel-results-container');
+        if (!container) return;
+
+        if (!panels || panels.length === 0) {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: var(--grey-500);">
+              <div style="font-size: 40px; margin-bottom: 16px;">🏁</div>
+              <p>No panel evaluations have been recorded for your current research stage.</p>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '<div style="display:flex; flex-direction:column; gap:16px; padding: 20px;">';
+
+        for (const p of panels) {
+          const results = p.result;
+          let resultHtml = '';
+          
+          if (results) {
+            resultHtml = `
+              <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--grey-200);">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                  <div style="background: var(--grey-50); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid var(--grey-100);">
+                    <div style="font-size: 10px; color: var(--grey-500); text-transform: uppercase; font-weight: 700;">Avg Score</div>
+                    <div style="font-size: 20px; font-weight: 800; color: var(--navy);">${Math.round(results.averageScore)}%</div>
+                  </div>
+                  <div style="background: var(--grey-50); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid var(--grey-100);">
+                    <div style="font-size: 10px; color: var(--grey-500); text-transform: uppercase; font-weight: 700;">Final Verdict</div>
+                    <div style="margin-top: 4px;"><span class="badge ${results.finalVerdict === 'pass' ? 'badge-active' : 'badge-deferred'}">${results.finalVerdict.toUpperCase()}</span></div>
+                  </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                  <div style="font-size: 11px; font-weight: 700; color: var(--grey-500); text-transform: uppercase; margin-bottom: 8px;">Consolidated Feedback</div>
+                  <div class="feedback-grid" style="display: flex; flex-direction: column; gap: 10px;">
+                    ${results.summaryFeedback?.critical?.length ? `
+                      <div style="padding: 12px; background: #fff1f2; border-left: 4px solid #f43f5e; border-radius: 6px;">
+                        <div style="font-size: 10px; font-weight: 800; color: #e11d48; text-transform: uppercase; margin-bottom: 4px;">🛑 Critical Issues</div>
+                        <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #9f1239; line-height: 1.5;">
+                          ${results.summaryFeedback.critical.map(c => `<li>${c}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+
+                    ${results.summaryFeedback?.minor?.length ? `
+                      <div style="padding: 12px; background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px;">
+                        <div style="font-size: 10px; font-weight: 800; color: #1d4ed8; text-transform: uppercase; margin-bottom: 4px;">📝 Minor Corrections</div>
+                        <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #1e40af; line-height: 1.5;">
+                          ${results.summaryFeedback.minor.map(m => `<li>${m}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+
+                    ${results.summaryFeedback?.recommendations?.length ? `
+                      <div style="padding: 12px; background: #fdfbf7; border-left: 4px solid #d97706; border-radius: 6px;">
+                        <div style="font-size: 10px; font-weight: 800; color: #b45309; text-transform: uppercase; margin-bottom: 4px;">💡 Recommendations</div>
+                        <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #92400e; line-height: 1.5; font-style: italic;">
+                          ${results.summaryFeedback.recommendations.map(r => `<li>${r}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+
+                <div>
+                  <div style="font-size: 11px; font-weight: 700; color: var(--grey-500); text-transform: uppercase; margin-bottom: 8px;">Panel breakdown</div>
+                  <div style="overflow-x: auto; border: 1px solid var(--grey-100); border-radius: 8px; margin-bottom: 20px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                      <thead style="background: var(--grey-50); border-bottom: 1px solid var(--grey-100);">
+                        <tr>
+                          <th style="padding: 8px 12px; color: var(--grey-600);">Panelist</th>
+                          <th style="padding: 8px 12px; color: var(--grey-600); text-align: center;">Score</th>
+                          <th style="padding: 8px 12px; color: var(--grey-600); text-align: center;">Verdict</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${results.panelistBreakdown?.map(pb => `
+                          <tr style="border-bottom: 1px solid var(--grey-50);">
+                            <td style="padding: 8px 12px; font-weight: 600;">${pb.name} <span style="font-weight: 400; color: var(--grey-400); font-size: 10px;">(${pb.type})</span></td>
+                            <td style="padding: 8px 12px; text-align: center; color: var(--grey-700);">${Math.round(pb.score)}%</td>
+                            <td style="padding: 8px 12px; text-align: center;"><span style="font-family: monospace; font-size: 10px; font-weight: 900; color: ${pb.verdict === 'pass' ? '#10b981' : '#f43f5e'}; text-transform: uppercase;">${pb.verdict}</span></td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                ${p.corrections && p.corrections.length > 0 ? `
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                      <h4 style="font-size: 13px; font-weight: 700; color: var(--navy); margin: 0;">🛠 Formal Correction Checklist</h4>
+                      <span style="font-size: 10px; background: var(--navy); color: white; padding: 2px 8px; border-radius: 10px;">${p.corrections.filter(c => c.status === 'approved').length}/${p.corrections.length} Resolved</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                      ${p.corrections.map(c => `
+                        <div style="background: white; border: 1px solid #f1f5f9; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                          <div style="flex: 1; margin-right: 12px;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                              <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: ${c.category === 'critical' ? '#e11d48' : c.category === 'major' ? '#3b82f6' : '#64748b'};">
+                                ${c.category}
+                              </span>
+                              ${c.supervisorSignOff ? '<span title="Supervisor Signed Off" style="color:#10b981; font-size:12px;">✔️</span>' : ''}
+                            </div>
+                            <p style="margin: 0; font-size: 13px; color: var(--grey-700);">${c.description}</p>
+                          </div>
+                          <div style="text-align: right;">
+                            ${c.status === 'pending' ? `
+                              <button onclick="panelHandler.fixCorrection('${p._id}', '${c._id}')" class="btn-clearance" style="padding: 4px 12px; font-size: 11px;">Mark as Fixed</button>
+                            ` : `
+                              <span style="font-size: 11px; font-weight: 700; color: ${c.status === 'approved' ? '#10b981' : '#f59e0b'}; text-transform: uppercase;">
+                                ${c.status.toUpperCase()}
+                              </span>
+                            `}
+                          </div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }
+
+          html += `
+            <div class="card" style="margin: 0; border: 1px solid var(--grey-200); box-shadow: none;">
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                  <div style="font-size: 14px; font-weight: 700; color: var(--navy);">${p.stage}</div>
+                  <div style="font-size: 12px; color: var(--grey-500); margin-top: 2px;">Scheduled: ${new Date(p.scheduledDate).toLocaleString()}</div>
+                </div>
+                <span class="badge ${p.status === 'completed' ? 'badge-active' : 'badge-pending'}">${p.status.toUpperCase()}</span>
+              </div>
+              ${resultHtml || `
+                <div style="margin-top: 16px; padding: 12px; background: var(--grey-50); border-radius: 8px; font-size: 12px; color: var(--grey-600); display: flex; align-items: center; gap: 8px;">
+                  <span>⏳</span> Evaluation in progress. Feedback will be available once the panel board concludes assessments.
+                </div>
+              `}
+            </div>
+          `;
+        }
+
+        html += '</div>';
+        container.innerHTML = html;
+      }
+
+      async fixCorrection(panelId, correctionId) {
+        if (!confirm('Confirm you have addressed this correction? This will notify your supervisor for approval.')) return;
+        
+        try {
+          const res = await fetch(`${this.apiBaseUrl}/panels/${panelId}/corrections/${correctionId}/fix`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (!res.ok) throw new Error('Failed to update correction');
+          
+          alert('Correction marked as fixed! Pending supervisor review.');
+          this.loadPanelResults(); // Reload
+        } catch (error) {
+          console.error('Error fixing correction:', error);
+          alert('Error updating correction. Please try again.');
+        }
+      }
+
+      getUserData() {
+        try {
+          const rawData = localStorage.getItem('postgraduate_user');
+          if (!rawData) return null;
+          const userData = JSON.parse(rawData);
+          return { id: userData.id || userData._id };
+        } catch (error) { return null; }
+      }
+    }
+
     // ===== INIT =====
     renderPipeline();
     updateStatusUI();
@@ -1197,6 +1395,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const reportsHandler = new QuarterlyReportsHandler();
     window.reportsHandler = reportsHandler;
+
+    const panelHandler = new PanelResultsHandler();
+    window.panelHandler = panelHandler;
 
     // Export functions to global scope
     window.requestDeferral = requestDeferral;

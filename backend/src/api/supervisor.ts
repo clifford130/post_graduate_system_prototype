@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { UserModel } from "../models/user.model.js";
+import { PanelEventModel } from "../models/panel.model.js";
 
 export const SupervisorRouter = Router();
 
@@ -15,7 +16,14 @@ function requiredSupervisorRoles(student: any) {
 // GET /supervisor/:id/students
 SupervisorRouter.get("/supervisor/:id/students", async (req: Request, res: Response) => {
   try {
-    const supervisorId = req.params.id;
+    let supervisorId = req.params.id;
+
+    // Smart ID Resolution: If it's a valid ObjectId, find the user's fullName
+    if (mongoose.Types.ObjectId.isValid(supervisorId)) {
+      const user = await UserModel.findById(supervisorId);
+      if (user) supervisorId = user.fullName;
+    }
+
     // Find students where this supervisor is sup1, sup2, or sup3
     const students = await UserModel.find({
       $or: [
@@ -78,8 +86,23 @@ SupervisorRouter.post("/students/:id/stage/:stageName/approve", async (req: Requ
     const update: any = {};
     if (targetField) update[targetField] = action === "approved" ? "approved" : "rejected";
 
+    // --- Formal Governance Check ---
+    // Rule: Block sign-off if there are outstanding critical/major panel corrections
+    const studentPanels = await PanelEventModel.find({ studentId: id });
+    const outstandingCorrections = studentPanels.flatMap((p: any) => 
+      (p.corrections || []).filter((c: any) => 
+        (c.category === "critical" || c.category === "major") && c.status !== "approved"
+      )
+    );
+
+    if (outstandingCorrections.length > 0) {
+      return res.status(400).json({ 
+        message: "Sign-off blocked. Candidate has unresolved Critical or Major corrections from a previous panel session.", 
+        outstandingCount: outstandingCorrections.length 
+      });
+    }
+
     // If approved, maybe advance stage?
-    // In this system, advance is usually done by Director, but let's allow supervisor small steps
     const student = await UserModel.findByIdAndUpdate(id, { $set: update }, { new: true });
     res.json({ message: `Stage ${action}`, student });
   } catch (error) {
@@ -160,7 +183,14 @@ SupervisorRouter.get("/students/:id/qreports", async (req: Request, res: Respons
 // 6. Analytics: Workload & Bottlenecks
 SupervisorRouter.get("/supervisor/:id/analytics", async (req: Request, res: Response) => {
   try {
-    const supervisorId = req.params.id;
+    let supervisorId = req.params.id;
+
+    // Smart ID Resolution: If it's a valid ObjectId, find the user's fullName
+    if (mongoose.Types.ObjectId.isValid(supervisorId)) {
+      const user = await UserModel.findById(supervisorId);
+      if (user) supervisorId = user.fullName;
+    }
+
     const students = await UserModel.find({
       $or: [
         { "supervisors.sup1": supervisorId },
@@ -307,3 +337,4 @@ SupervisorRouter.post("/students/:id/automation/suggest", async (req: Request, r
     res.status(500).json({ message: "Error running automation check", error });
   }
 });
+import mongoose from "mongoose";

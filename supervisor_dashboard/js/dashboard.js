@@ -6,7 +6,7 @@ export function initDashboard() {
   const root = qs("#student-table-container");
   if (!root) return;
 
-  fetchAndRenderDashboard(session.id);
+  fetchAndRenderDashboard(session.fullName);
 }
 
 async function fetchAndRenderDashboard(supervisorId) {
