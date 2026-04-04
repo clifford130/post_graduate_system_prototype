@@ -1,4 +1,4 @@
-import { qs, qsa, getSupervisorSession, escapeHtml } from './main.js';
+import { qs, getSupervisorSession, escapeHtml } from './main.js';
 import { api } from './api.js';
 
 export async function initPresentations() {
@@ -79,20 +79,8 @@ async function loadPanels(userId) {
                     <div><span class="font-bold text-slate-700">Supervisor Status:</span> ${escapeHtml(p.assignmentStatus || 'pending')}</div>
                     ${p.additionalNotes ? `<div><span class="font-bold text-slate-700">Notes:</span> ${escapeHtml(p.additionalNotes)}</div>` : ''}
                 </div>
-
-                <div class="flex gap-3">
-                    <button class="btn btn-primary w-full shadow-lg shadow-rongo-blue/20" data-student-id="${escapeHtml(String(p.studentId || ''))}">
-                        Open Student
-                    </button>
-                </div>
             </div>
         `).join('');
-
-        qsa("[data-student-id]").forEach((btn) => {
-            btn.onclick = () => {
-                window.location.href = `./student-details.html?id=${btn.dataset.studentId}`;
-            };
-        });
     } catch (err) {
         list.innerHTML = `<div class="col-span-2 alert alert-error">${escapeHtml(err.message || 'Failed to load presentations')}</div>`;
     }
