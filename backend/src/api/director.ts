@@ -81,12 +81,45 @@ function buildSupabaseStorageClient() {
   });
 }
 
-function requiredSupervisorRoles(student: any) {
-  const roles = ["sup1", "sup2"];
-  if (String(student?.programme || "").toLowerCase() === "phd" && student?.supervisors?.sup3) {
-    roles.push("sup3");
+function complianceBucketName() {
+  return (
+    process.env.SUPABASE_COMPLIANCE_BUCKET ||
+    process.env.SUPABASE_BUCKET ||
+    "campusHub_PDF"
+  );
+}
+
+async function enrichComplianceUpload(entry: any, storageClient?: StorageClient | null) {
+  const upload = entry?.upload || entry;
+  const bucket = upload?.bucket || complianceBucketName();
+  const storagePath = upload?.storagePath || "";
+  let resolvedUrl = upload?.url || "";
+
+  if (storageClient && storagePath) {
+    const { data, error } = await storageClient
+      .from(bucket)
+      .createSignedUrl(storagePath, 60 * 60);
+
+    if (!error && data?.signedUrl) {
+      resolvedUrl = data.signedUrl;
+    }
   }
-  return roles;
+
+  const enrichedUpload = {
+    ...upload,
+    url: resolvedUrl,
+    bucket,
+  };
+
+  if (entry?.upload) {
+    return { ...entry, upload: enrichedUpload };
+  }
+
+  return enrichedUpload;
+}
+
+function requiredSupervisorRoles(student: any) {
+  return ["sup1", "sup2"];
 }
 
 function nextQuarterForStudent(student: any) {
@@ -467,7 +500,7 @@ DirectorRouter.post(
           existingReport.approvals = {
             sup1: roles.includes("sup1") ? "pending" : "approved",
             sup2: roles.includes("sup2") ? "pending" : "approved",
-            sup3: roles.includes("sup3") ? "pending" : "approved",
+            sup3: "approved",
             dean: "pending",
             finance: "pending",
           };
@@ -498,7 +531,7 @@ DirectorRouter.post(
           approvals: {
             sup1: roles.includes("sup1") ? "pending" : "approved",
             sup2: roles.includes("sup2") ? "pending" : "approved",
-            sup3: roles.includes("sup3") ? "pending" : "approved",
+            sup3: "approved",
             dean: "pending",
             finance: "pending",
           },
@@ -662,9 +695,25 @@ DirectorRouter.get(
         return res.status(404).json({ message: "Student not found" });
       }
 
+      let storageClient: StorageClient | null = null;
+      try {
+        storageClient = buildSupabaseStorageClient();
+      } catch (error) {
+        console.error("Compliance history storage setup error:", error);
+      }
+
+      const uploads = await Promise.all(
+        [...(student.complianceUploads || [])]
+          .sort(
+            (a: any, b: any) =>
+              new Date(b?.submittedAt || 0).getTime() - new Date(a?.submittedAt || 0).getTime(),
+          )
+          .map((entry: any) => enrichComplianceUpload(entry, storageClient)),
+      );
+
       return res.json({
         success: true,
-        uploads: student.complianceUploads || [],
+        uploads,
         status: student.status,
       });
     } catch (error) {
@@ -687,7 +736,8 @@ DirectorRouter.post(
         return res.status(404).json({ message: "Student not found" });
       }
 
-      const { type, note } = req.body || {};
+      const type = String(req.body?.type || "").trim();
+      const note = String(req.body?.note || "").trim();
       if (!type) {
         return res.status(400).json({ message: "Document type is required" });
       }
@@ -709,11 +759,12 @@ DirectorRouter.post(
       localFilePath = req.file.path;
 
       const safeOriginalName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const bucket = complianceBucketName();
       const objectKey = `compliance/${student._id}/${Date.now()}-${safeOriginalName}`;
       const fileBuffer = await readFile(localFilePath);
 
       const { error: uploadError } = await storageClient
-        .from("campusHub_PDF")
+        .from(bucket)
         .upload(objectKey, fileBuffer, {
           contentType: req.file.mimetype || "application/pdf",
           upsert: false,
@@ -737,17 +788,32 @@ DirectorRouter.post(
         console.error("Failed to delete local compliance upload:", cleanupError);
       }
 
-      const { data } = storageClient
-        .from("campusHub_PDF")
-        .getPublicUrl(objectKey);
+      const signed = await enrichComplianceUpload(
+        {
+          id: new mongoose.Types.ObjectId().toString(),
+          type,
+          title: req.file.originalname,
+          storagePath: objectKey,
+          bucket,
+          mimeType: req.file.mimetype || "application/pdf",
+          fileSize: req.file.size || 0,
+          note,
+          submittedAt: new Date(),
+        },
+        storageClient,
+      );
 
       const entry = {
-        id: new mongoose.Types.ObjectId().toString(),
-        type,
-        title: req.file.originalname,
-        url: data.publicUrl,
-        note,
-        submittedAt: new Date(),
+        id: signed.id,
+        type: signed.type,
+        title: signed.title,
+        url: signed.url,
+        storagePath: signed.storagePath,
+        bucket: signed.bucket,
+        mimeType: signed.mimeType,
+        fileSize: signed.fileSize,
+        note: signed.note,
+        submittedAt: signed.submittedAt,
       };
 
       student.complianceUploads = student.complianceUploads || [];
@@ -755,7 +821,21 @@ DirectorRouter.post(
       student.markModified("complianceUploads");
       await student.save();
 
-      return res.status(201).json({ success: true, upload: entry, uploads: student.complianceUploads });
+      const uploads = await Promise.all(
+        [...(student.complianceUploads || [])]
+          .sort(
+            (a: any, b: any) =>
+              new Date(b?.submittedAt || 0).getTime() - new Date(a?.submittedAt || 0).getTime(),
+          )
+          .map((upload: any) => enrichComplianceUpload(upload, storageClient)),
+      );
+
+      return res.status(201).json({
+        success: true,
+        upload: await enrichComplianceUpload(entry, storageClient),
+        uploads,
+        status: student.status,
+      });
     } catch (error) {
       if (localFilePath && fs.existsSync(localFilePath)) {
         try {
@@ -803,7 +883,18 @@ DirectorRouter.get(
         { $sort: { "upload.submittedAt": -1 } },
       ]);
 
-      return res.json({ success: true, uploads });
+      let storageClient: StorageClient | null = null;
+      try {
+        storageClient = buildSupabaseStorageClient();
+      } catch (error) {
+        console.error("Director compliance storage setup error:", error);
+      }
+
+      const resolvedUploads = await Promise.all(
+        uploads.map((entry: any) => enrichComplianceUpload(entry, storageClient)),
+      );
+
+      return res.json({ success: true, uploads: resolvedUploads });
     } catch (error) {
       return res.status(500).json({ message: "Error fetching compliance uploads", error });
     }
@@ -1027,27 +1118,36 @@ DirectorRouter.post(
   "/students/:id/supervisors",
   async (req: Request, res: Response) => {
     try {
-      const { sup1, sup2, sup3 } = req.body;
+      const { sup1, sup2 } = req.body;
       const studentToUpdate = await UserModel.findById(req.params.id);
       if (!studentToUpdate)
         return res.status(404).json({ message: "Student not found" });
 
-      // SUPERVISOR COUNT ENFORCEMENT (Section 6.3)
-      if (studentToUpdate.programme === "msc" && sup3) {
+      const nextSup1 = String(sup1 || "").trim() || String(studentToUpdate.supervisors?.sup1 || "").trim();
+      const nextSup2 = String(sup2 || "").trim() || String(studentToUpdate.supervisors?.sup2 || "").trim();
+
+      if (!String(sup1 || "").trim() && !String(sup2 || "").trim()) {
         return res
           .status(400)
           .json({
             message:
-              "Masters students only require 2 supervisors. Please remove Supervisor 3.",
+              "Provide at least one supervisor to add or replace.",
           });
       }
-      if (studentToUpdate.programme === "phd" && (!sup1 || !sup2 || !sup3)) {
+
+      if (!nextSup1 || !nextSup2) {
         return res
           .status(400)
           .json({
             message:
-              "PhD students require exactly 3 supervisors. Please assign Supervisor 3.",
+              "A student must end up with 2 different supervisors. Add the missing supervisor before saving.",
           });
+      }
+
+      if (nextSup1 === nextSup2) {
+        return res.status(400).json({
+          message: "Supervisor 1 and Supervisor 2 must be different.",
+        });
       }
 
       const settings = await SystemSettingsModel.findOne();
@@ -1082,7 +1182,7 @@ DirectorRouter.post(
       const student = await UserModel.findByIdAndUpdate(
         req.params.id,
         {
-          supervisors: { sup1, sup2, sup3 },
+          supervisors: { sup1: nextSup1, sup2: nextSup2, sup3: "" },
         },
         { new: true },
       );
@@ -1199,35 +1299,38 @@ DirectorRouter.post(
         });
       }
 
-      // Check if student already has an active supervisor
-      const existingAssignment = await SupervisorAssignmentModel.findOne({
+      const activeAssignmentsForStudent = await SupervisorAssignmentModel.find({
         studentId: student._id.toString(),
         status: "active" as const,
       });
 
-      if (existingAssignment) {
+      const alreadyAssignedToSupervisor = activeAssignmentsForStudent.some(
+        (assignment) => assignment.supervisorId === supervisor._id.toString(),
+      );
+
+      if (alreadyAssignedToSupervisor) {
         return res.status(400).json({
-          message: "Student already has an active supervisor assignment",
+          message: "Student is already assigned to this supervisor",
         });
       }
-      const existsInactiveStudent = await SupervisorAssignmentModel.findOne({
-        studentId: student._id.toString(),
-        status: { $ne: "active" },
-      });
-      if (existsInactiveStudent) {
-        await SupervisorAssignmentModel.findOneAndUpdate(
-          {
-            studentId: student._id.toString(),
-          },
 
-          {
-            $set: {
-              status: "active",
-              supervisorName: supervisor.fullName,
-              supervisorId: supervisor._id,
-            },
-          },
-        );
+      const currentSup1 = String(student.supervisors?.sup1 || "").trim();
+      const currentSup2 = String(student.supervisors?.sup2 || "").trim();
+      const supervisorName = String(supervisor.fullName || "").trim();
+
+      if (
+        supervisorName &&
+        [currentSup1, currentSup2].filter(Boolean).includes(supervisorName)
+      ) {
+        return res.status(400).json({
+          message: "Student already has this supervisor assigned",
+        });
+      }
+
+      if (activeAssignmentsForStudent.length >= 2 && currentSup1 && currentSup2) {
+        return res.status(400).json({
+          message: "Student already has 2 active supervisor assignments",
+        });
       }
       // Check supervisor workload (dynamic cap)
       const settings = await SystemSettingsModel.findOne();
@@ -1243,9 +1346,25 @@ DirectorRouter.post(
           message: `Supervisor has reached maximum workload (${cap} students)`,
         });
       }
-      let assignment;
-      // Create the assignment
-      if (!existsInactiveStudent) {
+      let assignment = await SupervisorAssignmentModel.findOneAndUpdate(
+        {
+          supervisorId: supervisor._id.toString(),
+          studentId: student._id.toString(),
+          status: { $ne: "active" },
+        },
+        {
+          $set: {
+            status: "active",
+            supervisorName: supervisor.fullName,
+            supervisorId: supervisor._id.toString(),
+            assignedBy: "director",
+          },
+          $push: { notes: `Reassigned on ${new Date().toLocaleDateString()}` },
+        },
+        { new: true },
+      );
+
+      if (!assignment) {
         assignment = await SupervisorAssignmentModel.create({
           supervisorId: supervisor._id.toString(),
           supervisorName: supervisor.fullName,
@@ -1258,10 +1377,21 @@ DirectorRouter.post(
         });
       }
 
-      // Also update the student's supervisors field
+      const supervisorSlot = !currentSup1
+        ? "sup1"
+        : !currentSup2
+          ? "sup2"
+          : "";
+
+      if (!supervisorSlot) {
+        return res.status(400).json({
+          message: "Student already has 2 supervisor slots filled",
+        });
+      }
+
       await UserModel.findByIdAndUpdate(student._id, {
         $set: {
-          "supervisors.sup1": supervisor.fullName,
+          [`supervisors.${supervisorSlot}`]: supervisor.fullName,
         },
       });
 
@@ -1337,10 +1467,20 @@ DirectorRouter.post(
         return res.status(404).json({ message: "Active assignment not found" });
       }
 
+      const currentSup1 = String(student.supervisors?.sup1 || "").trim();
+      const currentSup2 = String(student.supervisors?.sup2 || "").trim();
+      const removeFromSup1 =
+        currentSup1 === assignment.supervisorName ||
+        currentSup1 === String(assignment.supervisorId || "");
+      const removeFromSup2 =
+        currentSup2 === assignment.supervisorName ||
+        currentSup2 === String(assignment.supervisorId || "");
+
       // Remove supervisor from student's record
       await UserModel.findByIdAndUpdate(student._id, {
         $set: {
-          "supervisors.sup1": "",
+          ...(removeFromSup1 ? { "supervisors.sup1": "" } : {}),
+          ...(removeFromSup2 ? { "supervisors.sup2": "" } : {}),
         },
       });
 

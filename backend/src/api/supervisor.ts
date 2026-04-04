@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { UserModel } from "../models/user.model.js";
 import { PanelEventModel } from "../models/panel.model.js";
+import { SupervisorAssignmentModel } from "../models/supervisor-action.model.js";
 import mongoose from "mongoose";
 
 export const SupervisorRouter = Router();
@@ -22,16 +23,11 @@ async function resolveSupervisorIdentifiers(rawSupervisorId: string) {
 function resolveSupervisorSlot(student: any, identifiers: string[]) {
   if (identifiers.includes(String(student?.supervisors?.sup1 || ""))) return "sup1";
   if (identifiers.includes(String(student?.supervisors?.sup2 || ""))) return "sup2";
-  if (identifiers.includes(String(student?.supervisors?.sup3 || ""))) return "sup3";
   return null;
 }
 
 function requiredSupervisorRoles(student: any) {
-  const roles = ["sup1", "sup2"];
-  if (String(student?.programme || "").toLowerCase() === "phd" && student?.supervisors?.sup3) {
-    roles.push("sup3");
-  }
-  return roles;
+  return ["sup1", "sup2"];
 }
 
 // 1. Fetch assigned students
@@ -40,12 +36,11 @@ SupervisorRouter.get("/supervisor/:id/students", async (req: Request, res: Respo
   try {
     const identifiers = await resolveSupervisorIdentifiers(String(req.params.id || ""));
 
-    // Find students where this supervisor is sup1, sup2, or sup3
+    // Find students where this supervisor is sup1 or sup2
     const students = await UserModel.find({
       $or: [
         { "supervisors.sup1": { $in: identifiers } },
-        { "supervisors.sup2": { $in: identifiers } },
-        { "supervisors.sup3": { $in: identifiers } }
+        { "supervisors.sup2": { $in: identifiers } }
       ],
       role: "student"
     } as any);
@@ -61,23 +56,60 @@ SupervisorRouter.post("/students/:id/assign", async (req: Request, res: Response
   try {
     const studentId = req.params.id;
     const { supervisorId, action } = req.body; // action: "accepted" | "rejected"
-    
-    // Determine which slot this supervisor is in
+
+    if (!["accepted", "rejected"].includes(String(action || ""))) {
+      return res.status(400).json({ message: "Action must be accepted or rejected" });
+    }
+
     const student = await UserModel.findById(studentId);
     if (!student) return res.status(404).json({ message: "Student not found" });
 
-    let slot = "";
-    if (student.supervisors?.sup1 === supervisorId) slot = "sup1";
-    else if (student.supervisors?.sup2 === supervisorId) slot = "sup2";
-    else if (student.supervisors?.sup3 === supervisorId) slot = "sup3";
+    const identifiers = await resolveSupervisorIdentifiers(String(supervisorId || ""));
+    const slot = resolveSupervisorSlot(student, identifiers);
 
     if (!slot) return res.status(403).json({ message: "Supervisor not assigned to this student" });
 
     const update: any = {};
     update[`assignmentStatus.${slot}`] = action;
+    const supervisor = mongoose.Types.ObjectId.isValid(String(supervisorId || ""))
+      ? await UserModel.findById(String(supervisorId)).select("fullName userNumber")
+      : null;
+    const supervisorName =
+      String(supervisor?.fullName || "").trim() ||
+      identifiers.find((value) => value === String(student?.supervisors?.[slot as "sup1" | "sup2"] || "")) ||
+      String(supervisorId || "").trim() ||
+      "Supervisor";
 
-    const updatedStudent = await UserModel.findByIdAndUpdate(studentId, { $set: update }, { new: true });
-    res.json({ message: `Assignment ${action}`, student: updatedStudent });
+    if (action === "rejected") {
+      update[`supervisors.${slot}`] = "";
+      update.$push = {
+        notes: `Director alert: ${supervisorName} rejected supervision assignment for ${student.fullName} (${student.userNumber}) on ${new Date().toLocaleDateString()}.`,
+      };
+
+      await SupervisorAssignmentModel.findOneAndUpdate(
+        {
+          studentId: student._id.toString(),
+          status: "active" as const,
+          $or: [
+            { supervisorId: String(supervisor?._id || supervisorId || "") },
+            { supervisorName },
+          ],
+        } as any,
+        {
+          $set: { status: "transferred" as const },
+          $push: { notes: `Rejected by ${supervisorName} on ${new Date().toLocaleDateString()}` },
+        },
+        { new: true },
+      );
+    }
+
+    const updatedStudent = await UserModel.findByIdAndUpdate(studentId, update, { new: true });
+    res.json({
+      message: action === "rejected"
+        ? "Assignment rejected and director notified"
+        : `Assignment ${action}`,
+      student: updatedStudent,
+    });
   } catch (error) {
     res.status(500).json({ message: "Error updating assignment status", error });
   }
@@ -205,7 +237,6 @@ SupervisorRouter.get("/supervisor/:id/qreports", async (req: Request, res: Respo
       $or: [
         { "supervisors.sup1": { $in: identifiers } },
         { "supervisors.sup2": { $in: identifiers } },
-        { "supervisors.sup3": { $in: identifiers } },
       ],
       role: "student",
       quarterlyReports: { $exists: true, $ne: [] },
@@ -277,8 +308,7 @@ SupervisorRouter.get("/supervisor/:id/analytics", async (req: Request, res: Resp
     const students = await UserModel.find({
       $or: [
         { "supervisors.sup1": { $in: identifiers } },
-        { "supervisors.sup2": { $in: identifiers } },
-        { "supervisors.sup3": { $in: identifiers } }
+        { "supervisors.sup2": { $in: identifiers } }
       ],
       role: "student"
     } as any);
@@ -306,7 +336,7 @@ SupervisorRouter.get("/supervisor/:id/analytics", async (req: Request, res: Resp
 SupervisorRouter.post("/students/:id/qreports/:reportId/approve", async (req: Request, res: Response) => {
   try {
     const { id, reportId } = req.params;
-    const { supervisorId, role, action, comment } = req.body; // role: sup1, sup2, sup3, dean, finance
+    const { supervisorId, role, action, comment } = req.body; // role: sup1 or sup2
     const identifiers = await resolveSupervisorIdentifiers(String(supervisorId || ""));
 
     const student = await UserModel.findById(id);

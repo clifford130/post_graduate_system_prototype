@@ -96,6 +96,10 @@ export interface IUser {
     type: string;
     title: string;
     url?: string;
+    storagePath?: string;
+    bucket?: string;
+    mimeType?: string;
+    fileSize?: number;
     note?: string;
     submittedAt?: Date;
   }>;
@@ -251,6 +255,10 @@ const UserSchema = new Schema<IUser>({
     type: String,
     title: String,
     url: String,
+    storagePath: String,
+    bucket: String,
+    mimeType: String,
+    fileSize: Number,
     note: String,
     submittedAt: { type: Date, default: Date.now },
   }],

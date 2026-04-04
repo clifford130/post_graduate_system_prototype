@@ -96,15 +96,22 @@ function approvalChain(report) {
     <div class="space-y-1 text-xs">
       <div>SUP1: ${escapeHtml(approvals.sup1 || "-")}</div>
       <div>SUP2: ${escapeHtml(approvals.sup2 || "-")}</div>
-      <div>SUP3: ${escapeHtml(approvals.sup3 || "-")}</div>
       <div>Director: ${escapeHtml(approvals.dean || "-")}</div>
     </div>
   `;
 }
 
+function canDirectorReview(report) {
+  const approvals = report?.approvals || {};
+  const sup1Approved = String(approvals.sup1 || "").toLowerCase() === "approved";
+  const sup2Approved = String(approvals.sup2 || "").toLowerCase() === "approved";
+  const deanPending = String(approvals.dean || "pending").toLowerCase() === "pending";
+  return sup1Approved && sup2Approved && deanPending;
+}
+
 function rowHtml(entry) {
   const report = entry.report || {};
-  const canReview = String(report.status || "").toLowerCase() === "pending_dean";
+  const canReview = canDirectorReview(report);
 
   return `
     <tr class="border-t border-slate-200 align-top">
@@ -129,7 +136,7 @@ function rowHtml(entry) {
             <button class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white" data-student="${entry.studentId}" data-report="${report.id}" data-action="approved">Approve</button>
             <button class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700" data-student="${entry.studentId}" data-report="${report.id}" data-action="returned">Return</button>
           </div>
-        ` : `<span class="text-xs text-slate-400">Waiting for supervisors</span>`}
+        ` : `<span class="text-xs text-slate-400">Waiting for both supervisors</span>`}
       </td>
     </tr>
   `;

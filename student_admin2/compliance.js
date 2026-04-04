@@ -1,5 +1,6 @@
 (function () {
   const api = window.StudentApi;
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
   const tableBody = document.getElementById("complianceTableBody");
   const warningBanner = document.getElementById("erpWarningBanner");
@@ -188,14 +189,22 @@
   }
 
   async function load() {
+    if (!api || typeof api.getComplianceUploads !== "function") {
+      throw new Error("Compliance API is unavailable on this page.");
+    }
     const data = await api.getComplianceUploads();
     renderAll(data?.uploads || [], data?.status || "");
   }
 
   async function submitFile(docKey, file) {
     if (!file) return;
+    if (submittingDocKey) return;
     if (isDeferred) {
       showFeedback("Compliance submissions are paused while the student is deferred.", "error");
+      return;
+    }
+    if (!api || typeof api.submitComplianceUpload !== "function") {
+      showFeedback("Compliance upload service is unavailable right now.", "error");
       return;
     }
 
@@ -212,7 +221,7 @@
       const response = await api.submitComplianceUpload(formData);
       submittingDocKey = "";
       selectedFiles[docKey] = null;
-      renderAll(response?.uploads || [], isDeferred ? "deferred" : "active");
+      renderAll(response?.uploads || currentUploads, response?.status || (isDeferred ? "deferred" : "active"));
       showFeedback(`${docConfig[docKey].type} submitted successfully.`, "success");
     } catch (error) {
       submittingDocKey = "";
@@ -231,6 +240,26 @@
   async function handleFileSelect(event, docKey) {
     const file = event?.target?.files?.[0];
     if (!file) return;
+
+    const isPdf =
+      String(file.type || "").toLowerCase() === "application/pdf" ||
+      String(file.name || "").toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      showFeedback("Only PDF documents are allowed.", "error");
+      if (event?.target) {
+        event.target.value = "";
+      }
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      showFeedback("File too large. Maximum size is 5MB.", "error");
+      if (event?.target) {
+        event.target.value = "";
+      }
+      return;
+    }
+
     clearFeedback();
     selectedFiles[docKey] = file;
     setCardState(docKey, null);
@@ -247,7 +276,7 @@
     setCardState(docKey, null);
   }
 
-  window.submitSelectedDocument = async function submitSelectedDocument(docKey) {
+  async function submitSelectedDocument(docKey) {
     const file = selectedFiles[docKey];
     if (!file) {
       showFeedback("Choose a file first before submitting.", "error");
@@ -259,16 +288,24 @@
     } catch (error) {
       showFeedback(error.message || "Failed to submit compliance document.", "error");
     }
-  };
+  }
 
   Object.keys(docConfig).forEach((docKey) => {
     const uploadBox = document.querySelector(`[data-upload-doc="${docKey}"]`);
     const input = document.getElementById(docConfig[docKey].inputId);
     const removeButton = document.querySelector(`[data-remove-doc="${docKey}"]`);
+    const submitButton = document.querySelector(`[data-submit-doc="${docKey}"]`);
 
     uploadBox?.addEventListener("click", (event) => {
       clearFeedback();
       triggerInput(docKey);
+      if (isDeferred || submittingDocKey) return;
+      if (event.target === input) return;
+      input?.click();
+    });
+
+    input?.addEventListener("click", (event) => {
+      event.stopPropagation();
     });
 
     input?.addEventListener("change", (event) => {
@@ -277,7 +314,14 @@
 
     removeButton?.addEventListener("click", (event) => {
       event.preventDefault();
+      event.stopPropagation();
       removeFile(docKey);
+    });
+
+    submitButton?.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      await submitSelectedDocument(docKey);
     });
   });
 

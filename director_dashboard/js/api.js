@@ -100,10 +100,10 @@ export const api = {
       body: { type, note },
     });
   },
-  async assignSupervisors(id, { sup1, sup2, sup3, override } = {}) {
+  async assignSupervisors(id, { sup1, sup2, override } = {}) {
     return request(`/students/${encodeURIComponent(id)}/supervisors`, {
       method: "POST",
-      body: { sup1, sup2, sup3, override: !!override },
+      body: { sup1, sup2, override: !!override },
     });
   },
   async flagStudent(id, { atRisk, note } = {}) {
