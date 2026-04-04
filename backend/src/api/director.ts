@@ -1232,22 +1232,6 @@ DirectorRouter.get("/pipeline", async (req: Request, res: Response) => {
     res.status(500).json({ message: "Error fetching pipeline", error });
   }
 });
-// 8. GET /supervisors
-DirectorRouter.get("/supervisors", async (req: Request, res: Response) => {
-  try {
-    const { q, department, status } = req.query;
-    const filter: any = { role: "supervisor" };
-
-    if (q) filter.fullName = { $regex: q, $options: "i" };
-    if (department) filter.department = department.toString().toLowerCase();
-    if (status) filter.status = status;
-
-    const supervisors = await UserModel.find(filter);
-    res.json(supervisors);
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching supervisors", error });
-  }
-});
 // 9. POST /supervisors/:id/assign - FIXED to handle registration number
 DirectorRouter.post(
   "/supervisors/:id/assign",
@@ -1634,10 +1618,31 @@ DirectorRouter.get("/supervisors", async (req: Request, res: Response) => {
     // Enhance supervisor data with workload information
     const enhancedSupervisors = await Promise.all(
       supervisors.map(async (sup) => {
-        const studentCount = await SupervisorAssignmentModel.countDocuments({
-          supervisorId: sup._id.toString() as string,
-          status: "active" as const,
-        });
+        const identifiers = [
+          String(sup._id || ""),
+          String(sup.fullName || ""),
+          String(sup.userNumber || ""),
+        ].filter(Boolean);
+
+        const assignedStudents = await UserModel.find({
+          role: "student",
+          $or: [
+            { "supervisors.sup1": { $in: identifiers } },
+            { "supervisors.sup2": { $in: identifiers } },
+          ],
+        } as any).select("assignmentStatus supervisors");
+
+        const studentCount = assignedStudents.length;
+        const pendingApprovals = assignedStudents.reduce((count, student: any) => {
+          const slot = identifiers.includes(String(student?.supervisors?.sup1 || ""))
+            ? "sup1"
+            : identifiers.includes(String(student?.supervisors?.sup2 || ""))
+              ? "sup2"
+              : "";
+
+          if (!slot) return count;
+          return count + (student?.assignmentStatus?.[slot] === "pending" ? 1 : 0);
+        }, 0);
 
         return {
           id: sup._id,
@@ -1648,7 +1653,7 @@ DirectorRouter.get("/supervisors", async (req: Request, res: Response) => {
           status: sup.status,
           isVerified: sup.isVerified,
           studentCount,
-          pendingApprovals: 0, // You can implement this logic separately
+          pendingApprovals,
         };
       }),
     );
