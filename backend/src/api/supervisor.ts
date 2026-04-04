@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { UserModel } from "../models/user.model.js";
 import { PanelEventModel } from "../models/panel.model.js";
 import { SupervisorAssignmentModel } from "../models/supervisor-action.model.js";
+import { bookingsModel } from "../models/student.bookings.js";
 import mongoose from "mongoose";
 
 export const SupervisorRouter = Router();
@@ -112,6 +113,76 @@ SupervisorRouter.post("/students/:id/assign", async (req: Request, res: Response
     });
   } catch (error) {
     res.status(500).json({ message: "Error updating assignment status", error });
+  }
+});
+
+SupervisorRouter.get("/supervisor/:id/presentations", async (req: Request, res: Response) => {
+  try {
+    const identifiers = await resolveSupervisorIdentifiers(String(req.params.id || ""));
+
+    const students = await UserModel.find({
+      $or: [
+        { "supervisors.sup1": { $in: identifiers } },
+        { "supervisors.sup2": { $in: identifiers } }
+      ],
+      role: "student"
+    } as any).select("_id fullName userNumber programme department stage status assignmentStatus supervisors");
+
+    const eligibleStudents = students.filter((student: any) => {
+      const slot = resolveSupervisorSlot(student, identifiers);
+      if (!slot) return false;
+      return String(student?.assignmentStatus?.[slot] || "").toLowerCase() !== "rejected";
+    });
+
+    if (!eligibleStudents.length) {
+      return res.json({ success: true, count: 0, presentations: [] });
+    }
+
+    const studentIds = eligibleStudents.map((student: any) => String(student._id));
+    const bookings = await bookingsModel.find({
+      ownerId: { $in: studentIds }
+    }).sort({ createdAt: -1 }).lean();
+
+    const studentMap = new Map(
+      eligibleStudents.map((student: any) => [String(student._id), student]),
+    );
+
+    const presentations = bookings.map((booking: any) => {
+      const student = studentMap.get(String(booking.ownerId || ""));
+      if (!student) return null;
+
+      const slot = resolveSupervisorSlot(student, identifiers);
+      const assignmentStatus = slot
+        ? String(student?.assignmentStatus?.[slot] || "pending")
+        : "pending";
+
+      return {
+        bookingId: booking._id,
+        studentId: student._id,
+        studentName: student.fullName,
+        studentReg: student.userNumber,
+        programme: student.programme,
+        department: student.department,
+        stage: student.stage || "Coursework",
+        studentStatus: student.status || "Active",
+        assignmentStatus,
+        preferredDate: booking.preferredDate,
+        preferredTime: booking.preferredTime,
+        presentationType: booking.presentationType,
+        venue: booking.venue,
+        bookingStatus: booking.status,
+        additionalNotes: booking.additionalNotes || "",
+        createdAt: booking.createdAt,
+      };
+    }).filter(Boolean);
+
+    res.json({
+      success: true,
+      count: presentations.length,
+      presentations,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching supervisor presentations", error });
   }
 });
 

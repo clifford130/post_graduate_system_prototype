@@ -1,4 +1,4 @@
-import { qs, qsa, getSupervisorSession, escapeHtml, toast } from './main.js';
+import { qs, qsa, getSupervisorSession, escapeHtml } from './main.js';
 import { api } from './api.js';
 
 export async function initPresentations() {
@@ -10,83 +10,97 @@ export async function initPresentations() {
         <div class="p-8">
             <div class="flex-between mb-8">
                 <div>
-                    <h2 class="text-3xl font-black text-navy">Board Room Assignments</h2>
-                    <p class="text-sm text-muted">Manage your upcoming and past seminar panel sessions</p>
+                    <h2 class="text-3xl font-black text-navy">Student Presentations</h2>
+                    <p class="text-sm text-muted">Booked presentation requests from students assigned to you</p>
                 </div>
                 <button class="btn btn-primary btn-sm" id="refresh-panels">Refresh Schedule</button>
             </div>
             <div id="panels-list" class="grid-2">
                 <div class="col-span-2 p-20 text-center animate-pulse">
-                    <div class="text-4xl mb-4">🔮</div>
-                    <div class="font-bold text-muted uppercase tracking-widest text-xs">Synchronizing board schedule...</div>
+                    <div class="text-4xl mb-4">P</div>
+                    <div class="font-bold text-muted uppercase tracking-widest text-xs">Loading student bookings...</div>
                 </div>
             </div>
         </div>
     `;
 
-    loadPanels(session.id); 
+    loadPanels(session.id);
     qs("#refresh-panels").onclick = () => loadPanels(session.id);
 }
 
 async function loadPanels(userId) {
     const list = qs("#panels-list");
     try {
-        const panels = await api.getMyPanelAssignments(userId);
-        
-        if (!panels || panels.length === 0) {
+        const response = await api.getMyPresentations(userId);
+        const panels = Array.isArray(response?.presentations) ? response.presentations : [];
+
+        if (!panels.length) {
             list.innerHTML = `
                 <div class="col-span-2 p-20 text-center bg-white rounded-3xl border border-dashed border-grey-200">
-                    <div class="text-6xl mb-6 opacity-20">📅</div>
-                    <h3 class="text-xl font-bold text-navy">No Board Assignments</h3>
-                    <p class="text-sm text-muted mt-2">You are not currently assigned to any upcoming presentation panels.</p>
+                    <div class="text-6xl mb-6 opacity-20">P</div>
+                    <h3 class="text-xl font-bold text-navy">No Student Presentations</h3>
+                    <p class="text-sm text-muted mt-2">No booked presentation requests were found for your assigned students.</p>
                 </div>
             `;
             return;
         }
 
-        list.innerHTML = panels.map(p => `
-            <div class="card hover-up transition-all group overflow-hidden">
+        list.innerHTML = panels.map((p) => `
+            <div class="card hover-up transition-all group">
                 <div class="flex justify-between items-start mb-6">
                     <div class="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center text-2xl shadow-inner border border-white">
-                        ${p.stage.includes('Thesis') ? '🎓' : '📋'}
+                        ${String(p.presentationType || '').toLowerCase().includes('seminar') ? 'S' : 'P'}
                     </div>
-                    <span class="badge ${p.role === 'chair' ? 'badge-active' : 'badge-pending'}" style="text-transform: uppercase; font-size: 10px; font-weight: 800; letter-spacing: 0.05em;">
-                        ${p.role} Role
+                    <span class="badge ${p.bookingStatus === 'confirmed' ? 'badge-active' : 'badge-pending'}" style="text-transform: uppercase; font-size: 10px; font-weight: 800; letter-spacing: 0.05em;">
+                        ${escapeHtml(p.bookingStatus || 'pending')}
                     </span>
                 </div>
-                
+
                 <div class="mb-6">
-                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">${p.stage} Presentation</div>
-                    <h3 class="text-lg font-black text-navy leading-tight mb-2">${p.studentName || 'Research Candidate'}</h3>
-                    <div class="text-xs font-bold text-muted uppercase tracking-tighter">Reg No: ${p.studentReg || 'Pending'}</div>
+                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">${escapeHtml(p.presentationType || 'Presentation')}</div>
+                    <h3 class="text-lg font-black text-navy leading-tight mb-2">${escapeHtml(p.studentName || 'Research Candidate')}</h3>
+                    <div class="text-xs font-bold text-muted uppercase tracking-tighter">Reg No: ${escapeHtml(p.studentReg || 'Pending')}</div>
                 </div>
 
                 <div class="flex items-center gap-4 py-4 border-y border-slate-50 mb-6 bg-slate-50/30 -mx-8 px-8">
                     <div class="flex-1">
                         <div class="text-[9px] font-black text-slate-400 uppercase">Scheduled Date</div>
-                        <div class="text-sm font-bold text-navy">${new Date(p.scheduledDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                        <div class="text-sm font-bold text-navy">${formatDisplayDate(p.preferredDate)}</div>
                     </div>
                     <div class="flex-1 text-right">
-                        <div class="text-[9px] font-black text-slate-400 uppercase">Verification Status</div>
-                        <div class="text-sm font-bold text-green-500">Board Ready ✓</div>
+                        <div class="text-[9px] font-black text-slate-400 uppercase">Time / Venue</div>
+                        <div class="text-sm font-bold text-green-500">${escapeHtml(p.preferredTime || 'Pending')}${p.venue ? ` • ${escapeHtml(p.venue)}` : ''}</div>
                     </div>
+                </div>
+
+                <div class="mb-6 text-xs text-slate-500 space-y-1">
+                    <div><span class="font-bold text-slate-700">Stage:</span> ${escapeHtml(p.stage || 'Coursework')}</div>
+                    <div><span class="font-bold text-slate-700">Programme:</span> ${escapeHtml(String((p.programme || '-')).toUpperCase())} • ${escapeHtml(p.department || '-')}</div>
+                    <div><span class="font-bold text-slate-700">Supervisor Status:</span> ${escapeHtml(p.assignmentStatus || 'pending')}</div>
+                    ${p.additionalNotes ? `<div><span class="font-bold text-slate-700">Notes:</span> ${escapeHtml(p.additionalNotes)}</div>` : ''}
                 </div>
 
                 <div class="flex gap-3">
-                    <button class="btn btn-primary w-full shadow-lg shadow-rongo-blue/20" onclick="window.location.href='/panel dashboard/index.html?panelId=${p._id}'">
-                        Enter Board Room
+                    <button class="btn btn-primary w-full shadow-lg shadow-rongo-blue/20" data-student-id="${escapeHtml(String(p.studentId || ''))}">
+                        Open Student
                     </button>
                 </div>
-
-                ${p.role === 'chair' ? `
-                    <div class="mt-4 pt-4 border-t border-slate-50 text-center">
-                        <p class="text-[10px] font-bold text-amber-600 uppercase italic">⚠️ Administrative Authority: Panel Chair privileges enabled</p>
-                    </div>
-                ` : ''}
             </div>
         `).join('');
 
+        qsa("[data-student-id]").forEach((btn) => {
+            btn.onclick = () => {
+                window.location.href = `./student-details.html?id=${btn.dataset.studentId}`;
+            };
+        });
     } catch (err) {
-        list.innerHTML = `<div class="col-span-2 alert alert-error">${err.message}</div>`;
+        list.innerHTML = `<div class="col-span-2 alert alert-error">${escapeHtml(err.message || 'Failed to load presentations')}</div>`;
     }
+}
+
+function formatDisplayDate(value) {
+    if (!value) return 'Pending';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return escapeHtml(String(value));
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }

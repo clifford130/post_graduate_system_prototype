@@ -103,6 +103,9 @@ export const api = {
   async getMyPanelAssignments(userId) {
     return request(`/panels/my/${encodeURIComponent(userId)}`);
   },
+  async getMyPresentations(supervisorId) {
+    return request(`/supervisor/${encodeURIComponent(supervisorId)}/presentations`);
+  },
 
   // Dashboard Summary (Computed from fetched students)
   async getDashboardSummary(supervisorId) {
