@@ -257,10 +257,13 @@ function closeSidebar() {
   document.getElementById('hamburgerBtn').classList.remove('open');
 }
 
-/* ── AI Transcript & Corrections Logic (Chair Only) ── */
+/* ── AI Transcript & Corrections Logic (Chatbot Refactor) ── */
 let currentSuggestedCorrections = [];
+let isProcessing = false;
 
 async function handleUpload(event) {
+  if (isProcessing) return;
+  
   const file = event.target.files[0];
   if (!file) return;
 
@@ -270,68 +273,241 @@ async function handleUpload(event) {
     return;
   }
 
-  showToast("Uploading & Processing with AI...", "info");
-  document.getElementById('uploadZone').style.opacity = '0.5';
+  isProcessing = true;
+  document.getElementById('uploadZone').style.display = 'none';
+  
+  // 1. Add User Message (Document Card)
+  addMessage(`
+    <div class="doc-card">
+      <div style="color:var(--primary)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <div class="doc-info">
+        <div class="doc-name">${file.name}</div>
+        <div class="doc-meta">${(file.size / 1024).toFixed(1)} KB</div>
+        <div class="doc-progress"><div class="doc-progress-fill" id="uploadProgress" style="width: 20%"></div></div>
+      </div>
+      <button class="doc-cancel-btn" onclick="resetChat()" title="Cancel">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  `, 'user');
+
+  // 2. Start AI Simulation
+  const steps = [
+    "Validating document structure...",
+    "Reading transcript content...",
+    "Analyzing panelist feedback...",
+    "Extracting structured corrections...",
+    "Finalizing AI suggestions..."
+  ];
 
   try {
+    // Artificial delay for "uploading" feel
+    await new Promise(r => setTimeout(r, 800));
+    document.getElementById('uploadProgress').style.width = '100%';
+    
+    // Simulate steps in parallel with real request or sequentially
+    for (const step of steps) {
+      if (!isProcessing) return; // Allow cancel
+      const statusBubble = addMessage(step, 'status');
+      await new Promise(r => setTimeout(r, 1000));
+      // Optionally remove or keep status messages
+    }
+
+    showTypingIndicator();
+
     const res = await fetch(`${API_BASE}/panels/transcript`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ panelId: panel._id, fileName: file.name })
     });
+    
+    hideTypingIndicator();
+
     if (!res.ok) throw new Error("AI processing failed");
     
     const data = await res.json();
-    currentSuggestedCorrections = data.suggestedCorrections;
+    currentSuggestedCorrections = data.suggestedCorrections.map((c, i) => ({
+      ...c,
+      id: `cor-${Date.now()}-${i}`,
+      status: 'pending' // pending, approved, rejected
+    }));
     
-    renderCorrections(data.suggestedCorrections);
-    document.getElementById('uploadZone').style.display = 'none';
-    document.getElementById('uploadStatus').style.display = 'flex';
-    document.getElementById('correctionsSection').style.display = 'block';
-    showToast("AI Extraction Complete", "success");
+    // 3. Render Corrections with Typing Effect
+    await renderCorrectionsChat();
+    
+    document.getElementById('publishBar').style.display = 'flex';
+    showToast("AI Analysis Complete", "success");
   } catch (err) {
-    showToast(err.message, "error");
-    document.getElementById('uploadZone').style.opacity = '1';
+    hideTypingIndicator();
+    addMessage(`Error: ${err.message}. Please try again.`, 'ai');
+    document.getElementById('uploadZone').style.display = 'block';
+    isProcessing = false;
   }
 }
 
-function renderCorrections(corrections) {
-  const containers = {
-    critical: document.getElementById('corrections-critical'),
-    major: document.getElementById('corrections-major'),
-    minor: document.getElementById('corrections-minor')
-  };
+function addMessage(content, type) {
+  const win = document.getElementById('chatWindow');
+  const div = document.createElement('div');
+  div.className = `chat-bubble ${type}`;
+  div.innerHTML = content;
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+  return div;
+}
 
-  // Clear existing
-  Object.values(containers).forEach(c => c.innerHTML = '');
+function showTypingIndicator() {
+  const win = document.getElementById('chatWindow');
+  const div = document.createElement('div');
+  div.id = 'typingIndicator';
+  div.className = 'typing-indicator';
+  div.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
 
-  corrections.forEach(cor => {
-    const div = document.createElement('div');
-    div.className = 'correction-item';
-    div.style = 'background:#fff; border:1px solid #eee; padding:10px; border-radius:8px; margin-bottom:8px; font-size:13px; color:#555; position:relative;';
-    div.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:start;">
-        <span>${cor.description}</span>
-        <button onclick="this.parentElement.parentElement.remove()" style="background:none; border:none; color:#ff4d4d; cursor:pointer;">&times;</button>
+function hideTypingIndicator() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+async function renderCorrectionsChat() {
+  addMessage("I've identified several corrections based on the transcript. Please review them below:", "ai");
+  
+  for (const cor of currentSuggestedCorrections) {
+    await new Promise(r => setTimeout(r, 600)); // Delay between cards
+    const card = document.createElement('div');
+    card.id = cor.id;
+    card.className = `correction-card ${cor.category}`;
+    card.innerHTML = `
+      <div class="correction-header">
+        <span class="correction-category">${cor.category}</span>
+        <span class="ci-status" id="status-${cor.id}" style="display:none"></span>
+      </div>
+      <div class="correction-issue" id="issue-${cor.id}"></div>
+      <div class="correction-suggestion" id="sug-${cor.id}"></div>
+      <div class="correction-actions" id="actions-${cor.id}">
+        <button class="action-btn btn-approve" onclick="updateCorrectionStatus('${cor.id}', 'approved')">Approve</button>
+        <button class="action-btn btn-edit" onclick="editCorrection('${cor.id}')">Edit</button>
+        <button class="action-btn btn-reject" onclick="updateCorrectionStatus('${cor.id}', 'rejected')">Reject</button>
       </div>
     `;
-    containers[cor.category].appendChild(div);
-  });
+    document.getElementById('chatWindow').appendChild(card);
+    const win = document.getElementById('chatWindow');
+    win.scrollTop = win.scrollHeight;
+
+    // Type out the issue and suggestion
+    await typeText(`issue-${cor.id}`, cor.description);
+  }
+}
+
+async function typeText(elementId, text) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  for (let i = 0; i < text.length; i++) {
+    el.textContent += text.charAt(i);
+    await new Promise(r => setTimeout(r, 15));
+    if (i % 5 === 0) {
+      const win = document.getElementById('chatWindow');
+      win.scrollTop = win.scrollHeight;
+    }
+  }
+}
+
+function updateCorrectionStatus(id, newStatus) {
+  const cor = currentSuggestedCorrections.find(c => c.id === id);
+  if (!cor) return;
+
+  cor.status = newStatus;
+  const card = document.getElementById(id);
+  const statusEl = document.getElementById(`status-${id}`);
+  const actionsEl = document.getElementById(`actions-${id}`);
+
+  card.classList.remove('approved', 'rejected');
+  if (newStatus === 'approved') {
+    card.classList.add('approved');
+    statusEl.textContent = '✓ Approved';
+    statusEl.className = 'ci-status approved';
+  } else if (newStatus === 'rejected') {
+    card.classList.add('rejected');
+    statusEl.textContent = '✕ Rejected';
+    statusEl.className = 'ci-status rejected';
+  }
+  
+  statusEl.style.display = 'block';
+  actionsEl.innerHTML = `<button class="action-btn btn-edit" onclick="editCorrection('${id}')" style="border:none; background:none; text-decoration:underline; padding:0;">Change Decision</button>`;
+}
+
+function editCorrection(id) {
+  const cor = currentSuggestedCorrections.find(c => c.id === id);
+  if (!cor) return;
+
+  const issueEl = document.getElementById(`issue-${id}`);
+  const currentText = cor.description;
+  
+  issueEl.innerHTML = `
+    <textarea class="comment-area" id="edit-input-${id}" style="min-height:50px; margin-bottom:8px;">${currentText}</textarea>
+    <div style="display:flex; gap:8px;">
+      <button class="btn-primary" onclick="saveEdit('${id}')" style="padding:4px 12px; font-size:11px;">Save</button>
+      <button class="btn-secondary" onclick="cancelEdit('${id}')" style="padding:4px 12px; font-size:11px;">Cancel</button>
+    </div>
+  `;
+  document.getElementById(`actions-${id}`).style.display = 'none';
+}
+
+function saveEdit(id) {
+  const newText = document.getElementById(`edit-input-${id}`).value;
+  const cor = currentSuggestedCorrections.find(c => c.id === id);
+  if (cor) cor.description = newText;
+  
+  cancelEdit(id); // Returns to normal view
+}
+
+function cancelEdit(id) {
+  const cor = currentSuggestedCorrections.find(c => c.id === id);
+  const issueEl = document.getElementById(`issue-${id}`);
+  const actionsEl = document.getElementById(`actions-${id}`);
+  
+  issueEl.textContent = cor.description;
+  actionsEl.style.display = 'flex';
+  actionsEl.innerHTML = `
+    <button class="action-btn btn-approve" onclick="updateCorrectionStatus('${id}', 'approved')">Approve</button>
+    <button class="action-btn btn-edit" onclick="editCorrection('${id}')">Edit</button>
+    <button class="action-btn btn-reject" onclick="updateCorrectionStatus('${id}', 'rejected')">Reject</button>
+  `;
+  
+  // Re-apply status visual if it was already set
+  if (cor.status !== 'pending') updateCorrectionStatus(id, cor.status);
+}
+
+function resetChat() {
+  isProcessing = false;
+  currentSuggestedCorrections = [];
+  document.getElementById('chatWindow').innerHTML = `
+    <div class="chat-bubble ai">
+      Hello! I'm your AI assistant. Please upload the seminar transcript or audio recording to begin the analysis.
+    </div>
+    <div class="upload-zone" id="uploadZone" style="margin: 10px; border-style: dotted;">
+      <input type="file" accept=".txt,.pdf,.mp3,.wav,.m4a,.docx" onchange="handleUpload(event)" />
+      <div class="upload-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+      </div>
+      <p style="font-size: 12px;">Click or drag transcript here</p>
+    </div>
+  `;
+  document.getElementById('publishBar').style.display = 'none';
 }
 
 async function publishCorrections() {
   const panel = panels[activePanelIndex];
   
-  // Collect final list from UI (allowing Chair for minor edits/deletes)
-  const finalCorrections = [];
-  ['critical', 'major', 'minor'].forEach(cat => {
-    document.getElementById(`corrections-${cat}`).querySelectorAll('.correction-item').forEach(el => {
-      finalCorrections.push({ category: cat, description: el.innerText.replace('×', '').trim() });
-    });
-  });
+  const finalized = currentSuggestedCorrections
+    .filter(c => c.status === 'approved')
+    .map(c => ({ category: c.category, description: c.description }));
 
-  if (finalCorrections.length === 0) {
-    showToast("Please provide at least one correction item.", "error");
+  if (finalized.length === 0) {
+    showToast("Please approve at least one correction before publishing.", "error");
     return;
   }
 
@@ -339,18 +515,23 @@ async function publishCorrections() {
     const res = await fetch(`${API_BASE}/panels/${panel._id}/checklist`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ corrections: finalCorrections })
+      body: JSON.stringify({ corrections: finalized })
     });
     if (!res.ok) throw new Error("Failed to publish checklist");
     
     showToast("Formal Checklist Published!", "success");
-    document.getElementById('correctionsSection').innerHTML = `
-      <div style="padding:40px; text-align:center; color:var(--green);">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-        <h3>Checklist Finalized</h3>
-        <p>The student has been notified to start revisions.</p>
+    document.getElementById('chatWindow').innerHTML = "";
+    addMessage(`
+      <div style="text-align:center; padding:20px;">
+        <div style="color:var(--green); margin-bottom:12px;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h3 style="color:var(--text)">Checklist Finalized</h3>
+        <p style="color:var(--muted); font-size:13px;">The student has been notified to start revisions based on the ${finalized.length} corrections you approved.</p>
+        <button class="btn-secondary" onclick="resetChat()" style="margin-top:16px;">New Analysis</button>
       </div>
-    `;
+    `, 'ai');
+    document.getElementById('publishBar').style.display = 'none';
   } catch (err) {
     showToast(err.message, "error");
   }
@@ -368,7 +549,21 @@ function showToast(msg, type = '') {
 function mobileTab(tab) {
   document.querySelectorAll('.mbn-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('mbn-' + tab).classList.add('active');
-  // ... similar visibility logic as original ...
+  
+  if (tab === 'queue') {
+    document.querySelector('.sidebar').classList.add('open');
+    document.getElementById('sidebarOverlay').classList.add('show');
+  } else if (tab === 'assess') {
+    document.getElementById('assessmentWorkspace').style.display = 'block';
+    document.getElementById('aiPortalCard').style.display = 'none';
+    closeSidebar();
+  } else if (tab === 'ai') {
+    document.getElementById('assessmentWorkspace').style.display = 'block';
+    document.getElementById('aiPortalCard').style.display = 'block';
+    // Scroll to it
+    document.getElementById('aiPortalCard').scrollIntoView({ behavior: 'smooth' });
+    closeSidebar();
+  }
 }
 
 window.calcScore = calcScore;
@@ -380,6 +575,14 @@ window.toggleSidebar = toggleSidebar;
 window.closeSidebar = closeSidebar;
 window.handleUpload = handleUpload;
 window.publishCorrections = publishCorrections;
+window.resetChat = resetChat;
+window.updateCorrectionStatus = updateCorrectionStatus;
+window.editCorrection = editCorrection;
+window.saveEdit = saveEdit;
+window.cancelEdit = cancelEdit;
+
+// Initial Call
+document.addEventListener("DOMContentLoaded", init);
 
 // Initial Call
 document.addEventListener("DOMContentLoaded", init);
