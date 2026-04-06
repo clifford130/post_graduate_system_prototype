@@ -840,10 +840,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (response.ok && data.success) {
         localStorage.removeItem('postgraduate_user');
         sessionStorage.removeItem('postgraduate_user');
+        localStorage.removeItem('auth_token');
         localStorage.removeItem('userToken');
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('userToken');
         sessionStorage.clear();
         alert('Logged out successfully!');
-        window.location.href = '../login/login.html';
+        window.location.replace('../login/login.html');
       } else {
         throw new Error(data.message || 'Logout failed');
       }
@@ -852,7 +855,12 @@ document.addEventListener("DOMContentLoaded", () => {
       alert('Error during logout: ' + error.message);
       localStorage.removeItem('postgraduate_user');
       sessionStorage.removeItem('postgraduate_user');
-      window.location.href = '../login/login.html';
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('userToken');
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('userToken');
+      sessionStorage.clear();
+      window.location.replace('../login/login.html');
     } finally {
       if (logoutBtn && logoutBtn.innerHTML !== '<span class="nav-icon">🚪</span> Logout') {
         logoutBtn.innerHTML = '<span class="nav-icon">🚪</span> Logout';

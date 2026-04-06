@@ -6,6 +6,13 @@ import { SupervisorAssignmentModel } from "../models/supervisor-action.model.js"
 
 export const UserLoginRouter = Router();
 
+const authCookieOptions = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none" as const,
+  path: "/",
+};
+
 UserLoginRouter.post(
   "/",
   async (req: Request, res: Response): Promise<void> => {
@@ -59,11 +66,7 @@ UserLoginRouter.post(
         RawJwtSecret as string,
         { expiresIn: "1d" },
       );
-      res.cookie("userToken", token, {
-        httpOnly: true,
-        secure: true, // MUST be true for cross-origin (HTTPS only)
-        sameSite: "none",
-      });
+      res.cookie("userToken", token, authCookieOptions);
       // 5. Send response
       res.status(200).json({
         message: "Login successful",
@@ -96,12 +99,14 @@ UserLoginRouter.post(
   "/logout",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      // Clear the userToken cookie
-      res.clearCookie("userToken");
+      // Clear the auth cookie using the same attributes it was issued with.
+      res.clearCookie("userToken", authCookieOptions);
 
       // Also clear any other session-related cookies if they exist
       res.clearCookie("connect.sid", {
         path: "/",
+        secure: true,
+        sameSite: "none",
       });
 
       // Optional: If you're using session storage, you can destroy it here
@@ -131,12 +136,7 @@ UserLoginRouter.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       // Clear the userToken cookie
-      res.clearCookie("userToken", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        path: "/",
-      });
+      res.clearCookie("userToken", authCookieOptions);
 
       // Redirect to login page or send JSON based on Accept header
       const acceptHeader = req.headers.accept || "";
@@ -197,7 +197,7 @@ UserLoginRouter.post(
         // await UserModel.findByIdAndUpdate(decoded.id, { $inc: { tokenVersion: 1 } });
 
         // Clear the cookie
-        res.clearCookie("userToken");
+        res.clearCookie("userToken", authCookieOptions);
 
         res.status(200).json({
           success: true,
@@ -205,7 +205,7 @@ UserLoginRouter.post(
         });
       } catch (verifyError) {
         // Token is already invalid, just clear it
-        res.clearCookie("userToken");
+        res.clearCookie("userToken", authCookieOptions);
 
         res.status(200).json({
           success: true,

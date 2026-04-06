@@ -623,8 +623,18 @@ function updateKPICards() {
   async function handleLogout() {
       try {
           await fetch(`${API_URL}/user/login/logout`, { method: 'POST', credentials: 'include' });
-          window.location.href = '../login/login.html';
-      } catch (err) { window.location.href = '../login/login.html'; }
+      } catch (err) {
+          console.error('Logout failed:', err);
+      } finally {
+          localStorage.removeItem('postgraduate_user');
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('userToken');
+          sessionStorage.removeItem('postgraduate_user');
+          sessionStorage.removeItem('auth_token');
+          sessionStorage.removeItem('userToken');
+          sessionStorage.clear();
+          window.location.replace('../login/login.html');
+      }
   }
 
   const lib = document.getElementById('logoutBtn');

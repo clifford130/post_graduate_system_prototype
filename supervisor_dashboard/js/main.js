@@ -21,14 +21,19 @@ export async function handleLogout() {
       method: "POST", 
       credentials: "include" 
     });
-    
-    localStorage.removeItem("postgraduate_user");
-    localStorage.removeItem("auth_token");
-    window.location.href = "../login/login.html";
   } catch (err) {
+    console.error("Logout failed:", err);
+  } finally {
     localStorage.removeItem("postgraduate_user");
     localStorage.removeItem("auth_token");
-    window.location.href = "../login/login.html";
+    localStorage.removeItem("userToken");
+    localStorage.removeItem("supervisor_session");
+    sessionStorage.removeItem("postgraduate_user");
+    sessionStorage.removeItem("auth_token");
+    sessionStorage.removeItem("userToken");
+    sessionStorage.removeItem("supervisor_session");
+    sessionStorage.clear();
+    window.location.replace("../login/login.html");
   }
 }
 

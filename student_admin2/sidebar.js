@@ -109,6 +109,10 @@
     } finally {
       localStorage.removeItem("postgraduate_user");
       localStorage.removeItem("auth_token");
+      sessionStorage.removeItem("postgraduate_user");
+      sessionStorage.removeItem("auth_token");
+      sessionStorage.clear();
+      window.StudentSession = null;
       window.location.replace(LOGIN_URL);
     }
   }
