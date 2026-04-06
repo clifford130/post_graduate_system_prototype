@@ -264,17 +264,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   window.viewPanelResults = async (id) => {
     try {
       const results = await api.getPanelResults(id);
+      const isProvisional = results.status === "in_progress";
+      
       openModal({
         title: "Panel Evaluation Results",
         bodyHtml: `
           <div class="space-y-6">
+            ${isProvisional ? `
+              <div class="rounded-xl border border-yellow-200 bg-yellow-50 p-3 flex items-center justify-between text-yellow-800 text-xs font-medium">
+                <span class="flex items-center gap-2">
+                  <svg class="h-4 w-4 animate-spin text-yellow-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Evaluation in progress. Showing real-time provisional scores.
+                </span>
+                <span class="font-bold text-[10px] tracking-widest uppercase opacity-70">Live Data</span>
+              </div>
+            ` : ""}
             <div class="grid grid-cols-2 gap-4">
               <div class="rounded-2xl bg-slate-50 p-4 border border-slate-200 text-center">
                 <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Average Score</div>
                 <div class="text-3xl font-black text-slate-900">${Math.round(results.averageScore)}%</div>
               </div>
               <div class="rounded-2xl bg-slate-50 p-4 border border-slate-200 text-center">
-                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Final Verdict</div>
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${isProvisional ? "Current Verdict" : "Final Verdict"}</div>
                 <div class="mt-1">${badge({ label: results.finalVerdict.toUpperCase(), tone: results.finalVerdict === 'pass' ? 'green' : 'red' })}</div>
               </div>
             </div>

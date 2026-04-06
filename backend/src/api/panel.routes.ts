@@ -332,12 +332,63 @@ PanelRouter.post("/panels/evaluate", async (req: Request, res: Response) => {
 PanelRouter.get("/panels/:panelId/results", async (req: Request, res: Response) => {
   try {
     const result = await PanelResultModel.findOne({ panelId: req.params.panelId });
-    if (!result) return res.status(404).json({ message: "Results not yet generated" });
-    res.json(result);
+    if (result) {
+      return res.json(result);
+    }
+
+    // If final results aren't generated yet, compute real-time progress
+    const members = await PanelMemberModel.find({ panelId: req.params.panelId });
+    const memberIds = members.map(m => m._id);
+    const evaluations = await PanelEvaluationModel.find({ panelMemberId: { $in: memberIds } });
+
+    if (evaluations.length === 0) {
+      return res.status(404).json({ message: "Evaluation still in progress. No members have submitted yet." });
+    }
+
+    // Calculate Average Score so far
+    let totalScore = 0;
+    evaluations.forEach(e => {
+      totalScore += (e.problemScore + e.objectivesScore + e.literatureScore + e.methodologyScore + e.presentationScore) / 5;
+    });
+    const averageScore = totalScore / evaluations.length;
+
+    // Calculate Majority Verdict so far
+    const passCount = evaluations.filter(e => e.verdict === "pass").length;
+    const reviseCount = evaluations.filter(e => e.verdict === "revise").length;
+    const majorityVerdict = passCount >= reviseCount ? "pass" : "revise";
+    const finalVerdict = (averageScore >= 60 && majorityVerdict === "pass") ? "pass" : "revise";
+
+    const summaryFeedback = {
+      critical: evaluations.map(e => e.criticalIssues).filter(Boolean),
+      minor: evaluations.map(e => e.minorIssues).filter(Boolean),
+      recommendations: evaluations.map(e => e.recommendations).filter(Boolean)
+    };
+
+    const panelistBreakdown = await Promise.all(evaluations.map(async (e) => {
+      const mem = members.find(m => m._id.toString() === e.panelMemberId.toString());
+      let name = mem?.email || "Unknown";
+      if (mem?.userId) {
+        const u = await UserModel.findById(mem.userId);
+        if (u) name = u.fullName;
+      }
+      const score = (e.problemScore + e.objectivesScore + e.literatureScore + e.methodologyScore + e.presentationScore) / 5;
+      return { name, type: mem?.type || "internal", score, verdict: e.verdict };
+    }));
+
+    // Return the real-time calculated result without saving it
+    res.json({
+      averageScore,
+      finalVerdict,
+      summaryFeedback,
+      panelistBreakdown,
+      status: "in_progress" // Let the frontend know this is real-time
+    });
+
   } catch (error) {
     res.status(500).json({ message: "Error fetching results", error });
   }
 });
+
 
 // 5. CHAIR WORKFLOW: Upload Transcript & Extract Corrections
 // POST /api/panels/transcript
