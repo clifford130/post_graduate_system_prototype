@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const userNumberInput = document.getElementById("userNumber");
     const passwordInput = document.getElementById("password");
     const messageBox = document.getElementById("messageBox");
-    const API_BASE = "http://localhost:5000/api";
+    const API_BASE = "https://post-graduate-system-prototype.onrender.com/api";
 
     function getRedirectByRole(role) {
         if (role === "student") return "../student_admin2/profile.html";

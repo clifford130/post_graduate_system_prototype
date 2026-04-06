@@ -1,5 +1,5 @@
 /* ── Backend Integration ────────────────────────────────────── */
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "https://post-graduate-system-prototype.onrender.com/api";
 
 let panels = [];
 let activePanelIndex = -1;
