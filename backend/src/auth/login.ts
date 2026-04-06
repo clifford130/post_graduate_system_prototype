@@ -8,6 +8,7 @@ export const UserLoginRouter = Router();
 
 const authCookieOptions = {
   httpOnly: true,
+  maxAge: 24 * 60 * 60 * 1000, // 24 hours
   secure: true,
   sameSite: "none" as const,
 };
