@@ -404,7 +404,17 @@ function hideTypingIndicator() {
 }
 
 async function renderCorrectionsChat() {
-  addMessage("I've identified several corrections based on the transcript. Please review them below:", "ai");
+  const greetings = [
+    "I've carefully analyzed the transcript. Here are the core issues and recommendations identified during the session:",
+    "Analysis complete. I've extracted the following corrections and formal suggestions from the panel's discussion:",
+    "The review is ready. Below are the critical, major, and minor points raised by the board during the presentation:",
+    "Based on the seminar recording, I've compiled a list of necessary corrections for the candidate's review:"
+  ];
+  const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+  
+  const greetingBubble = addMessage("", "ai");
+  greetingBubble.id = "ai-preamble";
+  await typeText("ai-preamble", randomGreeting);
   
   for (const cor of currentSuggestedCorrections) {
     if (!isProcessing) return;

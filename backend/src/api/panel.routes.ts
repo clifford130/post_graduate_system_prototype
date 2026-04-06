@@ -23,8 +23,16 @@ async function extractTextFromBuffer(buffer: Buffer, originalName: string): Prom
   const ext = path.extname(originalName).toLowerCase();
   
   if (ext === ".pdf") {
-    // pdf-parse can sometimes be an object with a default property in ESM/CJS interop
-    const pdfExtractor = (typeof pdf === 'function') ? pdf : (pdf as any).default;
+    // Ensure we have the executable function
+    let pdfExtractor = pdf;
+    if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
+      pdfExtractor = (pdf as any).default;
+    }
+    
+    if (typeof pdfExtractor !== 'function') {
+      throw new Error("PDF parser extraction failed: function not found");
+    }
+
     const data = await pdfExtractor(buffer);
     return data.text;
   } else if (ext === ".docx") {
