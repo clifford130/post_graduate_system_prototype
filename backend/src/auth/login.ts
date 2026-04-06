@@ -10,7 +10,6 @@ const authCookieOptions = {
   httpOnly: true,
   secure: true,
   sameSite: "none" as const,
-  path: "/",
 };
 
 UserLoginRouter.post(
@@ -100,7 +99,7 @@ UserLoginRouter.post(
   async (req: Request, res: Response): Promise<void> => {
     try {
       // Clear the auth cookie using the same attributes it was issued with.
-      res.clearCookie("userToken", authCookieOptions);
+      res.clearCookie("userToken");
 
       // Also clear any other session-related cookies if they exist
       res.clearCookie("connect.sid", {
