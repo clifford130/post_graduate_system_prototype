@@ -317,10 +317,13 @@ async function handleUpload(event) {
 
     showTypingIndicator();
 
+    const formData = new FormData();
+    formData.append("panelId", panel._id);
+    formData.append("transcriptFile", file);
+
     const res = await fetch(`${API_BASE}/panels/transcript`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ panelId: panel._id, fileName: file.name })
+      body: formData
     });
     
     hideTypingIndicator();
@@ -580,9 +583,6 @@ window.updateCorrectionStatus = updateCorrectionStatus;
 window.editCorrection = editCorrection;
 window.saveEdit = saveEdit;
 window.cancelEdit = cancelEdit;
-
-// Initial Call
-document.addEventListener("DOMContentLoaded", init);
 
 // Initial Call
 document.addEventListener("DOMContentLoaded", init);

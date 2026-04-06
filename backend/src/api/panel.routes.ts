@@ -1,8 +1,40 @@
 import { Router, type Request, type Response } from "express";
 import { PanelEventModel, PanelMemberModel, PanelEvaluationModel, PanelResultModel } from "../models/panel.model.js";
 import { UserModel } from "../models/user.model.js";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createRequire } from "module";
+import path from "path";
+import fs from "fs";
+import multer from "multer";
+import mammoth from "mammoth";
+
+const require = createRequire(import.meta.url);
+const pdf = require("pdf-parse");
 
 export const PanelRouter = Router();
+
+// --- Transcript Upload Configuration ---
+const uploadTranscript = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
+async function extractTextFromBuffer(buffer: Buffer, originalName: string): Promise<string> {
+  const ext = path.extname(originalName).toLowerCase();
+  
+  if (ext === ".pdf") {
+    // pdf-parse can sometimes be an object with a default property in ESM/CJS interop
+    const pdfExtractor = (typeof pdf === 'function') ? pdf : (pdf as any).default;
+    const data = await pdfExtractor(buffer);
+    return data.text;
+  } else if (ext === ".docx") {
+    const result = await mammoth.extractRawText({ buffer: buffer });
+    return result.value;
+  } else if (ext === ".txt") {
+    return buffer.toString("utf-8");
+  }
+  return "";
+}
 
 const STAGES = [
   "Coursework", "Concept Note (Department)", "Concept Note (School)", 
@@ -301,22 +333,73 @@ PanelRouter.get("/panels/:panelId/results", async (req: Request, res: Response) 
 
 // 5. CHAIR WORKFLOW: Upload Transcript & Extract Corrections
 // POST /api/panels/transcript
-PanelRouter.post("/panels/transcript", async (req: Request, res: Response) => {
+// Handles multipart/form-data with file
+PanelRouter.post("/panels/transcript", uploadTranscript.single("transcriptFile"), async (req: Request, res: Response) => {
   try {
-    const { panelId, fileName } = req.body;
+    const { panelId } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ message: "No transcript file uploaded." });
+    }
+
+    // 1. Extract Text
+    const transcriptText = await extractTextFromBuffer(file.buffer, file.originalname);
+    if (!transcriptText || transcriptText.trim().length < 50) {
+       return res.status(400).json({ message: "Failed to extract meaningful text from transcript. Please ensure it is a valid document." });
+    }
+
+    // 2. AI Extraction using Gemini
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ message: "AI services not configured. Missing API Key." });
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+
+    const prompt = `
+      You are an academic governance assistant for a postgraduate system. 
+      Analyze the following transcript from a research presentation board session.
+      Your task is to extract a list of formal corrections, issues, and recommendations raised by the panelists.
+      Categorize each as "critical", "major", or "minor".
+      
+      Return ONLY a JSON array of objects in this format:
+      [
+        { "category": "critical" | "major" | "minor", "description": "Short clear description of the issue" }
+      ]
+
+      Transcript:
+      ${transcriptText.substring(0, 15000)}
+    `;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
     
-    // Simulate AI Extraction Logic (Level 2 intelligence)
-    const suggestedCorrections = [
-      { category: "critical", description: "Problem statement lacks alignment with methodology section." },
-      { category: "major", description: "Literature review missing recent citations from 2023-2024." },
-      { category: "minor", description: "Correct typographical errors on pages 12 and 45." }
-    ];
+    // Clean JSON response (more robust)
+    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+    let suggestedCorrections = [];
+    if (jsonMatch) {
+      try {
+        suggestedCorrections = JSON.parse(jsonMatch[0]);
+      } catch (parseError) {
+        console.error("AI Parse Error:", responseText);
+        return res.status(500).json({ message: "AI failed to generate structured corrections.", raw: responseText });
+      }
+    } else {
+      console.error("AI No JSON found:", responseText);
+      return res.status(500).json({ message: "AI failed to return structured corrections JSON.", raw: responseText });
+    }
 
-    // Update panel with transcript reference
-    await PanelEventModel.findByIdAndUpdate(panelId, { transcriptUrl: `uploads/${fileName}` });
+    // 3. No longer saving transcript URL to disk as per user request
 
-    res.json({ message: "Transcript processed by AI", suggestedCorrections });
+    res.json({ 
+      message: "Transcript processed by AI successfully", 
+      suggestedCorrections,
+      extractedAt: new Date()
+    });
   } catch (error) {
+    console.error("Transcript processing error:", error);
     res.status(500).json({ message: "Error processing transcript", error });
   }
 });
