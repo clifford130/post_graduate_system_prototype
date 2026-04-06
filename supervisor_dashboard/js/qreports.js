@@ -13,23 +13,46 @@ function statusBadge(status) {
 
 function reportDetails(report) {
   return `
-    <div style="display:flex; flex-direction:column; gap:10px;">
-      <div>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+      <div style="padding:12px 14px; border:1px solid var(--grey-100); border-radius:var(--radius-sm); background:var(--grey-100);">
         <div class="text-[10px] font-bold uppercase tracking-widest text-muted">Progress Summary</div>
-        <div class="text-xs font-medium text-grey-700 mt-1">${escapeHtml(report.progressSummary || "-")}</div>
+        <div class="text-xs font-medium text-grey-700 mt-2" style="line-height:1.6;">${escapeHtml(report.progressSummary || "-")}</div>
       </div>
-      <div>
+      <div style="padding:12px 14px; border:1px solid var(--grey-100); border-radius:var(--radius-sm); background:var(--grey-100);">
         <div class="text-[10px] font-bold uppercase tracking-widest text-muted">Objectives Achieved</div>
-        <div class="text-xs font-medium text-grey-700 mt-1">${escapeHtml(report.objectivesAchieved || "-")}</div>
+        <div class="text-xs font-medium text-grey-700 mt-2" style="line-height:1.6;">${escapeHtml(report.objectivesAchieved || "-")}</div>
       </div>
-      <div>
+      <div style="padding:12px 14px; border:1px solid var(--grey-100); border-radius:var(--radius-sm); background:var(--grey-100);">
         <div class="text-[10px] font-bold uppercase tracking-widest text-muted">Challenges and Mitigation</div>
-        <div class="text-xs font-medium text-grey-700 mt-1">${escapeHtml(report.challengesAndMitigation || "-")}</div>
+        <div class="text-xs font-medium text-grey-700 mt-2" style="line-height:1.6;">${escapeHtml(report.challengesAndMitigation || "-")}</div>
       </div>
-      <div>
+      <div style="padding:12px 14px; border:1px solid var(--grey-100); border-radius:var(--radius-sm); background:var(--grey-100);">
         <div class="text-[10px] font-bold uppercase tracking-widest text-muted">Next Quarter Plan</div>
-        <div class="text-xs font-medium text-grey-700 mt-1">${escapeHtml(report.nextQuarterPlan || "-")}</div>
+        <div class="text-xs font-medium text-grey-700 mt-2" style="line-height:1.6;">${escapeHtml(report.nextQuarterPlan || "-")}</div>
       </div>
+    </div>
+  `;
+}
+
+function slotDetails(entry, report) {
+  return `
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div class="text-[10px] font-bold uppercase tracking-widest text-muted">Review Slot</div>
+      <div class="text-xs font-bold uppercase" style="color:var(--navy);">${escapeHtml(entry.supervisorRole || "-")}</div>
+      <div class="text-[11px] font-medium text-muted">My decision: ${escapeHtml(report.approvals?.[entry.supervisorRole] || "-")}</div>
+    </div>
+  `;
+}
+
+function actionButtons(entry, report) {
+  if (!entry.canReview) {
+    return `<span class="text-[10px] font-bold uppercase text-muted">No action required</span>`;
+  }
+
+  return `
+    <div style="display:flex; flex-wrap:wrap; gap:10px;">
+      <button class="btn btn-primary btn-sm btn-qreport-action" data-student="${entry.studentId}" data-report="${report.id}" data-role="${entry.supervisorRole}" data-action="approved">Approve</button>
+      <button class="btn btn-outline btn-sm btn-qreport-action" data-student="${entry.studentId}" data-report="${report.id}" data-role="${entry.supervisorRole}" data-action="returned">Return</button>
     </div>
   `;
 }
@@ -43,7 +66,7 @@ function renderBoard(reports) {
       <div class="p-8 border-b border-grey-100 flex-between">
         <div>
           <div class="card-title">Quarterly Reports Board</div>
-          <div class="card-sub">Submitted student quarterly reports awaiting supervisor review</div>
+          <div class="card-sub">Clear review view for submitted student quarterly reports</div>
         </div>
         <div class="flex-row">
           <input id="qreports-search" placeholder="Search student or summary..." class="form-input btn-sm" style="width:220px;">
@@ -57,26 +80,10 @@ function renderBoard(reports) {
           <button class="btn btn-primary btn-sm" id="qreports-apply">Apply</button>
         </div>
       </div>
-      <div style="overflow-x:auto;">
-        <table class="w-full">
-          <thead>
-            <tr style="background:var(--grey-50);">
-              <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Student</th>
-              <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Quarter</th>
-              <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Report Details</th>
-              <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">My Slot</th>
-              <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Status</th>
-              <th class="text-left p-4 text-xs uppercase tracking-widest text-muted">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="qreports-tbody">
-            ${reports.length ? reports.map(rowHtml).join("") : `
-              <tr>
-                <td colspan="6" class="p-16 text-center text-muted font-bold uppercase text-xs">No quarterly reports found</td>
-              </tr>
-            `}
-          </tbody>
-        </table>
+      <div id="qreports-tbody" style="display:flex; flex-direction:column; gap:18px; padding:24px;">
+        ${reports.length ? reports.map(rowHtml).join("") : `
+          <div class="p-16 text-center text-muted font-bold uppercase text-xs">No quarterly reports found</div>
+        `}
       </div>
     </div>
   `;
@@ -87,31 +94,32 @@ function renderBoard(reports) {
 function rowHtml(entry) {
   const report = entry.report || {};
   return `
-    <tr style="border-top:1px solid var(--grey-100);">
-      <td class="p-4">
-        <div class="text-sm font-bold text-navy">${escapeHtml(entry.studentName || "-")}</div>
-        <div class="text-[10px] font-bold text-muted uppercase mt-1">${escapeHtml(entry.studentNumber || "-")}</div>
-        <div class="text-[10px] font-bold text-muted uppercase mt-1">${escapeHtml(entry.programme || "-")} | ${escapeHtml(entry.department || "-")}</div>
-      </td>
-      <td class="p-4">
-        <div class="text-sm font-bold text-navy">Q${escapeHtml(String(report.quarter || "-"))} ${escapeHtml(String(report.year || "-"))}</div>
-        <div class="text-[10px] font-bold text-muted uppercase mt-1">${report.submittedAt ? new Date(report.submittedAt).toLocaleDateString() : "-"}</div>
-      </td>
-      <td class="p-4">${reportDetails(report)}</td>
-      <td class="p-4">
-        <div class="text-xs font-bold uppercase text-blue">${escapeHtml(entry.supervisorRole || "-")}</div>
-        <div class="text-[10px] text-muted mt-1">${escapeHtml(report.approvals?.[entry.supervisorRole] || "-")}</div>
-      </td>
-      <td class="p-4">${statusBadge(report.status)}</td>
-      <td class="p-4">
-        ${entry.canReview ? `
-          <div class="flex-row">
-            <button class="btn btn-primary btn-sm btn-qreport-action" data-student="${entry.studentId}" data-report="${report.id}" data-role="${entry.supervisorRole}" data-action="approved">Approve</button>
-            <button class="btn btn-outline btn-sm btn-qreport-action" data-student="${entry.studentId}" data-report="${report.id}" data-role="${entry.supervisorRole}" data-action="returned">Return</button>
-          </div>
-        ` : `<span class="text-[10px] font-bold uppercase text-muted">No action</span>`}
-      </td>
-    </tr>
+    <article style="border:1px solid var(--grey-100); border-radius:var(--radius); padding:20px; background:white; display:flex; flex-direction:column; gap:18px;">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:14px; align-items:flex-start;">
+        <div>
+          <div class="text-sm font-bold text-navy">${escapeHtml(entry.studentName || "-")}</div>
+          <div class="text-[10px] font-bold text-muted uppercase mt-1">${escapeHtml(entry.studentNumber || "-")}</div>
+          <div class="text-[10px] font-bold text-muted uppercase mt-1">${escapeHtml(entry.programme || "-")} | ${escapeHtml(entry.department || "-")}</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-start;">
+          ${statusBadge(report.status)}
+          <div class="text-[10px] font-bold text-muted uppercase">Q${escapeHtml(String(report.quarter || "-"))} ${escapeHtml(String(report.year || "-"))}</div>
+          <div class="text-[10px] text-muted">${report.submittedAt ? new Date(report.submittedAt).toLocaleDateString() : "-"}</div>
+        </div>
+      </div>
+
+      ${reportDetails(report)}
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:14px; align-items:start;">
+        <div style="padding:12px 14px; border:1px solid var(--grey-100); border-radius:var(--radius-sm);">
+          ${slotDetails(entry, report)}
+        </div>
+        <div style="padding:12px 14px; border:1px solid var(--grey-100); border-radius:var(--radius-sm);">
+          <div class="text-[10px] font-bold uppercase tracking-widest text-muted">Actions</div>
+          <div class="mt-3">${actionButtons(entry, report)}</div>
+        </div>
+      </div>
+    </article>
   `;
 }
 

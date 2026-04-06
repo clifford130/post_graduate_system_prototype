@@ -8,7 +8,7 @@
     selectedSlotId: null,
   };
 
-  const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed"];
+  const ACTIVE_BOOKING_STATUSES = ["pending"];
 
   function $(id) {
     return document.getElementById(id);
@@ -166,7 +166,7 @@
       successOverlay.classList.add("active");
       successOverlay.innerHTML = `
         <i class="fas fa-check-circle"></i>
-        <h4>Booking Request Active</h4>
+        <h4>Pending Booking Request</h4>
         <p>Your current booking for <strong>${escapeHtml(
           formatDate(activeBooking.preferredDate),
         )}</strong> is still being processed.</p>

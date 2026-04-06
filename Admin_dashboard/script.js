@@ -41,6 +41,7 @@ const titles = {
     enrollment:'Enrollment & Status Management',
     deferrals:'Deferral Tracking Registry',
     calendar:'Seminar Calendar Management',
+    bookings:'Presentation Booking Review',
     nacosti:'NACOSTI Compliance Tracking'
 };
 
@@ -244,6 +245,81 @@ function updateKPICards() {
         `;
       }).join('');
   }
+
+  function renderPresentationSummary(bookings) {
+      const list = document.getElementById('dashboardPresentationSummary');
+      if (!list) return;
+
+      const upcoming = bookings.filter(b => ['pending', 'approved', 'confirmed'].includes(b.status)).slice(0, 5);
+      if (upcoming.length === 0) {
+          list.innerHTML = '<p style="padding:20px;text-align:center;color:var(--text-3);">No upcoming presentations scheduled.</p>';
+          return;
+      }
+
+      list.innerHTML = upcoming.map(b => {
+        const student = students.find(s => s.id === b.owner.toUpperCase());
+        const dispName = student ? student.name : b.owner;
+        const statusTone = (b.status === 'approved' || b.status === 'confirmed') ? 'ok' : 'pend';
+        return `
+          <div class="pres-item">
+            <div class="pres-date">${b.preferredDate} · ${b.preferredTime}</div>
+            <div class="pres-student">${dispName}</div>
+            <div class="pres-meta"><span>${b.presentationType}</span><span>${b.venue}</span></div>
+            <div class="pres-panel"><div class="panel-dot ${statusTone}"></div><span class="panel-label">Status: ${b.status.toUpperCase()}</span></div>
+          </div>
+        `;
+      }).join('');
+  }
+
+  function renderBookingReviewPage(bookings) {
+      const list = document.getElementById('bookingReviewList');
+      const countEl = document.getElementById('bookingCount');
+      if (!list) return;
+
+      const reviewable = bookings.filter(b => ['pending', 'approved', 'confirmed', 'rejected', 'cancelled'].includes(b.status));
+      if (countEl) countEl.textContent = `${reviewable.length} requests`;
+
+      if (reviewable.length === 0) {
+          list.innerHTML = '<p style="padding:20px;text-align:center;color:var(--text-3);">No booking requests found.</p>';
+          return;
+      }
+
+      list.innerHTML = reviewable.map(b => {
+        const student = students.find(s => s.id === b.owner.toUpperCase());
+        const dispName = student ? student.name : b.owner;
+        const isPending = b.status === 'pending';
+        const statusTone = (b.status === 'approved' || b.status === 'confirmed') ? 'ok' : (b.status === 'rejected' || b.status === 'cancelled' ? 'crit' : 'pend');
+        const topicHtml = b.additionalNotes
+          ? `<div style="font-size:12px;color:var(--text-2);margin-top:6px;">Topic: ${b.additionalNotes}</div>`
+          : '<div style="font-size:12px;color:var(--text-3);margin-top:6px;">Topic: Not provided</div>';
+        const actionsHtml = isPending
+          ? `<div class="btn-gap" style="margin-top:10px;">
+                <button class="btn btn-success btn-sm" onclick="reviewBooking('${b._id}', 'approve')">Approve</button>
+                <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="reviewBooking('${b._id}', 'reject')">Reject</button>
+             </div>`
+          : '';
+        const reasonHtml = b.cancellationReason
+          ? `<div style="font-size:12px;color:var(--red);margin-top:6px;">Reason: ${b.cancellationReason}</div>`
+          : '';
+        return `
+          <div class="pres-item" style="margin-bottom:14px;">
+            <div class="pres-date">${b.preferredDate} · ${b.preferredTime}</div>
+            <div class="pres-student">${dispName}</div>
+            <div class="pres-meta"><span>${b.presentationType}</span><span>${b.venue}</span></div>
+            ${topicHtml}
+            <div style="font-size:12px;color:var(--text-2);margin-top:6px;">Requested: ${new Date(b.createdAt).toLocaleString()}</div>
+            <div class="pres-panel"><div class="panel-dot ${statusTone}"></div><span class="panel-label">Status: ${b.status.toUpperCase()}</span></div>
+            ${reasonHtml}
+            ${actionsHtml}
+          </div>
+        `;
+      }).join('');
+  }
+
+  renderPresentations = function(bookings) {
+      renderPresentationSummary(bookings);
+      renderBookingReviewPage(bookings);
+  };
 
   function renderSlots(slots) {
       const list = document.getElementById('slotList');

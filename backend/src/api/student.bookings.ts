@@ -5,7 +5,7 @@ import { SeminarSlotModel } from "../models/seminar.slot.js";
 import { UserModel } from "../models/user.model.js";
 export let studentBookings = Router();
 
-const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed"];
+const ACTIVE_BOOKING_STATUSES = ["pending"];
 
 async function syncSlotAvailability(slotId?: string | null) {
   if (!slotId) return null;
@@ -87,7 +87,7 @@ studentBookings.post(
             res.status(400).json({
               success: false,
               message:
-                "You already have an active booking. Please complete or cancel it before requesting another slot.",
+                "You already have a pending booking. Please wait for it to be reviewed before requesting another slot.",
               existingBooking: activeBooking,
             });
             return;

@@ -43,6 +43,10 @@
           <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           Seminar Calendar
         </div>
+        <div class="nav-item" data-view="bookings">
+          <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M8 14h8"/><path d="M8 18h5"/></svg>
+          Presentation Bookings
+        </div>
         <div class="nav-item" data-view="nacosti">
           <svg class="nav-icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
           NACOSTI Compliance
@@ -169,7 +173,9 @@
                 </div>
               </div>
               <div class="card-body">
+                <div id="dashboardPresentationSummary">
                 <p style="padding:20px;text-align:center;color:var(--text-3);">Loading upcoming presentations…</p>
+                </div>
               </div>
             </div>
           </div>
@@ -436,6 +442,27 @@
                   <span class="status resumed">2/4 Filled</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-bookings">
+          <div class="page-header">
+            <div>
+              <h1>Presentation Booking Review</h1>
+              <p>Review, approve, and reject seminar booking requests submitted by students.</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <div class="ct-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M8 14h8"/><path d="M8 18h5"/></svg></div>
+                Student Booking Requests
+              </div>
+              <span class="card-count" id="bookingCount">Loading…</span>
+            </div>
+            <div class="card-body" id="bookingReviewList">
+              <p style="padding:20px;text-align:center;color:var(--text-3);">Loading booking requests…</p>
             </div>
           </div>
         </section>
