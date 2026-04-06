@@ -79,11 +79,56 @@ async function loadPanels(userId) {
                     <div><span class="font-bold text-slate-700">Supervisor Status:</span> ${escapeHtml(p.assignmentStatus || 'pending')}</div>
                     ${p.additionalNotes ? `<div><span class="font-bold text-slate-700">Notes:</span> ${escapeHtml(p.additionalNotes)}</div>` : ''}
                 </div>
+
+                <div class="flex gap-3">
+                    
+                    ${p.bookingStatus === 'confirmed' ? `
+                    <button class="btn btn-primary btn-sm w-full btn-assess" data-student-id="${p.studentId}">
+                        Assess Now
+                    </button>
+                    ` : ''}
+                </div>
             </div>
         `).join('');
+
+        setupPresentationEvents(userId);
     } catch (err) {
         list.innerHTML = `<div class="col-span-2 alert alert-error">${escapeHtml(err.message || 'Failed to load presentations')}</div>`;
     }
+}
+
+async function setupPresentationEvents(userId) {
+    const session = getSupervisorSession();
+
+    // 1. View Profile
+    document.querySelectorAll('.btn-view-profile').forEach(btn => {
+        btn.onclick = () => {
+            const studentId = btn.dataset.id;
+            navigateTo('student-detail', null, studentId);
+        };
+    });
+
+    // 2. Assess Now
+    document.querySelectorAll('.btn-assess').forEach(async (btn) => {
+        btn.onclick = async () => {
+            const studentId = btn.dataset.studentId;
+            try {
+                // Try to find the specific panel for this student to deep link
+                const panels = await api.getMyPanelAssignments(session.id);
+                const relevantPanel = panels.find(p => String(p.studentId?._id || p.studentId) === String(studentId));
+                
+                if (relevantPanel) {
+                    window.location.href = `../panel dashboard/index.html?panelId=${relevantPanel._id}`;
+                } else {
+                    // Fallback to general dashboard if panel not found/assigned yet
+                    window.location.href = `../panel dashboard/index.html`;
+                }
+            } catch (err) {
+                console.error("Link to panel failed:", err);
+                window.location.href = `../panel dashboard/index.html`;
+            }
+        };
+    });
 }
 
 function formatDisplayDate(value) {
