@@ -11,6 +11,14 @@ const authCookieOptions = {
   maxAge: 24 * 60 * 60 * 1000, // 24 hours
   secure: true,
   sameSite: "none" as const,
+  path: "/",
+};
+
+const authCookieClearOptions = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none" as const,
+  path: "/",
 };
 
 UserLoginRouter.post(
@@ -100,7 +108,7 @@ UserLoginRouter.post(
   async (req: Request, res: Response): Promise<void> => {
     try {
       // Clear the auth cookie using the same attributes it was issued with.
-      res.clearCookie("userToken");
+      res.clearCookie("userToken", authCookieClearOptions);
 
       // Also clear any other session-related cookies if they exist
       res.clearCookie("connect.sid", {
@@ -136,7 +144,7 @@ UserLoginRouter.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       // Clear the userToken cookie
-      res.clearCookie("userToken", authCookieOptions);
+      res.clearCookie("userToken", authCookieClearOptions);
 
       // Redirect to login page or send JSON based on Accept header
       const acceptHeader = req.headers.accept || "";
@@ -197,7 +205,7 @@ UserLoginRouter.post(
         // await UserModel.findByIdAndUpdate(decoded.id, { $inc: { tokenVersion: 1 } });
 
         // Clear the cookie
-        res.clearCookie("userToken", authCookieOptions);
+        res.clearCookie("userToken", authCookieClearOptions);
 
         res.status(200).json({
           success: true,
@@ -205,7 +213,7 @@ UserLoginRouter.post(
         });
       } catch (verifyError) {
         // Token is already invalid, just clear it
-        res.clearCookie("userToken", authCookieOptions);
+        res.clearCookie("userToken", authCookieClearOptions);
 
         res.status(200).json({
           success: true,
