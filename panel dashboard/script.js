@@ -14,6 +14,24 @@ async function init() {
   const user = JSON.parse(userRaw);
   const userId = user._id || user.id;
 
+  // 1. Enhanced Session Display
+  if (user.fullName) {
+    const parts = user.fullName.split(' ');
+    const titles = ['dr.', 'prof.', 'mr.', 'mrs.', 'ms.', 'eng.', 'hon.'];
+    let mainName = parts[0];
+    
+    // Skip academic/formal titles
+    if (parts.length > 1 && titles.includes(parts[0].toLowerCase())) {
+      mainName = parts[1];
+    }
+
+    document.getElementById('userAvatar').textContent = mainName.substring(0, 1).toUpperCase();
+    
+    // Display Title + First Name (e.g., "Dr. Enos")
+    const displayName = parts.length > 1 ? `${parts[0]} ${parts[1]}` : parts[0];
+    document.getElementById('userRole').textContent = displayName;
+  }
+
   try {
     const res = await fetch(`${API_BASE}/panels/my/${userId}`);
     if (!res.ok) throw new Error("Failed to fetch assigned panels");

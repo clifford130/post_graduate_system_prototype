@@ -18,7 +18,8 @@
   --radius:      10px;
   --shadow:      0 1px 3px rgba(0,0,0,.08), 0 1px 8px rgba(0,0,0,.04);
   --shadow-md:   0 4px 16px rgba(0,0,0,.10);
-  --font:        'Inter', system-ui, sans-serif;
+  --font:        'DM Sans', sans-serif;
+  --font-serif:  'DM Serif Display', serif;
   --sidebar-w:   300px;
   --nav-h:       60px;
   --trans:       .18s ease;
@@ -45,7 +46,8 @@ body {
 }
 .topnav-brand {
   display: flex; align-items: center; gap: 10px;
-  font-weight: 700; font-size: 15px; color: #1e293b; /* Darker text for contrast */
+  font-family: var(--font-serif);
+  font-weight: 700; font-size: 18px; color: #1e293b; /* Slightly larger for serif */
 }
 .topnav-brand svg { color: #1e293b; }
 .topnav-brand span.sub { font-weight: 400; color: rgba(30, 41, 59, 0.75); font-size: 13px; }
@@ -58,6 +60,11 @@ body {
   font-size: 12px; font-weight: 700;
   padding: 4px 12px; border-radius: 20px;
   letter-spacing: .02em;
+}
+.back-btn:hover {
+  background: rgba(30, 41, 59, 0.08) !important;
+  transform: translateX(-2px);
+  border-color: #000 !important;
 }
 .notif-btn {
   position: relative; background: none; border: none; cursor: pointer;
