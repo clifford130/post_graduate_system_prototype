@@ -307,13 +307,21 @@ async function handleUpload(event) {
     await new Promise(r => setTimeout(r, 800));
     document.getElementById('uploadProgress').style.width = '100%';
     
+    // 2. Start AI Simulation (Chatbot-style status sequence)
+    const statusBubble = addMessage("Analyzing document...", 'status');
+    
     // Simulate steps in parallel with real request or sequentially
-    for (const step of steps) {
+    for (let i = 0; i < steps.length; i++) {
       if (!isProcessing) return; // Allow cancel
-      const statusBubble = addMessage(step, 'status');
-      await new Promise(r => setTimeout(r, 1000));
-      // Optionally remove or keep status messages
+      statusBubble.innerHTML = `<span class="spinner"></span> ${steps[i]}`;
+      await new Promise(r => setTimeout(r, 1200));
+      // Gradual progress feel
+      if (i === 1) document.getElementById('uploadProgress').style.width = '60%';
+      if (i === 3) document.getElementById('uploadProgress').style.width = '90%';
     }
+    statusBubble.innerHTML = "✓ Analysis Ready";
+    statusBubble.classList.add('completed');
+    document.getElementById('uploadProgress').style.width = '100%';
 
     showTypingIndicator();
 
@@ -340,7 +348,9 @@ async function handleUpload(event) {
     // 3. Render Corrections with Typing Effect
     await renderCorrectionsChat();
     
-    document.getElementById('publishBar').style.display = 'flex';
+    const pb = document.getElementById('publishBar');
+    pb.style.display = 'flex';
+    pb.scrollIntoView({ behavior: 'smooth' });
     showToast("AI Analysis Complete", "success");
   } catch (err) {
     hideTypingIndicator();
@@ -356,7 +366,7 @@ function addMessage(content, type) {
   div.className = `chat-bubble ${type}`;
   div.innerHTML = content;
   win.appendChild(div);
-  win.scrollTop = win.scrollHeight;
+  win.scrollTo({ top: win.scrollHeight, behavior: 'smooth' });
   return div;
 }
 
@@ -367,7 +377,7 @@ function showTypingIndicator() {
   div.className = 'typing-indicator';
   div.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
   win.appendChild(div);
-  win.scrollTop = win.scrollHeight;
+  win.scrollTo({ top: win.scrollHeight, behavior: 'smooth' });
 }
 
 function hideTypingIndicator() {
@@ -379,7 +389,8 @@ async function renderCorrectionsChat() {
   addMessage("I've identified several corrections based on the transcript. Please review them below:", "ai");
   
   for (const cor of currentSuggestedCorrections) {
-    await new Promise(r => setTimeout(r, 600)); // Delay between cards
+    if (!isProcessing) return;
+    await new Promise(r => setTimeout(r, 800)); // Delay between cards
     const card = document.createElement('div');
     card.id = cor.id;
     card.className = `correction-card ${cor.category}`;
@@ -396,25 +407,27 @@ async function renderCorrectionsChat() {
         <button class="action-btn btn-reject" onclick="updateCorrectionStatus('${cor.id}', 'rejected')">Reject</button>
       </div>
     `;
-    document.getElementById('chatWindow').appendChild(card);
     const win = document.getElementById('chatWindow');
-    win.scrollTop = win.scrollHeight;
+    win.appendChild(card);
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     // Type out the issue and suggestion
     await typeText(`issue-${cor.id}`, cor.description);
+    win.scrollTo({ top: win.scrollHeight, behavior: 'smooth' });
   }
 }
 
 async function typeText(elementId, text) {
   const el = document.getElementById(elementId);
   if (!el) return;
+  const win = document.getElementById('chatWindow');
+  
   for (let i = 0; i < text.length; i++) {
     el.textContent += text.charAt(i);
-    await new Promise(r => setTimeout(r, 15));
-    if (i % 5 === 0) {
-      const win = document.getElementById('chatWindow');
-      win.scrollTop = win.scrollHeight;
-    }
+    await new Promise(r => setTimeout(r, 12)); // Slightly faster typing for better flow
+    
+    // Ensure the line being typed is visible
+    win.scrollTop = win.scrollHeight;
   }
 }
 
