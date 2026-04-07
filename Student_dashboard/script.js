@@ -988,10 +988,152 @@ document.addEventListener("DOMContentLoaded", () => {
       currentUserData = storedData ? JSON.parse(storedData) : null;
     } catch (error) { console.error("Error getting final user data:", error); }
 
+    const intentApiBaseUrl = "https://post-graduate-system-prototype-xy2c.onrender.com/api";
+    let thesisIntentRecord = null;
+
     const profileNameElement = document.querySelector(".profile-name");
     if (profileNameElement && currentUserData) {
       profileNameElement.innerHTML = currentUserData.fullName || "Student";
     }
+
+    function setIntentFeedback(message, tone = "success") {
+      const feedbackEl = document.getElementById("intentFormFeedback");
+      if (!feedbackEl) return;
+      feedbackEl.style.display = "block";
+      feedbackEl.className = tone === "error" ? "alert alert-error" : "alert alert-success";
+      feedbackEl.innerHTML = `<div>${message}</div>`;
+    }
+
+    function populateIntentStudentFields(userData = {}) {
+      const setValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value || "";
+      };
+
+      setValue("intentStudentName", userData.fullName || "");
+      setValue("intentRegNo", userData.userNumber || "");
+      setValue("intentProgramme", userData.programme || userData.program || "");
+      setValue("intentDepartment", userData.department || "");
+      setValue("intentSupervisor", userData.supervisor?.name || userData.supervisor || "");
+      setValue("intentCoSupervisor", userData.coSupervisor?.name || userData.coSupervisor || "");
+      setValue("intentEmail", userData.email || "");
+    }
+
+    function applyIntentRecord(intent) {
+      thesisIntentRecord = intent || null;
+      const setValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value || "";
+      };
+
+      setValue("intentThesisTitle", intent?.thesisTitle || "");
+      setValue("intentSubmissionCategory", intent?.submissionCategory || "Initial Submission");
+      setValue("intentTargetDate", intent?.targetSubmissionDate || "");
+      setValue("intentPhoneNumber", intent?.phoneNumber || "");
+      setValue("intentEmail", intent?.email || document.getElementById("intentEmail")?.value || "");
+      setValue("intentSupervisor", intent?.supervisorName || document.getElementById("intentSupervisor")?.value || "");
+      setValue("intentCoSupervisor", intent?.coSupervisorName || document.getElementById("intentCoSupervisor")?.value || "");
+      setValue("intentNotes", intent?.notes || "");
+
+      const statusEl = document.getElementById("intent-form-status");
+      if (statusEl) {
+        statusEl.textContent = intent?.status === "submitted" ? "Submitted" : "Draft";
+        statusEl.className = "badge " + (intent?.status === "submitted" ? "badge-active" : "badge-deferred");
+      }
+
+      const card = document.getElementById("boss-intent");
+      const statusNode = card?.querySelector(".upload-status");
+      const iconNode = card?.querySelector(".upload-icon");
+      if (intent?.status === "submitted") {
+        card?.classList.add("uploaded");
+        if (statusNode) {
+          statusNode.textContent =
+            "Submitted — " +
+            new Date(intent.updatedAt || intent.submittedAt || Date.now()).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            });
+        }
+        if (iconNode) iconNode.textContent = "✅";
+      }
+    }
+
+    async function loadThesisIntent() {
+      try {
+        const response = await fetch(`${intentApiBaseUrl}/students/me/thesis-intent`, {
+          method: "GET",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (payload?.student) {
+          populateIntentStudentFields(payload.student);
+        }
+        if (payload?.intent) {
+          applyIntentRecord(payload.intent);
+        }
+      } catch (error) {
+        console.error("Failed to load thesis intent:", error);
+      }
+    }
+
+    async function submitThesisIntentForm(event) {
+      event.preventDefault();
+      const submitBtn = document.getElementById("intentSubmitBtn");
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Submitting...";
+      }
+
+      try {
+        const payload = {
+          thesisTitle: document.getElementById("intentThesisTitle")?.value?.trim() || "",
+          submissionCategory: document.getElementById("intentSubmissionCategory")?.value || "",
+          targetSubmissionDate: document.getElementById("intentTargetDate")?.value || "",
+          phoneNumber: document.getElementById("intentPhoneNumber")?.value?.trim() || "",
+          email: document.getElementById("intentEmail")?.value?.trim() || "",
+          supervisorName: document.getElementById("intentSupervisor")?.value?.trim() || "",
+          coSupervisorName: document.getElementById("intentCoSupervisor")?.value?.trim() || "",
+          notes: document.getElementById("intentNotes")?.value?.trim() || "",
+        };
+
+        const response = await fetch(`${intentApiBaseUrl}/students/me/thesis-intent`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result?.message || "Failed to submit intent form");
+        }
+
+        applyIntentRecord(result?.intent || payload);
+        setIntentFeedback("Intent to submit saved successfully.");
+      } catch (error) {
+        console.error("Intent submission failed:", error);
+        setIntentFeedback(error.message || "Failed to submit intent form.", "error");
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Submit Intent Form";
+        }
+      }
+    }
+
+    populateIntentStudentFields(currentUserData || {});
+    loadThesisIntent();
+    document.getElementById("intent-submit-form")?.addEventListener("submit", submitThesisIntentForm);
+    document.getElementById("intentCancelBtn")?.addEventListener("click", () => {
+      const card = document.getElementById("intent-form-card");
+      if (card) card.style.display = "none";
+    });
 
     // ===== STATE =====
     let currentStatus = 'ACTIVE';
@@ -1132,6 +1274,17 @@ document.addEventListener("DOMContentLoaded", () => {
     function toggleUpload(id) {
       const el = document.getElementById(id);
       if (!el) return;
+      if (id === 'boss-intent') {
+        const formCard = document.getElementById('intent-form-card');
+        if (formCard) {
+          const isVisible = formCard.style.display === 'block';
+          formCard.style.display = isVisible ? 'none' : 'block';
+          if (!isVisible) {
+            formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+        return;
+      }
       el.classList.toggle('uploaded');
       const statusEl = el.querySelector('.upload-status');
       const iconEl = el.querySelector('.upload-icon');

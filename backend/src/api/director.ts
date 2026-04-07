@@ -796,6 +796,93 @@ DirectorRouter.get(
   },
 );
 
+DirectorRouter.get(
+  "/students/me/thesis-intent",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+
+      const student = await UserModel.findById(decoded.id).select(
+        "role fullName userNumber programme department supervisors thesisSubmissionIntent",
+      );
+      if (!student || student.role !== "student") {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      return res.json({
+        success: true,
+        intent: student.thesisSubmissionIntent || null,
+        student: {
+          fullName: student.fullName,
+          userNumber: student.userNumber,
+          programme: student.programme,
+          department: student.department,
+          supervisorName: student.supervisors?.sup1 || "",
+          coSupervisorName: student.supervisors?.sup2 || "",
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error fetching thesis intent", error });
+    }
+  },
+);
+
+DirectorRouter.post(
+  "/students/me/thesis-intent",
+  async (req: Request, res: Response) => {
+    try {
+      const decoded = await getAuthUser(req, res);
+      if (!decoded) return;
+
+      const student = await UserModel.findById(decoded.id);
+      if (!student || student.role !== "student") {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      const thesisTitle = String(req.body?.thesisTitle || "").trim();
+      const submissionCategory = String(req.body?.submissionCategory || "").trim();
+      const targetSubmissionDate = String(req.body?.targetSubmissionDate || "").trim();
+      const phoneNumber = String(req.body?.phoneNumber || "").trim();
+      const email = String(req.body?.email || "").trim();
+      const supervisorName = String(req.body?.supervisorName || "").trim();
+      const coSupervisorName = String(req.body?.coSupervisorName || "").trim();
+      const notes = String(req.body?.notes || "").trim();
+
+      if (!thesisTitle || !submissionCategory || !targetSubmissionDate || !phoneNumber || !email) {
+        return res.status(400).json({
+          message: "Thesis title, submission category, target date, phone number, and email are required",
+        });
+      }
+
+      student.thesisSubmissionIntent = {
+        thesisTitle,
+        submissionCategory,
+        targetSubmissionDate,
+        phoneNumber,
+        email,
+        supervisorName: supervisorName || student.supervisors?.sup1 || "",
+        coSupervisorName: coSupervisorName || student.supervisors?.sup2 || "",
+        notes,
+        submittedAt: student.thesisSubmissionIntent?.submittedAt || new Date(),
+        updatedAt: new Date(),
+        status: "submitted",
+      };
+
+      student.markModified("thesisSubmissionIntent");
+      await student.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Intent to submit saved successfully",
+        intent: student.thesisSubmissionIntent,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Error saving thesis intent", error });
+    }
+  },
+);
+
 DirectorRouter.post(
   "/students/me/compliance",
   complianceUpload.single("documentFile"),

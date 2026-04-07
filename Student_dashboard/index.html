@@ -352,6 +352,78 @@
               <div class="upload-status">Click to upload</div>
             </div>
           </div>
+          <div class="card mt-4" id="intent-form-card" style="display:none;">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Intent To Submit Form</div>
+                <div class="card-sub">Submit your formal notice for thesis examination processing</div>
+              </div>
+              <span class="badge badge-active" id="intent-form-status">Draft</span>
+            </div>
+            <form id="intent-submit-form" style="display:flex; flex-direction:column; gap:16px;">
+              <div class="detail-grid">
+                <div class="form-group">
+                  <label class="form-label">Student Name</label>
+                  <input class="form-input" id="intentStudentName" type="text" readonly>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Registration No.</label>
+                  <input class="form-input" id="intentRegNo" type="text" readonly>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Programme</label>
+                  <input class="form-input" id="intentProgramme" type="text" readonly>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Department</label>
+                  <input class="form-input" id="intentDepartment" type="text" readonly>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Lead Supervisor</label>
+                  <input class="form-input" id="intentSupervisor" type="text" readonly>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Co-Supervisor</label>
+                  <input class="form-input" id="intentCoSupervisor" type="text" readonly>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Thesis Title</label>
+                <input class="form-input" id="intentThesisTitle" type="text" placeholder="Enter the final thesis title" required>
+              </div>
+              <div class="detail-grid">
+                <div class="form-group">
+                  <label class="form-label">Submission Category</label>
+                  <select class="form-select" id="intentSubmissionCategory" required>
+                    <option value="Initial Submission">Initial Submission</option>
+                    <option value="Re-Submission">Re-Submission</option>
+                    <option value="Corrected Final Copy">Corrected Final Copy</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Target Submission Date</label>
+                  <input class="form-input" id="intentTargetDate" type="date" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Phone Number</label>
+                  <input class="form-input" id="intentPhoneNumber" type="tel" placeholder="e.g. +2547..." required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email Address</label>
+                  <input class="form-input" id="intentEmail" type="email" placeholder="name@example.com" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Remarks / Submission Notes</label>
+                <textarea class="form-textarea" id="intentNotes" placeholder="Add any note for the directorate or examination office"></textarea>
+              </div>
+              <div id="intentFormFeedback" class="alert alert-success" style="display:none;"></div>
+              <div class="flex-row">
+                <button class="btn btn-primary" id="intentSubmitBtn" type="submit">Submit Intent Form</button>
+                <button class="btn btn-ghost" id="intentCancelBtn" type="button">Close Form</button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </section>

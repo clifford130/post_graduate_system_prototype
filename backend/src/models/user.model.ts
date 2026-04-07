@@ -103,6 +103,19 @@ export interface IUser {
     note?: string;
     submittedAt?: Date;
   }>;
+  thesisSubmissionIntent?: {
+    thesisTitle?: string;
+    submissionCategory?: string;
+    targetSubmissionDate?: string;
+    phoneNumber?: string;
+    email?: string;
+    supervisorName?: string;
+    coSupervisorName?: string;
+    notes?: string;
+    submittedAt?: Date;
+    updatedAt?: Date;
+    status?: string;
+  };
 }
 
 //  Schema
@@ -262,6 +275,19 @@ const UserSchema = new Schema<IUser>({
     note: String,
     submittedAt: { type: Date, default: Date.now },
   }],
+  thesisSubmissionIntent: {
+    thesisTitle: { type: String, default: "" },
+    submissionCategory: { type: String, default: "Initial Submission" },
+    targetSubmissionDate: { type: String, default: "" },
+    phoneNumber: { type: String, default: "" },
+    email: { type: String, default: "" },
+    supervisorName: { type: String, default: "" },
+    coSupervisorName: { type: String, default: "" },
+    notes: { type: String, default: "" },
+    submittedAt: Date,
+    updatedAt: Date,
+    status: { type: String, default: "draft" },
+  },
 }, { timestamps: true });
 
 //  Model
