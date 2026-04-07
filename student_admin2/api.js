@@ -75,6 +75,12 @@ window.StudentApi = {
   getThesisIntent() {
     return studentRequest("/students/me/thesis-intent");
   },
+  submitThesisIntent(payload) {
+    return studentRequest("/students/me/thesis-intent", {
+      method: "POST",
+      body: payload,
+    });
+  },
   submitComplianceUpload(payload) {
     return studentRequest("/students/me/compliance", {
       method: "POST",

@@ -804,7 +804,7 @@ DirectorRouter.get(
       if (!decoded) return;
 
       const student = await UserModel.findById(decoded.id).select(
-        "role fullName userNumber programme department supervisors thesisSubmissionIntent",
+        "role fullName userNumber programme department supervisors thesisSubmissionIntent email",
       );
       if (!student || student.role !== "student") {
         return res.status(404).json({ message: "Student not found" });
@@ -820,6 +820,7 @@ DirectorRouter.get(
           department: student.department,
           supervisorName: student.supervisors?.sup1 || "",
           coSupervisorName: student.supervisors?.sup2 || "",
+          email: (student as any).email || "",
         },
       });
     } catch (error) {
@@ -849,9 +850,9 @@ DirectorRouter.post(
       const coSupervisorName = String(req.body?.coSupervisorName || "").trim();
       const notes = String(req.body?.notes || "").trim();
 
-      if (!thesisTitle || !submissionCategory || !targetSubmissionDate || !phoneNumber || !email) {
+      if (!thesisTitle || !submissionCategory || !targetSubmissionDate) {
         return res.status(400).json({
-          message: "Thesis title, submission category, target date, phone number, and email are required",
+          message: "Thesis title, submission category, and target date are required",
         });
       }
 
@@ -860,7 +861,7 @@ DirectorRouter.post(
         submissionCategory,
         targetSubmissionDate,
         phoneNumber,
-        email,
+        email: email || (student as any).email || "",
         supervisorName: supervisorName || student.supervisors?.sup1 || "",
         coSupervisorName: coSupervisorName || student.supervisors?.sup2 || "",
         notes,

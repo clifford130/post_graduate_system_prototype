@@ -6,6 +6,11 @@
   const warningBanner = document.getElementById("erpWarningBanner");
   const erpPill = document.getElementById("erpStatusPill");
   const feedback = document.getElementById("complianceFeedback");
+  const intentDateInput = document.getElementById("intentDate");
+  const intentDeclarationInput = document.getElementById("intentDeclaration");
+  const intentBadge = document.getElementById("badgeIntent");
+  const intentTrackingArea = document.getElementById("intentTrackingArea");
+  const intentSubmitButton = document.getElementById("btnSubmitIntent");
 
   const docConfig = {
     Proposal: {
@@ -192,6 +197,24 @@
     if (document.body) {
       document.body.dataset.sidebarTag = safeSession.userNumber || "Student";
     }
+
+    if (intentDateInput) {
+      intentDateInput.value = safeIntent.targetSubmissionDate || "";
+    }
+
+    if (intentDeclarationInput) {
+      intentDeclarationInput.checked = safeIntent.status === "submitted";
+    }
+
+    if (intentBadge) {
+      const submitted = safeIntent.status === "submitted";
+      intentBadge.className = submitted ? "status-badge badge-approved" : "status-badge badge-missing";
+      intentBadge.textContent = submitted ? "Submitted" : "Not Submitted";
+    }
+
+    if (intentTrackingArea) {
+      intentTrackingArea.style.display = safeIntent.status === "submitted" ? "block" : "none";
+    }
   }
 
   function renderAll(uploads, status) {
@@ -269,6 +292,64 @@
       submittingDocKey = "";
       renderAll(currentUploads, isDeferred ? "deferred" : "active");
       throw error;
+    }
+  }
+
+  async function submitIntent() {
+    if (isDeferred) {
+      showFeedback("Intent submission is paused while the student is deferred.", "error");
+      return;
+    }
+
+    if (!api || typeof api.submitThesisIntent !== "function") {
+      showFeedback("Intent submission service is unavailable right now.", "error");
+      return;
+    }
+
+    const targetSubmissionDate = intentDateInput?.value || "";
+    const declarationChecked = !!intentDeclarationInput?.checked;
+    const thesisTitle =
+      document.getElementById("intentThesisTitleDisplay")?.textContent?.trim() || "";
+
+    if (!targetSubmissionDate) {
+      showFeedback("Please select your expected submission date.", "error");
+      return;
+    }
+
+    if (!declarationChecked) {
+      showFeedback("Please confirm the declaration before submitting.", "error");
+      return;
+    }
+
+    if (!thesisTitle || thesisTitle === "Awaiting saved thesis intent") {
+      showFeedback("Please complete your thesis intent details first so the approved title is available.", "error");
+      return;
+    }
+
+    try {
+      if (intentSubmitButton) {
+        intentSubmitButton.disabled = true;
+        intentSubmitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+      }
+
+      const response = await api.submitThesisIntent({
+        thesisTitle,
+        submissionCategory: "Intent Notice",
+        targetSubmissionDate,
+        supervisorName: document.getElementById("intentSupervisorsDisplay")?.textContent?.trim() || "",
+        notes: "Submitted from Compliance Center declaration form",
+        email: currentSession?.email || "",
+      });
+
+      populateIntentDetails(currentSession, response?.intent || null);
+      showFeedback("Notice of intent submitted successfully.", "success");
+    } catch (error) {
+      showFeedback(error.message || "Failed to submit notice of intent.", "error");
+    } finally {
+      if (intentSubmitButton) {
+        intentSubmitButton.disabled = false;
+        intentSubmitButton.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Notice of Intent';
+      }
     }
   }
 
@@ -375,4 +456,6 @@
         '<tr><td colspan="4" class="empty-row">Failed to load compliance history.</td></tr>';
     }
   });
+
+  window.submitIntent = submitIntent;
 })();
