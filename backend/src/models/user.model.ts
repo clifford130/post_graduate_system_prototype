@@ -119,6 +119,22 @@ export interface IUser {
 }
 
 //  Schema
+const ComplianceUploadSchema = new Schema(
+  {
+    id: { type: String },
+    type: { type: String },
+    title: { type: String },
+    url: { type: String },
+    storagePath: { type: String },
+    bucket: { type: String },
+    mimeType: { type: String },
+    fileSize: { type: Number },
+    note: { type: String },
+    submittedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
 const UserSchema = new Schema<IUser>({
   fullName: {
     type: String,
@@ -263,18 +279,10 @@ const UserSchema = new Schema<IUser>({
     sup2: { type: String, default: "pending" },
     sup3: { type: String, default: "pending" },
   },
-  complianceUploads: [{
-    id: String,
-    type: String,
-    title: String,
-    url: String,
-    storagePath: String,
-    bucket: String,
-    mimeType: String,
-    fileSize: Number,
-    note: String,
-    submittedAt: { type: Date, default: Date.now },
-  }],
+  complianceUploads: {
+    type: [ComplianceUploadSchema],
+    default: [],
+  },
   thesisSubmissionIntent: {
     thesisTitle: { type: String, default: "" },
     submissionCategory: { type: String, default: "Initial Submission" },

@@ -144,6 +144,14 @@
       return;
     }
 
+    const normalizeHistoryType = (upload) => {
+      const rawType = String(upload?.type || "").toLowerCase();
+      if (rawType.includes("proposal")) return docConfig.Proposal.type;
+      if (rawType.includes("nacosti")) return docConfig.Nacosti.type;
+      if (rawType.includes("other")) return docConfig.Other.type;
+      return upload?.type || "-";
+    };
+
     tableBody.innerHTML = uploads
       .map((upload) => {
         const openLink = upload.url
@@ -152,7 +160,7 @@
 
         return `
           <tr>
-            <td>${upload.type || "-"}</td>
+            <td>${normalizeHistoryType(upload)}</td>
             <td>${upload.title || "-"}</td>
             <td>${openLink}</td>
             <td>${formatDateTime(upload.submittedAt)}</td>

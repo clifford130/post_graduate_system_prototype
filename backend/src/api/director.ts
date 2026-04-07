@@ -1027,7 +1027,6 @@ DirectorRouter.post(
       if (error instanceof Error && error.message === "Only PDF files are allowed") {
         return res.status(400).json({ message: error.message });
       }
-
       return res.status(500).json({ message: "Error submitting compliance document", error });
     }
   },
