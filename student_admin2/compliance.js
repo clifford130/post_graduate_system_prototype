@@ -40,6 +40,7 @@
   let isDeferred = false;
   let submittingDocKey = "";
   let currentUploads = [];
+  let currentSession = null;
   const selectedFiles = {
     Proposal: null,
     Nacosti: null,
@@ -160,6 +161,39 @@
     return uploads.find((item) => item.type === type) || null;
   }
 
+  function populateIntentDetails(session, intent) {
+    const safeSession = session || {};
+    const safeIntent = intent || {};
+    const supervisors = [
+      safeIntent.supervisorName,
+      safeIntent.coSupervisorName,
+      safeSession.supervisors?.sup1,
+      safeSession.supervisors?.sup2,
+      safeSession.supervisors?.sup3,
+      safeSession.supervisor,
+    ].filter(Boolean);
+
+    const setText = (id, value, fallback = "Not available") => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value || fallback;
+    };
+
+    setText("intentCandidateName", safeSession.fullName, "Student");
+    setText("intentRegistrationNo", safeSession.userNumber, "-");
+    setText("intentDegreeDisplay", safeSession.programme || safeSession.program, "-");
+    setText("intentDepartmentDisplay", safeSession.department, "-");
+    setText("intentThesisTitleDisplay", safeIntent.thesisTitle, "Awaiting saved thesis intent");
+    setText(
+      "intentSupervisorsDisplay",
+      supervisors.length ? [...new Set(supervisors)].join(", ") : "",
+      "Pending allocation",
+    );
+
+    if (document.body) {
+      document.body.dataset.sidebarTag = safeSession.userNumber || "Student";
+    }
+  }
+
   function renderAll(uploads, status) {
     currentUploads = Array.isArray(uploads) ? uploads.slice() : [];
     currentUploads.sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
@@ -192,8 +226,16 @@
     if (!api || typeof api.getComplianceUploads !== "function") {
       throw new Error("Compliance API is unavailable on this page.");
     }
-    const data = await api.getComplianceUploads();
+    const [sessionData, data, intentData] = await Promise.all([
+      typeof api.getSession === "function" ? api.getSession() : Promise.resolve(null),
+      api.getComplianceUploads(),
+      typeof api.getThesisIntent === "function"
+        ? api.getThesisIntent().catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    currentSession = sessionData?.user || null;
     renderAll(data?.uploads || [], data?.status || "");
+    populateIntentDetails(currentSession, intentData?.intent || null);
   }
 
   async function submitFile(docKey, file) {
