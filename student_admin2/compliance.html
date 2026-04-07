@@ -544,6 +544,29 @@
           flex-direction: column;
         }
       }
+
+              /* NEW: Intent to Submit Form Styles */
+              .form-section { margin-bottom: 25px; }
+              .form-section h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--primary-blue); margin-bottom: 15px; border-bottom: 1px dashed #eee; padding-bottom: 5px; }
+              
+              .intent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #fafbfc; padding: 20px; border-radius: 8px; border: 1px solid #eee; }
+              .info-block { display: flex; flex-direction: column; gap: 4px; }
+              .info-block.wide { grid-column: span 2; }
+              .info-block label { font-size: 11px; font-weight: 700; color: #95a5a6; text-transform: uppercase; }
+              .info-block div { font-size: 14px; font-weight: 600; color: var(--text-main); }
+              
+              .form-instruction { font-size: 13px; color: var(--text-muted); margin-bottom: 15px; }
+              .form-group label { font-size: 12px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 6px; }
+              .form-input { padding: 10px 12px; border: 1px solid #bdc3c7; border-radius: 6px; font-size: 14px; width: 100%; transition: border-color 0.2s; }
+              .form-input:focus { border-color: var(--primary-blue); outline: none; }
+              .form-input:disabled { opacity: 0.6; cursor: not-allowed; background: #f1f2f6; }
+              
+              .checkbox-group { display: flex; align-items: flex-start; gap: 12px; background: #f0f8ff; border: 1px solid #cce5ff; padding: 15px; border-radius: 6px; }
+              .checkbox-group label { font-size: 13px; color: var(--primary-blue); font-weight: 600; line-height: 1.4; cursor: pointer; }
+              .custom-checkbox { width: 18px; height: 18px; margin-top: 2px; cursor: pointer; }
+              
+              .mt-15 { margin-top: 15px; } .mt-20 { margin-top: 20px; }
+      
     </style>
   </head>
   <body data-sidebar-page="compliance" data-sidebar-tag="GCA/012/2023">
