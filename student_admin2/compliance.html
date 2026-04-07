@@ -754,6 +754,118 @@
 
         <div class="card">
           <div class="card-header-flex">
+              <div class="card-title">
+                  <div>
+                      <h3><i class="fas fa-clipboard-list" style="color:var(--text-muted)"></i> Form of Intent to Submit Thesis</h3>
+                      <p>FORM/ASA/020-31: Official notification to the Board of Postgraduate Studies</p>
+                  </div>
+              </div>
+              <div class="status-badge badge-missing" id="badgeIntent">Not Submitted</div>
+          </div>
+
+          <div id="intentFormArea">
+              <div class="form-section">
+                  <h4>Section A & B: Candidate & Research Details</h4>
+                  <div class="intent-grid">
+                      <div class="info-block"><label>Candidate Name</label><div>Enos Mulongo</div></div>
+                      <div class="info-block"><label>Registration No.</label><div>GCA/012/2023</div></div>
+                      <div class="info-block"><label>Degree</label><div id="intentDegreeDisplay">Master of Science in Graphics Comm.</div></div>
+                      <div class="info-block"><label>Department</label><div>CJM Department</div></div>
+                      <div class="info-block wide"><label>Approved Thesis Title</label><div>Urban Luo Youth Environmental Knowledge Multimedia Campaign</div></div>
+                      <div class="info-block wide"><label>Assigned Supervisor(s)</label><div id="intentSupervisorsDisplay">Prof. James Odhiambo</div></div>
+                  </div>
+              </div>
+
+              <div class="form-section" style="margin-bottom: 0;">
+                  <h4>Section C: Student Declaration</h4>
+                  <p class="form-instruction">Please select your expected date of submission. As per university regulations, this notice must be submitted at least three (3) months prior to actual thesis submission.</p>
+                  
+                  <div class="form-group" style="max-width: 250px;">
+                      <label>Expected Date of Submission</label>
+                      <input type="date" class="form-input intent-input" id="intentDate">
+                  </div>
+                  
+                  <div class="checkbox-group mt-15">
+                      <input type="checkbox" id="intentDeclaration" class="custom-checkbox intent-input">
+                      <label for="intentDeclaration">I hereby declare that I intend to submit my thesis for examination on the date stated above, and that all data collection is complete.</label>
+                  </div>
+
+                  <button class="btn-primary mt-20" id="btnSubmitIntent" onclick="submitIntent()">
+                      <i class="fas fa-paper-plane"></i> Submit Notice of Intent
+                  </button>
+              </div>
+          </div>
+
+          <div id="intentTrackingArea" style="display: none; margin-top: 10px; border-top: 1px dashed #ecf0f1; padding-top: 25px;">
+              <h4 style="font-size: 13px; color: var(--primary-blue); margin-bottom: 15px; text-transform: uppercase;">Approval Routing Status</h4>
+              <div class="signature-chain">
+                  <div class="sig-step">
+                      <div class="sig-icon approved"><i class="fas fa-check"></i></div>
+                      <span class="sig-name">Candidate</span>
+                      <span class="sig-sub">Submitted</span>
+                  </div>
+                  <div class="sig-line active"></div>
+                  <div class="sig-step">
+                      <div class="sig-icon pending" id="sigIconSup"><i class="fas fa-pen-nib"></i></div>
+                      <span class="sig-name" id="sigTextSup">Supervisor(s)</span>
+                      <span class="sig-sub" id="sigSubSup">Pending Approval</span>
+                  </div>
+                  <div class="sig-line" id="sigLineDean"></div>
+                  <div class="sig-step">
+                      <div class="sig-icon locked" id="sigIconDean"><i class="fas fa-lock"></i></div>
+                      <span class="sig-name">Dean / HoD</span>
+                      <span class="sig-sub" id="sigSubDean">Awaiting Previous</span>
+                  </div>
+                  <div class="sig-line" id="sigLineBPS"></div>
+                  <div class="sig-step">
+                      <div class="sig-icon locked" id="sigIconBPS"><i class="fas fa-lock"></i></div>
+                      <span class="sig-name">BPS Director</span>
+                      <span class="sig-sub" id="sigSubBPS">Final Notification</span>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      <div class="card" style="position: relative;">
+          <div class="card-header-flex">
+              <div class="card-title">
+                  <div>
+                      <h3><i class="fas fa-book" style="color:var(--text-muted)"></i> Final Thesis Submission</h3>
+                      <p>Phase 2 Examination Bundle</p>
+                  </div>
+              </div>
+              <div class="status-badge badge-missing" id="badgeThesis">Locked</div>
+          </div>
+          
+          <div class="upload-container" style="opacity: 0.5;" id="thesisContainerOp">
+              <div class="upload-desc">
+                  <p>Upload your final thesis document for external examination. This area will automatically unlock once your <strong>Notice of Intent to Submit</strong> has been fully approved by the BPS.</p>
+                  
+                  <div class="file-display" id="displayThesis">
+                      <div class="file-info"><i class="fas fa-file-pdf"></i><div><div class="file-name" id="nameThesis">final_thesis.pdf</div><div class="file-size">5.8 MB</div></div></div>
+                      <button class="btn-remove" onclick="removeFile('Thesis')"><i class="fas fa-times"></i></button>
+                  </div>
+              </div>
+              <div class="upload-box disabled" id="boxThesis" onclick="triggerInput('Thesis')">
+                  <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                  <div class="upload-text" id="thesisUploadText">Upload Area Locked</div>
+                  <input type="file" class="file-input" id="inputThesis" accept=".pdf" disabled>
+              </div>
+          </div>
+
+          <div class="locked-overlay" id="overlayThesis">
+              <i class="fas fa-lock"></i>
+              <p>Requires Fully Approved Notice of Intent</p>
+          </div>
+      </div>
+
+  </div>
+</div>
+
+
+        
+        <div class="card">
+          <div class="card-header-flex">
             <div class="card-title">
               <div>
                 <h3>
