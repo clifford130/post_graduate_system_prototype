@@ -118,6 +118,65 @@ async function enrichComplianceUpload(entry: any, storageClient?: StorageClient 
   return enrichedUpload;
 }
 
+function latestComplianceUploadByType(uploads: any[] = [], matcher: (type: string) => boolean) {
+  return [...uploads]
+    .filter((entry: any) => matcher(String(entry?.type || "")))
+    .sort(
+      (a: any, b: any) =>
+        new Date(b?.submittedAt || 0).getTime() - new Date(a?.submittedAt || 0).getTime(),
+    )[0] || null;
+}
+
+async function attachComplianceDocuments(student: any, storageClient?: StorageClient | null) {
+  if (!student) return student;
+
+  const rawUploads = Array.isArray(student.complianceUploads) ? student.complianceUploads : [];
+  const uploads = await Promise.all(
+    rawUploads.map((entry: any) => enrichComplianceUpload(entry, storageClient)),
+  );
+
+  const latestProposal = latestComplianceUploadByType(uploads, (type) =>
+    type.toLowerCase().includes("proposal"),
+  );
+  const latestNacosti = latestComplianceUploadByType(uploads, (type) =>
+    type.toLowerCase().includes("nacosti"),
+  );
+  const latestOther = latestComplianceUploadByType(uploads, (type) =>
+    type.toLowerCase().includes("other"),
+  );
+
+  const baseDocuments = student.documents?.toObject?.() || student.documents || {};
+
+  return {
+    ...student.toObject(),
+    complianceUploads: uploads,
+    documents: {
+      ...baseDocuments,
+      proposalFile: latestProposal
+        ? {
+            status: "Submitted",
+            url: latestProposal.url,
+            title: latestProposal.title,
+          }
+        : null,
+      nacostiPermit: latestNacosti
+        ? {
+            status: "Submitted",
+            url: latestNacosti.url,
+            title: latestNacosti.title,
+          }
+        : null,
+      otherCompliance: latestOther
+        ? {
+            status: "Submitted",
+            url: latestOther.url,
+            title: latestOther.title,
+          }
+        : null,
+    },
+  };
+}
+
 function requiredSupervisorRoles(student: any) {
   return ["sup1", "sup2"];
 }
@@ -188,7 +247,16 @@ DirectorRouter.get("/students/:id", async (req: Request, res: Response) => {
   try {
     const student = await UserModel.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
-    res.json(student);
+
+    let storageClient: StorageClient | null = null;
+    try {
+      storageClient = buildSupabaseStorageClient();
+    } catch (error) {
+      console.error("Student details compliance storage setup error:", error);
+    }
+
+    const resolvedStudent = await attachComplianceDocuments(student, storageClient);
+    res.json(resolvedStudent);
   } catch (error) {
     res.status(500).json({ message: "Error fetching student details", error });
   }
@@ -818,6 +886,25 @@ DirectorRouter.post(
 
       student.complianceUploads = student.complianceUploads || [];
       student.complianceUploads.push(entry);
+      student.documents = student.documents || {
+        conceptNote: "pending",
+        proposal: "pending",
+        proposalScore: 0,
+        thesis: "pending",
+        nacosti: "pending",
+        journalPaper: "pending",
+        mentorship: "pending",
+      };
+
+      const normalizedType = type.toLowerCase();
+      if (normalizedType.includes("nacosti")) {
+        student.documents.nacosti = "submitted";
+        student.markModified("documents");
+      } else if (normalizedType.includes("proposal")) {
+        student.documents.proposal = "submitted";
+        student.markModified("documents");
+      }
+
       student.markModified("complianceUploads");
       await student.save();
 
