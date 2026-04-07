@@ -24,6 +24,7 @@ app.use(cookies());
 app.use(
   cors({
     origin: [
+      "http://localhost:5500",
       "https://post-graduate-system-prototype-xy2c.onrender.com",
       "https://post-graduate-system-prototype.vercel.app",
     ],
