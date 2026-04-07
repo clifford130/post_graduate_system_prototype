@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== QUARTERLY REPORTS HANDLER =====
   class QuarterlyReportsHandler {
     constructor() {
-      this.apiBaseUrl = 'https://post-graduate-system-prototype.onrender.com/api';
+      this.apiBaseUrl = 'https://post-graduate-system-prototype-xy2c.onrender.com/api';
       this.initializeEventListeners();
       this.loadReportHistory();
     }
@@ -453,7 +453,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== PRESENTATION BOOKING HANDLER =====
   class PresentationBookingHandler {
     constructor() {
-      this.apiBaseUrl = 'https://post-graduate-system-prototype.onrender.com/api';
+      this.apiBaseUrl = 'https://post-graduate-system-prototype-xy2c.onrender.com/api';
       this.initializeEventListeners();
       this.loadAndDisplayBookings();
     }
@@ -786,7 +786,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const userData = JSON.parse(localStorage.getItem('postgraduate_user'));
       if (!userData) { alert('Please login to cancel booking'); return; }
-      const response = await fetch(`https://post-graduate-system-prototype.onrender.com/api/presentations/${bookingId}/cancel`, {
+      const response = await fetch(`https://post-graduate-system-prototype-xy2c.onrender.com/api/presentations/${bookingId}/cancel`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
       });
       const result = await response.json();
@@ -833,7 +833,7 @@ document.addEventListener("DOMContentLoaded", () => {
       logoutBtn.disabled = true;
     }
     try {
-      const response = await fetch('https://post-graduate-system-prototype.onrender.com/api/user/login/logout', {
+      const response = await fetch('https://post-graduate-system-prototype-xy2c.onrender.com/api/user/login/logout', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }
       });
       const data = await response.json();
@@ -907,7 +907,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const result = await fetch("https://post-graduate-system-prototype.onrender.com/api/islogged", {
+      const result = await fetch("https://post-graduate-system-prototype-xy2c.onrender.com/api/islogged", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "Accept": "application/json" }
       });
 
@@ -1198,7 +1198,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ===== PANEL RESULTS HANDLER =====
     class PanelResultsHandler {
       constructor() {
-        this.apiBaseUrl = 'https://post-graduate-system-prototype.onrender.com/api';
+        this.apiBaseUrl = 'https://post-graduate-system-prototype-xy2c.onrender.com/api';
         this.loadPanelResults();
       }
 

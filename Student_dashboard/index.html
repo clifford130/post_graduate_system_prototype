@@ -586,7 +586,7 @@
 
       // If we have an id+token try to fetch richer student profile and update
       if (u.id && u.token) {
-        fetch('https://post-graduate-system-prototype.onrender.com/api/students/' + encodeURIComponent(u.id), {
+        fetch('https://post-graduate-system-prototype-xy2c.onrender.com/api/students/' + encodeURIComponent(u.id), {
           headers: { Authorization: 'Bearer ' + u.token }
         })
           .then(r => (r.ok ? r.json() : null))

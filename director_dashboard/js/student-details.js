@@ -89,10 +89,11 @@ function supervisorsSection(sups = []) {
 function documentsSection(docs = {}) {
   const items = [
     ["Concept note", docs?.conceptNote],
-    ["Proposal", docs?.proposal],
+    ["Proposal", docs?.proposalFile || docs?.proposal],
     ["Thesis", docs?.thesis],
     ["NACOSTI permit", docs?.nacostiPermit],
-    ["Publication", docs?.publication],
+    ["Other compliance", docs?.otherCompliance],
+    ["Publication", docs?.publication || docs?.journalPaper],
     ["Mentorship", docs?.mentorship],
     ["Fee clearance", docs?.feeClearance],
   ];

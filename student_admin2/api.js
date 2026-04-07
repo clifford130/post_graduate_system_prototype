@@ -1,4 +1,4 @@
-const STUDENT_API_BASE = "https://post-graduate-system-prototype.onrender.com/api";
+const STUDENT_API_BASE = "https://post-graduate-system-prototype-xy2c.onrender.com/api";
 
 async function studentRequest(path, options = {}) {
   const { method = "GET", body, headers } = options;

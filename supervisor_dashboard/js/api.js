@@ -1,4 +1,4 @@
-const API_BASE = "https://post-graduate-system-prototype.onrender.com/api";
+const API_BASE = "https://post-graduate-system-prototype-xy2c.onrender.com/api";
 
 async function request(path, { method = "GET", body, headers } = {}) {
   const url = `${API_BASE}${path}`;

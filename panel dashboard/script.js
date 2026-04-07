@@ -1,5 +1,5 @@
 /* ── Backend Integration ────────────────────────────────────── */
-const API_BASE = "https://post-graduate-system-prototype.onrender.com/api";
+const API_BASE = "https://post-graduate-system-prototype-xy2c.onrender.com/api";
 
 let panels = [];
 let activePanelIndex = -1;

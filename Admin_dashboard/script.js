@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════ */
 /* CONFIG & STATE                                                     */
 /* ═══════════════════════════════════════════════════════════════════ */
-const API_URL = 'https://post-graduate-system-prototype.onrender.com/api';
+const API_URL = 'https://post-graduate-system-prototype-xy2c.onrender.com/api';
 let students = [];
 
 const STAGES = [

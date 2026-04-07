@@ -17,7 +17,7 @@ export async function handleLogout() {
     const confirm = window.confirm("Are you sure you want to logout?");
     if (!confirm) return;
     
-    await fetch("https://post-graduate-system-prototype.onrender.com/api/user/login/logout", { 
+    await fetch("https://post-graduate-system-prototype-xy2c.onrender.com/api/user/login/logout", { 
       method: "POST", 
       credentials: "include" 
     });

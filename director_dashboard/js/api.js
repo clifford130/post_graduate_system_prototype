@@ -1,4 +1,4 @@
-const API_BASE = "https://post-graduate-system-prototype.onrender.com/api";
+const API_BASE = "https://post-graduate-system-prototype-xy2c.onrender.com/api";
 
 function buildUrl(path, query) {
   const url = new URL(API_BASE + path);
