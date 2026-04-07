@@ -34,7 +34,9 @@ const PanelEventSchema = new Schema<IPanelEvent>({
   createdAt: { type: Date, default: Date.now }
 });
 
-export const PanelEventModel = mongoose.models.PanelEvent || mongoose.model<IPanelEvent>("PanelEvent", PanelEventSchema);
+export const PanelEventModel =
+  (mongoose.models.PanelEvent as Model<IPanelEvent>) ||
+  mongoose.model<IPanelEvent>("PanelEvent", PanelEventSchema);
 
 // --- Panel Member ---
 export interface IPanelMember extends Document {
@@ -65,7 +67,9 @@ const PanelMemberSchema = new Schema<IPanelMember>({
   createdAt: { type: Date, default: Date.now }
 });
 
-export const PanelMemberModel = mongoose.models.PanelMember || mongoose.model<IPanelMember>("PanelMember", PanelMemberSchema);
+export const PanelMemberModel =
+  (mongoose.models.PanelMember as Model<IPanelMember>) ||
+  mongoose.model<IPanelMember>("PanelMember", PanelMemberSchema);
 
 // --- Panel Evaluation ---
 export interface IPanelEvaluation extends Document {
@@ -96,7 +100,9 @@ const PanelEvaluationSchema = new Schema<IPanelEvaluation>({
   createdAt: { type: Date, default: Date.now }
 });
 
-export const PanelEvaluationModel = mongoose.models.PanelEvaluation || mongoose.model<IPanelEvaluation>("PanelEvaluation", PanelEvaluationSchema);
+export const PanelEvaluationModel =
+  (mongoose.models.PanelEvaluation as Model<IPanelEvaluation>) ||
+  mongoose.model<IPanelEvaluation>("PanelEvaluation", PanelEvaluationSchema);
 
 // --- Panel Result ---
 export interface IPanelResult extends Document {
@@ -135,4 +141,6 @@ const PanelResultSchema = new Schema<IPanelResult>({
   generatedAt: { type: Date, default: Date.now }
 });
 
-export const PanelResultModel = mongoose.models.PanelResult || mongoose.model<IPanelResult>("PanelResult", PanelResultSchema);
+export const PanelResultModel =
+  (mongoose.models.PanelResult as Model<IPanelResult>) ||
+  mongoose.model<IPanelResult>("PanelResult", PanelResultSchema);

@@ -155,7 +155,7 @@ PanelRouter.get("/panels", async (req: Request, res: Response) => {
 // GET /api/panels/my/:userId
 PanelRouter.get("/panels/my/:userId", async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
+    const userId = String(req.params.userId || "");
     const user = await UserModel.findById(userId);
     const email = user?.userNumber || ""; // Assuming userNumber or some field is used for email mapping
 
@@ -256,7 +256,7 @@ PanelRouter.post("/panels/:panelId/revoke", async (req: Request, res: Response) 
 // GET Panel History for a specific Student
 PanelRouter.get("/panels/student/:studentId", async (req: Request, res: Response) => {
   try {
-    const studentId = req.params.studentId;
+    const studentId = String(req.params.studentId || "");
     const panels = await PanelEventModel.find({ studentId })
       .populate("studentId", "fullName userNumber programme stage")
       .sort({ createdAt: -1 });
@@ -331,13 +331,14 @@ PanelRouter.post("/panels/evaluate", async (req: Request, res: Response) => {
 // GET /api/panels/:panelId/results
 PanelRouter.get("/panels/:panelId/results", async (req: Request, res: Response) => {
   try {
-    const result = await PanelResultModel.findOne({ panelId: req.params.panelId });
+    const panelId = String(req.params.panelId || "");
+    const result = await PanelResultModel.findOne({ panelId });
     if (result) {
       return res.json(result);
     }
 
     // If final results aren't generated yet, compute real-time progress
-    const members = await PanelMemberModel.find({ panelId: req.params.panelId });
+    const members = await PanelMemberModel.find({ panelId });
     const memberIds = members.map(m => m._id);
     const evaluations = await PanelEvaluationModel.find({ panelMemberId: { $in: memberIds } });
 
@@ -468,7 +469,7 @@ PanelRouter.post("/panels/transcript", uploadTranscript.single("transcriptFile")
 PanelRouter.post("/panels/:panelId/checklist", async (req: Request, res: Response) => {
   try {
     const { corrections } = req.body; // Array of {category, description}
-    const panelId = req.params.panelId;
+    const panelId = String(req.params.panelId || "");
 
     const panel = await PanelEventModel.findById(panelId);
     if (!panel) return res.status(404).json({ message: "Panel not found" });
@@ -497,11 +498,14 @@ PanelRouter.post("/panels/:panelId/checklist", async (req: Request, res: Respons
 // PATCH /api/panels/:panelId/corrections/:correctionId/fix
 PanelRouter.patch("/panels/:panelId/corrections/:correctionId/fix", async (req: Request, res: Response) => {
   try {
-    const { panelId, correctionId } = req.params;
+    const panelId = String(req.params.panelId || "");
+    const correctionId = String(req.params.correctionId || "");
     const panel = await PanelEventModel.findById(panelId);
     if (!panel) return res.status(404).json({ message: "Panel not found" });
 
-    const correction = panel.corrections.id(correctionId);
+    const correction = (panel.corrections as any[]).find(
+      (item: any) => String(item._id || item.id) === correctionId,
+    ) as any;
     if (!correction) return res.status(404).json({ message: "Correction item not found" });
 
     correction.status = "fixed";
@@ -517,11 +521,14 @@ PanelRouter.patch("/panels/:panelId/corrections/:correctionId/fix", async (req: 
 // PATCH /api/panels/:panelId/corrections/:correctionId/approve
 PanelRouter.patch("/panels/:panelId/corrections/:correctionId/approve", async (req: Request, res: Response) => {
   try {
-    const { panelId, correctionId } = req.params;
+    const panelId = String(req.params.panelId || "");
+    const correctionId = String(req.params.correctionId || "");
     const panel = await PanelEventModel.findById(panelId);
     if (!panel) return res.status(404).json({ message: "Panel not found" });
 
-    const correction = panel.corrections.id(correctionId);
+    const correction = (panel.corrections as any[]).find(
+      (item: any) => String(item._id || item.id) === correctionId,
+    ) as any;
     if (!correction) return res.status(404).json({ message: "Correction item not found" });
 
     correction.status = "approved";

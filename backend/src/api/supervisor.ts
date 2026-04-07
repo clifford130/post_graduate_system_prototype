@@ -207,7 +207,7 @@ SupervisorRouter.post("/students/:id/stage/:stageName/approve", async (req: Requ
 
     // --- Formal Governance Check ---
     // Rule: Block sign-off if there are outstanding critical/major panel corrections
-    const studentPanels = await PanelEventModel.find({ studentId: id });
+    const studentPanels = await PanelEventModel.find({ studentId: String(id || "") });
     const outstandingCorrections = studentPanels.flatMap((p: any) => 
       (p.corrections || []).filter((c: any) => 
         (c.category === "critical" || c.category === "major") && c.status !== "approved"
