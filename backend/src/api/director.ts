@@ -89,6 +89,12 @@ function complianceBucketName() {
   );
 }
 
+function localComplianceFileUrl(req: Request, fileName: string) {
+  const protocol = req.headers["x-forwarded-proto"]?.toString() || req.protocol;
+  const host = req.get("host") || "";
+  return `${protocol}://${host}/uploads/compliance/${encodeURIComponent(fileName)}`;
+}
+
 async function enrichComplianceUpload(entry: any, storageClient?: StorageClient | null) {
   const upload = entry?.upload || entry;
   const bucket = upload?.bucket || complianceBucketName();
@@ -814,62 +820,58 @@ DirectorRouter.post(
         return res.status(400).json({ message: "Please upload a PDF document" });
       }
 
-      let storageClient: StorageClient;
-      try {
-        storageClient = buildSupabaseStorageClient();
-      } catch (configError) {
-        if (req.file.path && fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
-        return res.status(500).json({ message: configError instanceof Error ? configError.message : "Missing Supabase credentials" });
-      }
-
       localFilePath = req.file.path;
-
       const safeOriginalName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
       const bucket = complianceBucketName();
       const objectKey = `compliance/${student._id}/${Date.now()}-${safeOriginalName}`;
-      const fileBuffer = await readFile(localFilePath);
-
-      const { error: uploadError } = await storageClient
-        .from(bucket)
-        .upload(objectKey, fileBuffer, {
-          contentType: req.file.mimetype || "application/pdf",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        if (localFilePath && fs.existsSync(localFilePath)) {
-          fs.unlinkSync(localFilePath);
-        }
-        return res.status(500).json({
-          message: "Failed to upload compliance document",
-          error: uploadError.message,
-        });
-      }
+      let storageClient: StorageClient | null = null;
+      let signed = {
+        id: new mongoose.Types.ObjectId().toString(),
+        type,
+        title: req.file.originalname,
+        url: localComplianceFileUrl(req, req.file.filename),
+        storagePath: "",
+        bucket: "",
+        mimeType: req.file.mimetype || "application/pdf",
+        fileSize: req.file.size || 0,
+        note,
+        submittedAt: new Date(),
+      };
 
       try {
-        if (localFilePath && fs.existsSync(localFilePath)) {
-          fs.unlinkSync(localFilePath);
-        }
-      } catch (cleanupError) {
-        console.error("Failed to delete local compliance upload:", cleanupError);
-      }
+        storageClient = buildSupabaseStorageClient();
+        const fileBuffer = await readFile(localFilePath);
+        const { error: uploadError } = await storageClient
+          .from(bucket)
+          .upload(objectKey, fileBuffer, {
+            contentType: req.file.mimetype || "application/pdf",
+            upsert: false,
+          });
 
-      const signed = await enrichComplianceUpload(
-        {
-          id: new mongoose.Types.ObjectId().toString(),
-          type,
-          title: req.file.originalname,
-          storagePath: objectKey,
-          bucket,
-          mimeType: req.file.mimetype || "application/pdf",
-          fileSize: req.file.size || 0,
-          note,
-          submittedAt: new Date(),
-        },
-        storageClient,
-      );
+        if (uploadError) {
+          console.error("Compliance Supabase upload error:", uploadError);
+        } else {
+          try {
+            if (localFilePath && fs.existsSync(localFilePath)) {
+              fs.unlinkSync(localFilePath);
+            }
+          } catch (cleanupError) {
+            console.error("Failed to delete local compliance upload:", cleanupError);
+          }
+
+          signed = await enrichComplianceUpload(
+            {
+              ...signed,
+              storagePath: objectKey,
+              bucket,
+              url: "",
+            },
+            storageClient,
+          );
+        }
+      } catch (storageError) {
+        console.error("Compliance storage fallback activated:", storageError);
+      }
 
       const entry = {
         id: signed.id,

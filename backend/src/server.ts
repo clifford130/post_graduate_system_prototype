@@ -4,6 +4,7 @@ import type { Request, Response } from "express";
 import { ConnectToDataBase } from "./Database/databaseConnect.js";
 import dotenv from "dotenv";
 import cors from "cors";
+import path from "path";
 import { UserLoginRouter } from "./auth/login.js";
 import { UserSignUpRouter } from "./auth/admin_signUp_User.js";
 import { DirectorRouter } from "./api/director.js";
@@ -35,6 +36,7 @@ app.use(
 // router/path-to-regexp version, so rely on the global `cors` middleware above.
 
 app.use(express.json());
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 // login route
 app.use("/api/user/login", UserLoginRouter);
 // signup route
