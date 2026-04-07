@@ -80,7 +80,6 @@ function buildSupabaseStorageClient() {
     Authorization: `Bearer ${serviceKey}`,
   });
 }
-
 function complianceBucketName() {
   return (
     process.env.SUPABASE_COMPLIANCE_BUCKET ||
@@ -88,7 +87,6 @@ function complianceBucketName() {
     "campusHub_PDF"
   );
 }
-
 function localComplianceFileUrl(req: Request, fileName: string) {
   const protocol = req.headers["x-forwarded-proto"]?.toString() || req.protocol;
   const host = req.get("host") || "";
