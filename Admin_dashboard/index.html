@@ -159,6 +159,7 @@
                     <tr>
                       <th>Student Details</th>
                       <th>Programme &amp; Dept</th>
+                      <th>Year</th>
                       <th>Pipeline Stage</th>
                       <th>Days at Stage</th>
                       <th>Status</th>
@@ -166,7 +167,7 @@
                     </tr>
                   </thead>
                   <tbody id="pipelineBody">
-                    <tr><td colspan="6" style="padding:100px;text-align:center;color:var(--text-3);font-size:14px;">Initializing Global Pipeline Dashboard...</td></tr>
+                    <tr><td colspan="7" style="padding:100px;text-align:center;color:var(--text-3);font-size:14px;">Initializing Global Pipeline Dashboard...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -232,6 +233,10 @@
                     </select>
                   </div>
                   <div class="form-group">
+                    <label class="form-label">Year *</label>
+                    <input type="text" class="form-input" id="enroll-year" placeholder="e.g. Year 1 or 2026">
+                  </div>
+                  <div class="form-group">
                     <label class="form-label">Supervisor Name</label>
                     <input type="text" class="form-input" id="enroll-sup" placeholder="e.g. Prof. Wanjiku Kariuki">
                   </div>
@@ -248,8 +253,9 @@
                 <div class="form-actions">
                   <button class="btn btn-primary" onclick="handleEnrollment()">
                     <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                    Complete Registration
+                    <span id="enrollActionLabel">Complete Registration</span>
                   </button>
+                  <button class="btn btn-outline" id="cancelEditBtn" onclick="cancelEditStudent()" style="display:none;">Cancel Edit</button>
                   <button class="btn btn-outline" onclick="clearEnrollForm()">Clear Form</button>
                 </div>
               </div>

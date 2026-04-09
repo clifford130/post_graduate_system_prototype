@@ -9,6 +9,7 @@ export interface IUser {
   isVerified: boolean;
   programme: string;
   department: string;
+  year?: string;
   status: string;
   stage?: string;
   atRisk?: boolean;
@@ -173,6 +174,11 @@ const UserSchema = new Schema<IUser>({
     type: String,
     required: true,
     lowercase: true,
+  },
+  year: {
+    type: String,
+    default: "",
+    trim: true,
   },
   status: {
     type: String,

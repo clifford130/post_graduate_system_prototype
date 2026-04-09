@@ -266,6 +266,42 @@ DirectorRouter.get("/students/:id", async (req: Request, res: Response) => {
   }
 });
 
+DirectorRouter.put("/students/:id", async (req: Request, res: Response) => {
+  try {
+    const { fullName, userNumber, programme, department, year, supervisor } = req.body;
+    const student = await UserModel.findById(req.params.id);
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    if (!fullName || !userNumber || !programme || !department || !year) {
+      return res.status(400).json({ message: "All required fields must be provided" });
+    }
+
+    const existingUser = await UserModel.findOne({
+      userNumber,
+      _id: { $ne: req.params.id },
+    });
+
+    if (existingUser) {
+      return res.status(409).json({ message: "userNumber already registered" });
+    }
+
+    student.fullName = fullName;
+    student.userNumber = userNumber;
+    student.programme = String(programme).toLowerCase();
+    student.department = String(department).toLowerCase();
+    student.year = year;
+    student.supervisors = {
+      ...student.supervisors,
+      sup1: supervisor || student.supervisors?.sup1 || "",
+    };
+
+    await student.save();
+    res.json({ message: "Student updated successfully", student });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating student", error });
+  }
+});
+
 // 4. POST /students/:id/stage
 DirectorRouter.post(
   "/students/:id/stage",

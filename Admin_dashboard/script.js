@@ -1,8 +1,6 @@
-/* ═══════════════════════════════════════════════════════════════════ */
-/* CONFIG & STATE                                                     */
-/* ═══════════════════════════════════════════════════════════════════ */
 const API_URL = 'http://localhost:5000/api';
 let students = [];
+let editingStudentId = null;
 
 const STAGES = [
     "Coursework",
@@ -68,11 +66,13 @@ async function fetchStudents() {
             id: s.userNumber.toUpperCase(),
             prog: s.programme === 'phd' ? 'PhD' : (s.programme === 'masters' ? 'Masters' : s.programme),
             dept: s.department.toUpperCase(),
+            year: s.year || '',
             stage: s.stage || 'Coursework',
             full: stageMap[s.stage] || s.stage || 'Stage 1 — Registration & Induction',
             days: calculateDays(s.updatedAt || s.createdAt),
             status: (s.status || 'Active').toLowerCase(),
-            nacosti: (s.documents?.nacosti || 'pending').toLowerCase()
+            nacosti: (s.documents?.nacosti || 'pending').toLowerCase(),
+            supervisor: s.supervisors?.sup1 || ''
         }));
         renderAll();
         updateKPICards();
@@ -141,9 +141,9 @@ function updateKPICards() {
     if (cards[3]) cards[3].querySelector('.kpi-value').textContent = totalCleared;
 }
 
-  /* ═══════════════════════════════════════════════════════════════════ */
+  /*  */
   /* PIPELINE TABLE RENDER                                              */
-  /* ═══════════════════════════════════════════════════════════════════ */
+  /*  */
   function dayClass(days, status) {
     if (status === 'deferred' || status === 'graduated') return '';
     if (days > 90) return 'crit';
@@ -156,11 +156,13 @@ function updateKPICards() {
     return `<tr data-name="${s.name.toLowerCase()}" data-id="${s.id.toLowerCase()}" data-prog="${s.prog}" data-dept="${s.dept}">
       <td><div class="s-name">${s.name}</div><div class="s-id">${s.id}</div></td>
       <td><span class="prog-pill ${s.prog==='PhD'?'phd':'msc'}">${s.prog}</span><div class="dept-tag">${s.dept}</div></td>
+      <td><span style="font-family:var(--font-mono);font-size:12px;">${s.year || '—'}</span></td>
       <td><span class="stage-badge">${s.stage}</span><div style="font-size:10.5px;color:var(--text-3);margin-top:2px;">${s.full}</div></td>
       <td><span class="days-val ${dc}">${s.days}d</span></td>
       <td><span class="status ${s.status}">${s.status.toUpperCase()}</span></td>
       <td><div class="btn-gap">
         <button class="btn btn-ghost btn-sm" onclick="viewProfile('${s._id}', '${s.id}')">View</button>
+        <button class="btn btn-outline btn-sm" onclick="editStudent('${s._id}')">Edit</button>
         <button class="btn btn-outline btn-sm" onclick="advanceStage('${s._id}', '${s.name.replace(/'/g,"\\'")}')">Advance</button>
       </div></td>
     </tr>`;
@@ -449,9 +451,9 @@ function updateKPICards() {
     document.body.removeChild(a);
   }
 
-  /* ═══════════════════════════════════════════════════════════════════ */
+  /*  */
   /* FORM HANDLERS                                                      */
-  /* ═══════════════════════════════════════════════════════════════════ */
+  /*  */
   async function handleEnrollment() {
     const name = document.getElementById('enroll-name').value.trim();
     const reg  = document.getElementById('enroll-reg').value.trim();
@@ -706,6 +708,86 @@ function updateKPICards() {
     const el = document.getElementById('topbarDate');
     if (el) el.textContent = d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
   })();
+
+  async function handleEnrollment() {
+    const name = document.getElementById('enroll-name').value.trim();
+    const reg  = document.getElementById('enroll-reg').value.trim();
+    const prog = document.getElementById('enroll-prog').value;
+    const dept = document.getElementById('enroll-dept').value;
+    const year = document.getElementById('enroll-year').value.trim();
+    const supervisor = document.getElementById('enroll-sup').value.trim();
+    if (!name || !reg || !prog || !dept || !year) { alert('Fields required.'); return; }
+
+    try {
+        const res = await fetch(editingStudentId ? `${API_URL}/students/${editingStudentId}` : `${API_URL}/user/signUp`, {
+            method: editingStudentId ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fullName: name,
+                userNumber: reg,
+                password: 'student123',
+                programme: prog.toLowerCase(),
+                department: dept.toLowerCase(),
+                role: 'student',
+                year,
+                supervisor,
+                supervisors: { sup1: supervisor }
+            })
+        });
+        if (res.ok) {
+            alert(editingStudentId ? 'Student details updated!' : 'Student Enrolled!');
+            clearEnrollForm();
+            fetchStudents();
+        } else {
+            const err = await res.json();
+            alert(err.message || 'Request failed');
+        }
+    } catch (err) {
+        alert('Network error.');
+    }
+  }
+
+  function clearEnrollForm() {
+    ['enroll-name','enroll-reg','enroll-year','enroll-sup','enroll-date','enroll-title'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+    });
+    document.getElementById('enroll-prog').value = '';
+    document.getElementById('enroll-dept').value = '';
+    editingStudentId = null;
+    const actionLabel = document.getElementById('enrollActionLabel');
+    if (actionLabel) actionLabel.textContent = 'Complete Registration';
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+  }
+
+  function editStudent(id) {
+    const student = students.find(s => s._id === id);
+    if (!student) return;
+
+    editingStudentId = id;
+    document.getElementById('enroll-name').value = student.name || '';
+    document.getElementById('enroll-reg').value = student.id || '';
+    document.getElementById('enroll-prog').value = student.prog || '';
+    document.getElementById('enroll-dept').value = student.dept || '';
+    document.getElementById('enroll-year').value = student.year || '';
+    document.getElementById('enroll-sup').value = student.supervisor || '';
+
+    const actionLabel = document.getElementById('enrollActionLabel');
+    if (actionLabel) actionLabel.textContent = 'Update Student Details';
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+    document.getElementById('view-enrollment')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function cancelEditStudent() {
+    clearEnrollForm();
+  }
+
+  function viewProfile(dbId, regNo) {
+      const s = students.find(x => x._id === dbId);
+      if (!s) return;
+      alert(`STUDENT PROFILE: ${s.name}\n\nRegistration: ${s.id}\nProgramme: ${s.prog}\nDepartment: ${s.dept}\nYear: ${s.year || 'Not set'}\nSupervisor: ${s.supervisor || 'Not assigned'}\nCurrent Stage: ${s.stage}\nDays at Stage: ${s.days}d\nNACOSTI Status: ${s.nacosti.toUpperCase()}`);
+  }
   
   /* INIT */
   checkAuth();
