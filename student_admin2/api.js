@@ -1,4 +1,4 @@
-const STUDENT_API_BASE = "https://post-graduate-system-prototype-xy2c.onrender.com/api";
+const STUDENT_API_BASE = "http://localhost:5000/api";
 
 async function studentRequest(path, options = {}) {
   const { method = "GET", body, headers } = options;
@@ -66,6 +66,18 @@ window.StudentApi = {
   cancelBooking(bookingId, payload = {}) {
     return studentRequest(`/presentations/${bookingId}/cancel`, {
       method: "PUT",
+      body: payload,
+    });
+  },
+  remindAdminAboutBooking(bookingId, payload = {}) {
+    return studentRequest(`/presentations/${bookingId}/remind-admin`, {
+      method: "POST",
+      body: payload,
+    });
+  },
+  remindAdminToCreateSlot(payload = {}) {
+    return studentRequest("/presentations/remind-admin-slot", {
+      method: "POST",
       body: payload,
     });
   },

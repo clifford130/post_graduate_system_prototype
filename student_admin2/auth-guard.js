@@ -1,6 +1,6 @@
 (function () {
   const LOGIN_URL = "../login/login.html";
-  const SESSION_URL = "https://post-graduate-system-prototype-xy2c.onrender.com/api/is-logged";
+  const SESSION_URL = "http://localhost:5000/api/is-logged";
 
   function ensureStudentLoader() {
     let style = document.getElementById("studentPageLoaderStyle");

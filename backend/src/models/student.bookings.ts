@@ -13,6 +13,8 @@ interface Bookings {
   cancelledAt: Date | null;
   cancellationReason: string | null;
   cancelledBy: mongoose.Schema.Types.ObjectId | null;
+  reminderRequestedAt: Date | null;
+  reminderMessage: string | null;
 }
 let BookingSchema = new mongoose.Schema<Bookings>(
   {
@@ -47,6 +49,15 @@ let BookingSchema = new mongoose.Schema<Bookings>(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
+    },
+    reminderRequestedAt: {
+      type: Date,
+      default: null,
+    },
+    reminderMessage: {
+      type: String,
+      default: null,
+      trim: true,
     },
   },
   { timestamps: true },

@@ -200,8 +200,15 @@
     if (!container) return;
 
     if (!state.slots.length) {
-      container.innerHTML =
-        '<div class="slot-card disabled"><div class="slot-date">No Slots Available</div><div class="slot-type">The admin has not published any booking windows for your department yet.</div></div>';
+      container.innerHTML = `
+        <div class="slot-card disabled">
+          <div class="slot-date">No Slots Available</div>
+          <div class="slot-type">The admin has not published any booking windows for your department yet.</div>
+          <button class="btn-primary" style="margin-top: 14px; width: 100%;" onclick="remindAdminToCreateSlot()">
+            <i class="fas fa-bell"></i> Remind Admin To Create Booking Slot
+          </button>
+        </div>
+      `;
       return;
     }
 
@@ -290,9 +297,12 @@
       .map((booking) => {
         const normalizedStatus = String(booking.status || "").toLowerCase();
         const canCancel = normalizedStatus === "pending";
+        const reminderNote = booking.reminderRequestedAt
+          ? `<div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">Admin reminder sent on ${escapeHtml(formatShortDate(booking.reminderRequestedAt))}</div>`
+          : "";
         const actions = canCancel
-          ? `${statusPill(normalizedStatus)}<button class="btn-danger" style="margin-left:10px;" onclick="cancelBooking('${booking._id}')">Cancel</button>`
-          : statusPill(normalizedStatus);
+          ? `${statusPill(normalizedStatus)}<button class="btn-danger" style="margin-left:10px;" onclick="cancelBooking('${booking._id}')">Cancel</button><button class="btn-primary" style="margin-left:10px;" onclick="remindAdmin('${booking._id}')">Remind Admin</button>${reminderNote}`
+          : `${statusPill(normalizedStatus)}${reminderNote}`;
 
         return `
           <tr>
@@ -397,6 +407,38 @@
       await refresh();
     } catch (error) {
       alert(error.message || "Failed to cancel booking");
+    }
+  };
+
+  window.remindAdmin = async function (bookingId) {
+    const message =
+      window.prompt(
+        "Add a short note for the admin about this booking:",
+        "Please review my booking request. It appears to be missing or still pending.",
+      ) || "";
+
+    try {
+      await api.remindAdminAboutBooking(bookingId, { message });
+      alert("Reminder sent to the admin.");
+      await refresh();
+    } catch (error) {
+      alert(error.message || "Failed to send reminder to admin");
+    }
+  };
+
+  window.remindAdminToCreateSlot = async function () {
+    const message =
+      window.prompt(
+        "Add a short note for the admin about creating a booking slot:",
+        "Please create a booking slot for my department.",
+      ) || "";
+
+    try {
+      await api.remindAdminToCreateSlot({ message });
+      alert("Reminder sent to the admin to create a booking slot.");
+      await refresh();
+    } catch (error) {
+      alert(error.message || "Failed to send slot reminder to admin");
     }
   };
 

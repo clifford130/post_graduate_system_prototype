@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════ */
 /* CONFIG & STATE                                                     */
 /* ═══════════════════════════════════════════════════════════════════ */
-const API_URL = 'https://post-graduate-system-prototype-xy2c.onrender.com/api';
+const API_URL = 'http://localhost:5000/api';
 let students = [];
 
 const STAGES = [
@@ -87,10 +87,29 @@ async function fetchPresentations() {
         const res = await fetch(`${API_URL}/presentations/admin/all`, { credentials: 'include' });
         if (!res.ok) throw new Error('Failed to fetch presentations');
         const data = await res.json();
-        renderPresentations(data.bookings);
+        renderSlotReminderNotification(data.slotReminders || []);
+        renderPresentations(data.bookings, data.slotReminders || []);
     } catch (err) {
         console.error('Presentations error:', err);
     }
+}
+
+function renderSlotReminderNotification(slotReminders = []) {
+    const notification = document.getElementById('slotReminderNotification');
+    const count = document.getElementById('slotReminderCount');
+    const text = document.getElementById('slotReminderText');
+    if (!notification || !count || !text) return;
+
+    if (!slotReminders.length) {
+        notification.style.display = 'none';
+        return;
+    }
+
+    const latestReminder = slotReminders[0];
+    notification.style.display = 'flex';
+    count.textContent = `${slotReminders.length} active slot reminder${slotReminders.length === 1 ? '' : 's'}`;
+    text.textContent = `${latestReminder.fullName} requested a slot for ${latestReminder.department}`;
+    notification.title = `${latestReminder.fullName} (${latestReminder.owner}) requested a slot for ${latestReminder.department}. ${latestReminder.message || ''}`.trim();
 }
 
 async function fetchCalendarSlots() {
@@ -271,20 +290,33 @@ function updateKPICards() {
       }).join('');
   }
 
-  function renderBookingReviewPage(bookings) {
+  function renderBookingReviewPage(bookings, slotReminders = []) {
       const list = document.getElementById('bookingReviewList');
       const countEl = document.getElementById('bookingCount');
       if (!list) return;
 
       const reviewable = bookings.filter(b => ['pending', 'approved', 'confirmed', 'rejected', 'cancelled'].includes(b.status));
-      if (countEl) countEl.textContent = `${reviewable.length} requests`;
+      if (countEl) countEl.textContent = `${reviewable.length} bookings · ${slotReminders.length} slot reminders`;
 
-      if (reviewable.length === 0) {
+      const reminderCards = slotReminders.map(reminder => `
+        <div class="pres-item" style="margin-bottom:14px;border-left:4px solid #f59e0b;">
+          <div class="pres-date">Slot Reminder · ${new Date(reminder.createdAt).toLocaleString()}</div>
+          <div class="pres-student">${reminder.fullName}</div>
+          <div class="pres-meta"><span>${reminder.programme}</span><span>${reminder.department}</span></div>
+          <div style="font-size:12px;color:var(--text-2);margin-top:6px;">Student ID: ${reminder.owner}</div>
+          <div style="margin-top:8px;padding:10px 12px;border-radius:10px;background:#fff7ed;border:1px solid #fdba74;font-size:12px;color:#9a3412;">
+            <strong>Requested:</strong> ${reminder.message}
+            <div style="margin-top:4px;color:#c2410c;">Expires: ${new Date(reminder.expiresAt).toLocaleString()}</div>
+          </div>
+        </div>
+      `).join('');
+
+      if (reviewable.length === 0 && slotReminders.length === 0) {
           list.innerHTML = '<p style="padding:20px;text-align:center;color:var(--text-3);">No booking requests found.</p>';
           return;
       }
 
-      list.innerHTML = reviewable.map(b => {
+      const bookingCards = reviewable.map(b => {
         const student = students.find(s => s.id === b.owner.toUpperCase());
         const dispName = student ? student.name : b.owner;
         const isPending = b.status === 'pending';
@@ -298,6 +330,12 @@ function updateKPICards() {
                 <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="reviewBooking('${b._id}', 'reject')">Reject</button>
              </div>`
           : '';
+        const reminderHtml = b.reminderRequestedAt
+          ? `<div style="margin-top:8px;padding:10px 12px;border-radius:10px;background:#fff7ed;border:1px solid #fdba74;font-size:12px;color:#9a3412;">
+               <strong>Student Reminder:</strong> ${b.reminderMessage || 'Student requested admin follow-up for this booking.'}
+               <div style="margin-top:4px;color:#c2410c;">Sent: ${new Date(b.reminderRequestedAt).toLocaleString()}</div>
+             </div>`
+          : '';
         const reasonHtml = b.cancellationReason
           ? `<div style="font-size:12px;color:var(--red);margin-top:6px;">Reason: ${b.cancellationReason}</div>`
           : '';
@@ -309,16 +347,19 @@ function updateKPICards() {
             ${topicHtml}
             <div style="font-size:12px;color:var(--text-2);margin-top:6px;">Requested: ${new Date(b.createdAt).toLocaleString()}</div>
             <div class="pres-panel"><div class="panel-dot ${statusTone}"></div><span class="panel-label">Status: ${b.status.toUpperCase()}</span></div>
+            ${reminderHtml}
             ${reasonHtml}
             ${actionsHtml}
           </div>
         `;
       }).join('');
+
+      list.innerHTML = `${reminderCards}${bookingCards}`;
   }
 
-  renderPresentations = function(bookings) {
+  renderPresentations = function(bookings, slotReminders = []) {
       renderPresentationSummary(bookings);
-      renderBookingReviewPage(bookings);
+      renderBookingReviewPage(bookings, slotReminders);
   };
 
   function renderSlots(slots) {
@@ -669,4 +710,5 @@ function updateKPICards() {
   /* INIT */
   checkAuth();
   fetchStudents();
+  fetchPresentations();
   fetchCalendarSlots();

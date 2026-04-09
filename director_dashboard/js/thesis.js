@@ -171,7 +171,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     grid.innerHTML = loadingHtml;
 
     try {
-      const res = await fetch("https://post-graduate-system-prototype-xy2c.onrender.com/api/presentations/booked-students", {
+      const res = await fetch("http://localhost:5000/api/presentations/booked-students", {
         credentials: "include",
         headers: {
           "Content-Type": "application/json"
@@ -223,7 +223,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function viewBookingDetails(bookingId) {
     try {
-      const res = await fetch(`https://post-graduate-system-prototype-xy2c.onrender.com/api/presentations/${bookingId}`, {
+      const res = await fetch(`http://localhost:5000/api/presentations/${bookingId}`, {
         credentials: "include"
       });
       const data = await res.json();
@@ -290,7 +290,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function sendReminder(studentId) {
     try {
-      const response = await fetch("https://post-graduate-system-prototype-xy2c.onrender.com/api/notifications/send", {
+      const response = await fetch("http://localhost:5000/api/notifications/send", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -318,7 +318,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const remarks = document.getElementById("thesisRemarks")?.value || "";
 
     try {
-      const response = await fetch(`https://post-graduate-system-prototype-xy2c.onrender.com/api/students/${studentId}/thesis/outcome`, {
+      const response = await fetch(`http://localhost:5000/api/students/${studentId}/thesis/outcome`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

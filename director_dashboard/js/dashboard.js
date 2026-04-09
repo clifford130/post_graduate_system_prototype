@@ -383,7 +383,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         mountEmptyState({
           title: "Dashboard data unavailable",
           message:
-            "The dashboard is wired to the API but the backend response was not available. Start the backend at https://post-graduate-system-prototype-xy2c.onrender.com and ensure /api/dashboard/stats is implemented.",
+            "The dashboard is wired to the API but the backend response was not available. Start the backend at http://localhost:5000 and ensure /api/dashboard/stats is implemented.",
           actionsHtml: `
           <a href="./pipeline.html" class="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Open pipeline</a>
           <a href="./students.html" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 transition">Open students</a>

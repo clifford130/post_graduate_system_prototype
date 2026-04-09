@@ -1,5 +1,5 @@
 (() => {
-  const API_BASE = "https://post-graduate-system-prototype-xy2c.onrender.com/api";
+  const API_BASE = "http://localhost:5000/api";
   const LOGIN_URL = "../login/login.html";
   const sidebarRoot = document.getElementById("appSidebar");
   if (!sidebarRoot) return;
