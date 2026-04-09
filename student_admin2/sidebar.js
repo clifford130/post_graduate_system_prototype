@@ -16,7 +16,7 @@
     { section: "ACADEMIC", icon: "fa-file-alt", label: "Quarterly Reports", href: "qr.html", key: "qr" },
     { icon: "fa-shield-alt", label: "Compliance Center", href: "compliance.html", key: "compliance" },
     { icon: "fa-calendar-alt", label: "Scheduling", href: "booking.html", key: "booking" },
-    { section: "ADMINISTRATION", icon: "fa-university", label: "ERP Finance", action: "finance" },
+    // { section: "ADMINISTRATION", icon: "fa-university", label: "ERP Finance", action: "finance" },
     { section: "ACCOUNT", icon: "fa-sign-out-alt", label: "Logout", action: "logout" },
   ];
 
