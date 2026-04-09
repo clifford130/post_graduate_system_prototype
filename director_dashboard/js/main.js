@@ -246,7 +246,7 @@ export async function initShell() {
     // { key: "departments", label: "Departments", href: "./departments.html" },
     { key: "reports", label: "Quarterly Reports", href: "./reports.html" },
     { key: "compliance", label: "Fieldwork / NACOSTI", href: "./compliance.html" },
-    { key: "thesis", label: "Thesis & Defense", href: "./thesis.html" },
+    // { key: "thesis", label: "Thesis & Defense", href: "./thesis.html" },
     { key: "graduation", label: "Graduation", href: "./graduation.html" },
     { key: "panels", label: "Panel Management", href: "./panels.html" },
     { key: "analytics", label: "Analytics", href: "./analytics.html" },
